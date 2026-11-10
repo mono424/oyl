@@ -25,7 +25,10 @@ export const VOICE_PROMPTS = [
 
 interface GuideContext {
   open: () => void;
-  /** An unrevoked connection exists. A ChatGPT connection is an `api_key` row. */
+  /**
+   * An unrevoked connection exists. A ChatGPT connection is an `api_key` row;
+   * so is a Mac's paper sync (`oyl_sync_` prefix), which does not count.
+   */
   connected: () => boolean;
 }
 
@@ -46,7 +49,7 @@ export function ChatGPTGuideProvider(props: { children: JSX.Element }) {
   const auth = useAuth();
   const location = useLocation();
   const keys = useQuery(() => (auth.userId() ? qApiKeys(db, auth.userId()!) : null));
-  const connected = () => (keys.data() ?? []).some((k) => !k.revoked_at);
+  const connected = () => (keys.data() ?? []).some((k) => !k.revoked_at && !k.prefix.startsWith('oyl_sync_'));
   const [isOpen, setOpen] = createSignal(false);
 
   const seenKey = () => `oyl:chatgpt-guide-seen:${auth.userId()}`;

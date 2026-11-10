@@ -119,6 +119,37 @@ export const qTurnSources = (db: Db, callId: string) =>
 export const qApiKeys = (db: Db, userId: string) =>
   db.query('api_key').where({ owner: userId }).orderBy('created_at', 'desc').build();
 
+/**
+ * Papers the desktop app synced to the account (docs/sync-protocol.md), the
+ * latest change first. Papers removed from the cloud are in it too, with
+ * `deleted_at` set: the pages leave them out.
+ */
+export const qCloudPapers = (db: Db, userId: string) =>
+  db.query('paper_sync').where({ owner: userId }).orderBy('updated_at', 'desc').build();
+
+/**
+ * One synced paper, picked from the user's list (like `useCourse`), so the
+ * paper page registers no by-id query that could switch in place.
+ */
+export function useCloudPaper(db: Db, userId: () => string | null | undefined, paperId: () => string | null | undefined) {
+  const papers = useQuery(() => (userId() ? qCloudPapers(db, userId()!) : null));
+  return {
+    data: () => {
+      const id = paperId();
+      return id ? papers.data()?.find((p) => String(p.id) === id) : undefined;
+    },
+    isLoading: () => papers.isLoading(),
+  };
+}
+
+/**
+ * A synced paper's latest revisions, newest first, each with its file map
+ * (`files`, JSON of path to { sha256, size }). The bytes come from the API
+ * (lib/api.ts syncBlob).
+ */
+export const qPaperRevisions = (db: Db, paperId: string) =>
+  db.query('paper_revision').where({ paper: paperId }).orderBy('n', 'desc').limit(100).build();
+
 /** Material that is not ready yet, across all courses: the sidebar's "Needs attention". */
 export const qAttention = (db: Db, userId: string) =>
   db

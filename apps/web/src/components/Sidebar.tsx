@@ -1,7 +1,7 @@
 import { A, useLocation, useNavigate } from '@solidjs/router';
 import { createEffect, createMemo, createSignal, For, onCleanup, Show } from 'solid-js';
 import { useDb, useQuery } from '@spooky-sync/client-solid';
-import { ArrowLeft, ChevronsDown, ChevronsUp, FileText, FileType2, Folder, History, House, Plus } from 'lucide-solid';
+import { ArrowLeft, ChevronsDown, ChevronsUp, FileText, FileType2, Folder, History, House, Plus, ScrollText } from 'lucide-solid';
 import type { schema } from '../schema.gen';
 import { useAuth } from '../lib/auth';
 import { idKey, newId } from '../lib/ids';
@@ -87,6 +87,9 @@ export function Sidebar(props: { open: boolean; onClose: () => void }) {
             </A>
             <A href="/calls" class={navClass(location.pathname === '/calls' || location.pathname.startsWith('/calls/'))}>
               <History size={19} stroke-width={1.6} class="shrink-0 text-muted" /> Sessions
+            </A>
+            <A href="/papers" class={navClass(location.pathname === '/papers' || location.pathname.startsWith('/papers/'))}>
+              <ScrollText size={19} stroke-width={1.6} class="shrink-0 text-muted" /> Papers
             </A>
             <Show
               when={adding()}

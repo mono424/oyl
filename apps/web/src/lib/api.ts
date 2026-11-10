@@ -322,3 +322,53 @@ export const uploadSiteFile = (db: Db, siteId: string, path: string, data: Blob)
 /** Every file is up: the API lists the site's pages and opens it. */
 export const finishSiteUpload = (db: Db, siteId: string) =>
   api<{ entry: string }>(db, `/api/sites/${encodeURIComponent(siteId)}/finish`, { method: 'POST' });
+
+// ── Paper sync (apps/api/src/sync.ts, docs/sync-protocol.md) ──────────────
+
+// A blob never changes (it is named by its hash), so what was read once stays.
+const blobCache = new Map<string, Promise<Uint8Array>>();
+
+/** The bytes of one of the user's synced files, by SHA-256. */
+export function syncBlob(db: Db, sha256: string): Promise<Uint8Array> {
+  const hit = blobCache.get(sha256);
+  if (hit) return hit;
+  const load = (async () => {
+    const token = db.auth.token;
+    if (!token) throw new ApiError('You are signed out. Sign in again to continue.', 401);
+    let res: Response;
+    try {
+      res = await fetch(`${API_URL}/api/sync/blobs/${sha256}`, { headers: { authorization: `Bearer ${token}` } });
+    } catch {
+      throw new ApiError('The file could not be loaded. Check your connection and try again.', 0);
+    }
+    if (!res.ok) {
+      const body = (await res.json().catch(() => null)) as { error?: string } | null;
+      throw new ApiError(body?.error ?? `The file could not be loaded (${res.status}).`, res.status);
+    }
+    return new Uint8Array(await res.arrayBuffer());
+  })();
+  blobCache.set(sha256, load);
+  load.catch(() => blobCache.delete(sha256));
+  while (blobCache.size > 20) blobCache.delete(blobCache.keys().next().value!);
+  return load;
+}
+
+/** A desktop app waiting for the user's approval on /connect. */
+export interface DeviceSignIn {
+  user_code: string;
+  device_name: string;
+  status: 'pending' | 'approved' | 'denied';
+  created: string;
+  expires: string;
+}
+
+/** The sign-in a code from Oyl on the Mac belongs to. */
+export const deviceSignIn = (db: Db, userCode: string) =>
+  api<DeviceSignIn>(db, '/api/sync/device/request', { method: 'POST', body: JSON.stringify({ user_code: userCode }) });
+
+/** Approves or declines it. Approving lets that Mac sync papers with this account. */
+export const answerDeviceSignIn = (db: Db, userCode: string, allow: boolean) =>
+  api<{ status: 'approved' | 'denied'; device_name: string }>(db, '/api/sync/device/approve', {
+    method: 'POST',
+    body: JSON.stringify({ user_code: userCode, allow }),
+  });

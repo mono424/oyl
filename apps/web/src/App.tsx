@@ -23,6 +23,8 @@ const GraphPage = lazy(() => import('./routes/Graph'));
 // So is CodeMirror, which a document's citations need from the start.
 const DocumentPage = lazy(() => import('./routes/Document'));
 const SitePage = lazy(() => import('./routes/Site'));
+const CloudPapersPage = lazy(() => import('./routes/CloudPapers'));
+const CloudPaperPage = lazy(() => import('./routes/CloudPaper'));
 
 /** The app window: top bar, sidebar, content, one pane of glass on the canvas. */
 function Layout(props: RouteSectionProps) {
@@ -118,6 +120,9 @@ export default function App() {
           {/* Study sessions live in the `call` table; links from ChatGPT use these paths. */}
           <Route path="/calls" component={SessionsPage} />
           <Route path="/calls/:callKey" component={perParam('callKey', SessionPage)} />
+          {/* Papers synced from Oyl on the Mac (docs/sync-protocol.md). */}
+          <Route path="/papers" component={CloudPapersPage} />
+          <Route path="/papers/:paperKey" component={perParam('paperKey', CloudPaperPage)} />
           <Route path="/settings" component={SettingsPage} />
           <Route path="/connect" component={ConnectPage} />
         </Router>
