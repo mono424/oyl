@@ -16,19 +16,24 @@ use std::time::{Duration, Instant};
 
 use gpui_kit::prelude::*;
 use gpui_kit::{
-    AnyWindowHandle, App, AsyncApp, Bounds, Entity, Keystroke, Modifiers, MouseButton,
-    MouseDownEvent, MouseMoveEvent, MouseUpEvent, PlatformInput, Pixels, Window, point,
+    AnyWindowHandle, App, AsyncApp, Bounds, Entity, Focusable as _, Keystroke, Modifiers,
+    MouseButton, MouseDownEvent, MouseMoveEvent, MouseUpEvent, Pixels, PlatformInput, Window,
+    point, px,
 };
 use oyl_agent::{ScriptStep, ScriptedHarness};
 use oyl_core::LayoutMode;
 use oyl_editor::EditorEvent;
-use oyl_model::agent::{AgentEvent, Harness, HarnessInfo, TurnHandle, TurnRequest};
+use oyl_model::agent::{
+    AgentEvent, Capability, FactCheckEvent, FactCheckHandle, FactCheckRequest, FactChecker,
+    FactFinding, FindingLevel, Harness, HarnessId, HarnessInfo, ModelChoice, RewriteRequest,
+    Rewriter, TurnHandle, TurnRequest,
+};
 use oyl_model::typeset::RenderedDocument;
 use oyl_model::{Author, Engine, SourceLocation};
 
 use crate::actions;
 use crate::persist::{AppPaths, WindowFrame};
-use crate::shell::{Agents, Launch, Shell, ShellOptions};
+use crate::shell::{Agents, Launch, Shell, ShellOptions, ToastKind};
 
 /// What the scripted agent appends to `main.typ`.
 const AGENT_SENTENCE: &str = "Owls hunt by sound, the self-test agent says.";
@@ -41,10 +46,7 @@ const MISSING: &str = "oyl_selftest_missing";
 
 /// Runs the self-test and exits.
 pub fn run() {
-    let temp = match tempfile::Builder::new()
-        .prefix("oyl-self-test-")
-        .tempdir()
-    {
+    let temp = match tempfile::Builder::new().prefix("oyl-self-test-").tempdir() {
         Ok(temp) => temp,
         Err(err) => {
             eprintln!("self-test: no temporary folder: {err}");
@@ -61,7 +63,8 @@ pub fn run() {
         .run(move |cx| {
             crate::init_app(cx);
             let harness: Arc<dyn Harness> = Arc::new(EditingHarness::new());
-            let opened = open_shell(&paths, Agents::Given(vec![harness.clone()]), cx);
+            let quick: Arc<dyn Harness> = Arc::new(QuickHarness::new(base.join("discovery")));
+            let opened = open_shell(&paths, Agents::Given(vec![harness.clone(), quick]), cx);
             let (window, shell) = match opened {
                 Ok(opened) => opened,
                 Err(err) => {
@@ -78,6 +81,7 @@ pub fn run() {
                     papers,
                     window,
                     shell,
+                    previewed: std::cell::Cell::new(false),
                 };
                 test.all(&mut report, harness, cx).await;
                 let failed = report.finish();
@@ -161,6 +165,8 @@ struct SelfTest {
     papers: PathBuf,
     window: AnyWindowHandle,
     shell: Entity<Shell>,
+    /// Whether the last branch turn's preview showed its branch.
+    previewed: std::cell::Cell<bool>,
 }
 
 /// What a check reads off the shell.
@@ -201,7 +207,11 @@ impl SelfTest {
         self.palette(report, &article, cx).await;
         self.panels(report, &article, cx).await;
         self.threads(report, cx).await;
-        self.reopen(report, &article, cx).await;
+        self.background_agents(report, cx).await;
+        self.modes_of_turns(report, cx).await;
+        self.editor_ai(report, &article, cx).await;
+        let pending = self.branches(report, &article, cx).await;
+        self.reopen(report, &article, pending, cx).await;
     }
 
     // -- Plumbing -----------------------------------------------------------
@@ -775,7 +785,10 @@ impl SelfTest {
         // The editor's scroll viewport ends inside the card, in Split and Write;
         // the cards keep their gaps.
         for (action, mode) in [
-            (Box::new(actions::SplitMode) as Box<dyn gpui_kit::Action>, LayoutMode::Split),
+            (
+                Box::new(actions::SplitMode) as Box<dyn gpui_kit::Action>,
+                LayoutMode::Split,
+            ),
             (Box::new(actions::WriteMode), LayoutMode::Write),
             (Box::new(actions::AgentMode), LayoutMode::Agent),
         ] {
@@ -830,8 +843,8 @@ impl SelfTest {
             }
             let gap = crate::layout::CARD_GAP;
             let width = f32::from(content.size.width);
-            let boundary =
-                f32::from(content.origin.x) + crate::layout::clamp_columns(mode, ratio, width) * width;
+            let boundary = f32::from(content.origin.x)
+                + crate::layout::clamp_columns(mode, ratio, width) * width;
             let (left, right) = match mode {
                 LayoutMode::Write => (gap, f32::from(viewport.width) - gap),
                 LayoutMode::Agent => (gap + crate::layout::SIDEBAR_WIDTH + gap, boundary - gap),
@@ -908,6 +921,73 @@ impl SelfTest {
         report.check(
             saved.as_deref() == Some("script-careful"),
             "the model choice is remembered",
+        );
+
+        // One list holds every model of every harness; the search narrows
+        // it; one pick switches the harness and the model.
+        self.click(chip, cx);
+        let expected: Vec<(HarnessId, Option<String>)> = cx.update(|cx| {
+            self.shell
+                .read(cx)
+                .agent
+                .harnesses
+                .iter()
+                .flat_map(|harness| {
+                    let info = harness.info();
+                    if info.models.is_empty() {
+                        vec![(info.id, None)]
+                    } else {
+                        info.models
+                            .iter()
+                            .map(|model| (info.id.clone(), Some(model.id.clone())))
+                            .collect()
+                    }
+                })
+                .collect()
+        });
+        let (listed, search) = cx.update(|cx| {
+            let chat = chat.read(cx);
+            (chat.picker_models(), chat.picker_has_search())
+        });
+        let listed: Vec<(HarnessId, Option<String>)> = listed
+            .into_iter()
+            .map(|model| (model.harness, model.model))
+            .collect();
+        report.check(
+            listed == expected && expected.len() > 6 && search,
+            format!(
+                "the picker lists all {} models of every harness ({} listed), with a search field",
+                expected.len(),
+                listed.len()
+            ),
+        );
+        self.type_text("rapid", cx);
+        let narrowed: Vec<String> = cx.update(|cx| {
+            chat.read(cx)
+                .picker_models()
+                .into_iter()
+                .map(|model| model.name)
+                .collect()
+        });
+        report.check(
+            narrowed == ["Rapid"],
+            format!("typing “rapid” narrows the list to {narrowed:?}"),
+        );
+        self.press("enter", cx);
+        let (selection, open) =
+            cx.update(|cx| (chat.read(cx).selection(), chat.read(cx).open_popover()));
+        report.check(
+            open.is_none()
+                && selection == Some((HarnessId::new(QUICK_ID), Some("quick-rapid".into()))),
+            format!("Enter picks another harness's model: harness and model switch together ({selection:?})"),
+        );
+        self.click(chip, cx);
+        self.type_text("careful", cx);
+        self.press("enter", cx);
+        let selection = cx.update(|cx| chat.read(cx).selection());
+        report.check(
+            selection == Some((HarnessId::new("self-test"), Some("script-careful".into()))),
+            "and back to the self-test agent's careful model the same way",
         );
         self.click(chip, cx);
         self.press("escape", cx);
@@ -1557,11 +1637,21 @@ impl SelfTest {
         let second = cx.update(|cx| chat.read(cx).thread().id.clone());
         let overview = cx.update(|cx| sidebar.read(cx).overview(cx));
         let titles: Vec<String> = overview.running.iter().map(|r| r.title.clone()).collect();
+        let on_top: Vec<&str> = overview
+            .recent
+            .iter()
+            .take(2)
+            .map(|summary| summary.id.as_str())
+            .collect();
         report.check(
             cx.update(|cx| chat.read(cx).running_count()) == 2
                 && titles.iter().any(|t| t.starts_with("First thread"))
-                && titles.iter().any(|t| t.starts_with("Second thread")),
-            format!("two turns run at once, both under RUNNING: {titles:?}"),
+                && titles.iter().any(|t| t.starts_with("Second thread"))
+                && on_top.contains(&first.as_str())
+                && on_top.contains(&second.as_str()),
+            format!(
+                "two turns run at once, both on top of the list with a running dot: {titles:?}"
+            ),
         );
         let activity = overview
             .running
@@ -1590,7 +1680,9 @@ impl SelfTest {
         let header_dot = cx.update(|cx| self.shell.read(cx).agent.running);
         report.check(header_dot, "the Agent tab's dot shows that turns run");
         let done = self
-            .wait_app(cx, Duration::from_secs(20), |cx| !chat.read(cx).is_running())
+            .wait_app(cx, Duration::from_secs(20), |cx| {
+                !chat.read(cx).is_running()
+            })
             .await;
         report.check(done, "both turns finished");
         let overview = cx.update(|cx| sidebar.read(cx).overview(cx));
@@ -1599,7 +1691,7 @@ impl SelfTest {
             overview.running.is_empty()
                 && recent.contains(&first.as_str())
                 && recent.contains(&second.as_str()),
-            format!("both are listed under RECENT ({} threads)", recent.len()),
+            format!("both stay listed once done ({} threads)", recent.len()),
         );
         let turns = cx.update(|cx| {
             self.shell
@@ -1609,7 +1701,10 @@ impl SelfTest {
                 .map(|p| p.turns.turns.len())
                 .unwrap_or(0)
         });
-        report.check(turns >= 2, format!("each turn recorded its own version ({turns} turns)"));
+        report.check(
+            turns >= 2,
+            format!("each turn recorded its own version ({turns} turns)"),
+        );
         // Rename and delete the second.
         let id = second.clone();
         cx.update(|cx| chat.update(cx, |chat, cx| chat.rename_thread(&id, "Intro pass", cx)));
@@ -1643,9 +1738,794 @@ impl SelfTest {
         self.dispatch(Box::new(actions::SplitMode), cx);
     }
 
+    // -- 8c. Background agents --------------------------------------------------
+
+    async fn background_agents(&self, report: &mut Report, cx: &mut AsyncApp) {
+        report.step("8c. A long task runs in the background; a quick question meanwhile");
+        const LONG: &str = "Long task: look up how owls hear.";
+        const QUICK: &str = "Quick question: what is an owl?";
+        let chat = cx.update(|cx| self.shell.read(cx).chat.clone());
+        let sidebar = cx.update(|cx| self.shell.read(cx).sidebar.clone());
+        let before = cx.update(|cx| chat.read(cx).selection());
+        self.dispatch(Box::new(actions::AgentMode), cx);
+        self.settle(cx).await;
+        let quick_agent = HarnessId::new(QUICK_ID);
+        let agent = quick_agent.clone();
+        cx.update(|cx| {
+            chat.update(cx, |chat, cx| {
+                chat.select(&agent, Some(QuickHarness::LONG.into()), cx)
+            })
+        });
+        self.press("cmd-n", cx);
+        cx.update(|cx| chat.update(cx, |chat, cx| chat.send(LONG, cx)));
+        self.settle(cx).await;
+        let long = cx.update(|cx| chat.read(cx).thread().id.clone());
+
+        // ⌘N: a fresh thread at once, the caret in its composer.
+        self.press("cmd-n", cx);
+        let (fresh, focused, running) = self
+            .window
+            .update(cx, |_, window, cx| {
+                let chat = chat.read(cx);
+                (
+                    chat.thread().is_empty(),
+                    chat.focus_handle(cx).is_focused(window),
+                    chat.running_count(),
+                )
+            })
+            .unwrap_or((false, false, 0));
+        report.check(
+            fresh && focused && running == 1,
+            "⌘N while a long task runs opens a fresh thread with the composer focused; the task keeps going",
+        );
+        let agent = quick_agent.clone();
+        cx.update(|cx| chat.update(cx, |chat, cx| chat.select(&agent, Some("quick".into()), cx)));
+
+        // The picker offers the harness's efforts; one click picks one.
+        let chip = cx.update(|cx| chat.read(cx).picker_bounds());
+        self.click(chip, cx);
+        let (offered, pill) = cx.update(|cx| {
+            let chat = chat.read(cx);
+            (chat.efforts_offered(), chat.effort_pill_bounds("high"))
+        });
+        if let Some(pill) = pill {
+            self.click(pill, cx);
+        }
+        self.press("escape", cx);
+        let (effort, saved) = cx.update(|cx| {
+            (
+                chat.read(cx).effort(),
+                self.shell
+                    .read(cx)
+                    .settings
+                    .model_for(&crate::shell::effort_key(QUICK_ID))
+                    .map(str::to_owned),
+            )
+        });
+        report.check(
+            offered == ["low", "medium", "high", "xhigh", "max"]
+                && effort.as_deref() == Some("high")
+                && saved.as_deref() == Some("high"),
+            format!("the picker's effort pills ({offered:?}) pick “high”, remembered per harness"),
+        );
+        cx.update(|cx| chat.update(cx, |chat, cx| chat.send(QUICK, cx)));
+        let answered = self
+            .wait_app(cx, Duration::from_secs(5), |cx| {
+                let chat = chat.read(cx);
+                !chat.thread().is_empty() && !chat.current_is_running()
+            })
+            .await;
+        let still = cx.update(|cx| chat.read(cx).running_count());
+        report.check(
+            answered && still == 1,
+            "the quick question is answered while the long task still runs",
+        );
+        let sent = QUICK_EFFORT
+            .lock()
+            .map(|effort| effort.clone())
+            .unwrap_or_default();
+        report.check(
+            sent.as_deref() == Some("high"),
+            format!("the turn went out at that effort ({sent:?})"),
+        );
+        self.settle(cx).await;
+        let label = cx.update(|cx| sidebar.read(cx).tray_label(cx));
+        report.check(
+            label.as_deref() == Some("1 agent running"),
+            format!("the tray button reads “1 agent running” ({label:?})"),
+        );
+
+        // The tray lists the long task with its live activity.
+        let button = cx.update(|cx| sidebar.read(cx).tray_button_bounds());
+        self.click(button, cx);
+        self.settle(cx).await;
+        let (open, items, item) = cx.update(|cx| {
+            let sidebar = sidebar.read(cx);
+            (
+                sidebar.is_tray_open(),
+                sidebar.tray_items(cx),
+                sidebar.tray_item_bounds(&long),
+            )
+        });
+        let lines: Vec<String> = items
+            .iter()
+            .map(|item| format!("{} — {}", item.title, item.line))
+            .collect();
+        report.check(
+            open && items.len() == 1
+                && items[0].id == long
+                && items[0].running
+                && items[0].line == "Searching: owl hearing",
+            format!("a click opens the tray: {lines:?}"),
+        );
+        report.check(
+            item.is_some_and(|item| {
+                item.size.height > px(0.)
+                    && item.bottom() <= button.top()
+                    && item.left() >= button.left()
+            }),
+            "the tray grows upward from the button, inside the sidebar",
+        );
+        self.press("escape", cx);
+        let open = cx.update(|cx| sidebar.read(cx).is_tray_open());
+        report.check(!open, "Esc closes the tray");
+
+        // It ends off screen: "1 done", and a toast.
+        let done = self
+            .wait_app(cx, Duration::from_secs(10), |cx| {
+                chat.read(cx).running_count() == 0
+            })
+            .await;
+        self.settle(cx).await;
+        let (label, overview) = cx.update(|cx| {
+            let sidebar = sidebar.read(cx);
+            (sidebar.tray_label(cx), sidebar.overview(cx))
+        });
+        report.check(
+            done && label.as_deref() == Some("1 done")
+                && overview.finished.len() == 1
+                && overview.finished[0].id == long
+                && overview.finished[0].outcome == "Done",
+            format!(
+                "ended off screen: {label:?}, {:?}",
+                overview
+                    .finished
+                    .iter()
+                    .map(|finished| finished.outcome.clone())
+                    .collect::<Vec<_>>()
+            ),
+        );
+        let toast = cx.update(|cx| {
+            self.shell
+                .read(cx)
+                .toasts
+                .iter()
+                .rev()
+                .find(|(_, message)| message.contains("Long task"))
+                .map(|(kind, message)| (*kind, message.clone()))
+        });
+        report.check(
+            toast.as_ref().is_some_and(|(kind, message)| {
+                *kind == ToastKind::Success
+                    && message.starts_with("“Long task")
+                    && message.ends_with("” finished")
+            }),
+            format!("a toast says so: {:?}", toast.map(|(_, message)| message)),
+        );
+
+        // Opening it from the tray shows it and clears the state.
+        self.click(button, cx);
+        self.settle(cx).await;
+        let item = cx.update(|cx| sidebar.read(cx).tray_item_bounds(&long));
+        if let Some(item) = item {
+            self.click(item, cx);
+        }
+        self.settle(cx).await;
+        let (shown, label, open, finished) = cx.update(|cx| {
+            let sidebar = sidebar.read(cx);
+            (
+                chat.read(cx).thread().id.clone(),
+                sidebar.tray_label(cx),
+                sidebar.is_tray_open(),
+                sidebar.overview(cx).finished.len(),
+            )
+        });
+        report.check(
+            item.is_some() && shown == long && label.is_none() && !open && finished == 0,
+            "clicking it in the tray shows the thread and clears “finished”; the button hides",
+        );
+        if let Some((harness, model)) = before {
+            cx.update(|cx| chat.update(cx, |chat, cx| chat.select(&harness, model, cx)));
+        }
+        self.dispatch(Box::new(actions::SplitMode), cx);
+    }
+
+    // -- 8d. Modes -----------------------------------------------------------------
+
+    async fn modes_of_turns(&self, report: &mut Report, cx: &mut AsyncApp) {
+        report.step("8d. Modes: Ask, Discover (long-running), New discovery");
+        const GOAL: &str = "Find a better owl call detector.";
+        let chat = cx.update(|cx| self.shell.read(cx).chat.clone());
+        let sidebar = cx.update(|cx| self.shell.read(cx).sidebar.clone());
+        let before = cx.update(|cx| chat.read(cx).selection());
+        self.dispatch(Box::new(actions::AgentMode), cx);
+        let agent = HarnessId::new(QUICK_ID);
+        cx.update(|cx| chat.update(cx, |chat, cx| chat.select(&agent, Some("quick".into()), cx)));
+        self.press("cmd-n", cx);
+        self.settle(cx).await;
+
+        // The mode pill opens a menu: Ask, then the harness's capabilities.
+        let pill = cx.update(|cx| chat.read(cx).mode_pill_bounds());
+        self.click(pill, cx);
+        let (open, names) = cx.update(|cx| {
+            let chat = chat.read(cx);
+            (
+                chat.open_popover(),
+                chat.modes()
+                    .into_iter()
+                    .map(|mode| mode.name)
+                    .collect::<Vec<_>>(),
+            )
+        });
+        report.check(
+            open == Some("mode") && names == ["Ask", "Discover", "Review"],
+            format!("the mode pill lists {names:?}"),
+        );
+        self.press("down", cx);
+        self.press("enter", cx);
+        let (mode, placeholder, open) = cx.update(|cx| {
+            let chat = chat.read(cx);
+            (chat.mode(), chat.placeholder(), chat.open_popover())
+        });
+        report.check(
+            open.is_none()
+                && mode.as_deref() == Some(oyl_chat::DISCOVER)
+                && placeholder.as_ref() == DISCOVER_PLACEHOLDER,
+            format!("↓ Enter picks Discover; the placeholder follows (“{placeholder}”)"),
+        );
+
+        // A long-running mode goes straight to the background.
+        let running_before = cx.update(|cx| chat.read(cx).running_count());
+        let discovery = cx.update(|cx| chat.read(cx).thread().id.clone());
+        cx.update(|cx| chat.update(cx, |chat, cx| chat.send(GOAL, cx)));
+        self.settle(cx).await;
+        let (fresh, mode, running) = cx.update(|cx| {
+            let chat = chat.read(cx);
+            (chat.thread().is_empty(), chat.mode(), chat.running_count())
+        });
+        let sent = QUICK_CAPABILITY
+            .lock()
+            .map(|capability| capability.clone())
+            .unwrap_or_default();
+        report.check(
+            sent.as_deref() == Some(oyl_chat::DISCOVER)
+                && fresh
+                && mode.is_none()
+                && running == running_before + 1,
+            format!("a Discover turn goes out as “discover” ({sent:?}) and runs in the background; a fresh Ask thread is on screen"),
+        );
+        let toast = cx.update(|cx| {
+            self.shell
+                .read(cx)
+                .toasts
+                .iter()
+                .rev()
+                .any(|(_, message)| message == &format!("“{GOAL}” runs in the background"))
+        });
+        let tray = cx.update(|cx| sidebar.read(cx).tray_label(cx));
+        report.check(
+            toast && tray.as_deref() == Some("1 agent running"),
+            format!("a toast says it runs in the background; the tray counts it ({tray:?})"),
+        );
+
+        // "New discovery" opens a fresh thread in Discover mode with the
+        // starter lines.
+        let row = cx.update(|cx| sidebar.read(cx).discovery_row_bounds());
+        self.click(row, cx);
+        self.settle(cx).await;
+        let (fresh, mode, text) = cx.update(|cx| {
+            let chat = chat.read(cx);
+            (
+                chat.thread().is_empty(),
+                chat.mode(),
+                chat.composer_text(cx),
+            )
+        });
+        report.check(
+            fresh
+                && mode.as_deref() == Some(oyl_chat::DISCOVER)
+                && text == oyl_chat::DISCOVERY_STARTER,
+            format!(
+                "“New discovery” opens a Discover thread with the starter ({:?})",
+                text.lines().next()
+            ),
+        );
+        cx.update(|cx| chat.update(cx, |chat, cx| chat.set_mode(None, cx)));
+
+        // Its progress: the tray row, the card, the board.
+        let id = discovery.clone();
+        let progressed = self
+            .wait_app(cx, Duration::from_secs(5), |cx| {
+                chat.read(cx)
+                    .task(&id)
+                    .and_then(|task| task.progress.as_ref())
+                    .is_some_and(|progress| progress.step == Some(2))
+            })
+            .await;
+        let button = cx.update(|cx| sidebar.read(cx).tray_button_bounds());
+        self.click(button, cx);
+        self.settle(cx).await;
+        let (row, ring) = cx.update(|cx| {
+            (
+                sidebar.read(cx).tray_item_bounds(&discovery),
+                chat.read(cx)
+                    .task(&discovery)
+                    .and_then(|task| task.fraction()),
+            )
+        });
+        report.check(
+            progressed
+                && row.is_some()
+                && ring.is_some_and(|fraction| (fraction - 0.4).abs() < 1e-3),
+            format!("the tray lists the discovery as a task row with a ring at {ring:?}"),
+        );
+        self.press("escape", cx);
+        let id = discovery.clone();
+        self.with_shell(cx, move |shell, window, cx| {
+            shell
+                .chat
+                .update(cx, |chat, cx| chat.show_thread(&id, window, cx))
+        });
+        self.settle(cx).await;
+        let (card, phase, view) = cx.update(|cx| {
+            let chat = chat.read(cx);
+            (
+                chat.shows_task_card(),
+                chat.task(&discovery)
+                    .and_then(|task| task.progress.as_ref())
+                    .map(|progress| (progress.phase.clone(), progress.step, progress.total)),
+                chat.thread_view(),
+            )
+        });
+        report.check(
+            card && phase == Some((DISCOVERY_PHASES[1].to_string(), Some(2), Some(5))),
+            format!("its thread pins a task card: {phase:?}"),
+        );
+        let id = discovery.clone();
+        let loaded = self
+            .wait_app(cx, Duration::from_secs(5), |cx| {
+                chat.read(cx).board(&id).is_some_and(|board| {
+                    let board = board.read(cx);
+                    board.is_loaded()
+                        && board
+                            .state()
+                            .frontier
+                            .iter()
+                            .any(|row| row.id == FRONTIER_BEST)
+                })
+            })
+            .await;
+        report.check(
+            view == Some(oyl_chat::ThreadView::Board) && loaded,
+            "under it the Board (the default while it runs) loads the frontier from its state folder",
+        );
+        // Stop, as the card's button does.
+        let id = discovery.clone();
+        cx.update(|cx| chat.update(cx, |chat, cx| chat.stop_thread(&id, cx)));
+        let id = discovery.clone();
+        let stopped = self
+            .wait_app(cx, Duration::from_secs(10), |cx| {
+                let chat = chat.read(cx);
+                chat.running_count() == 0
+                    && chat
+                        .task(&id)
+                        .is_some_and(|task| task.state == oyl_tasks::TaskState::Stopped)
+            })
+            .await;
+        report.check(
+            stopped,
+            "Stop on the card stops the run; its task reads Stopped",
+        );
+        if let Some((harness, model)) = before {
+            cx.update(|cx| chat.update(cx, |chat, cx| chat.select(&harness, model, cx)));
+        }
+        self.dispatch(Box::new(actions::SplitMode), cx);
+    }
+
+    // -- 8e. AI in the editor -------------------------------------------------------
+
+    async fn editor_ai(&self, report: &mut Report, article: &Path, cx: &mut AsyncApp) {
+        report.step("8e. AI in the editor: polish, fact check, no global ⌘B/⌘I");
+        let main = article.join("main.typ");
+        // Nothing outside the editor binds its keys.
+        let global: Vec<String> = cx.update(|cx| {
+            let keymap = cx.key_bindings();
+            let keymap = keymap.borrow();
+            keymap
+                .bindings()
+                .filter(|binding| {
+                    let [keystroke] = binding.keystrokes() else {
+                        return false;
+                    };
+                    let modifiers = keystroke.modifiers();
+                    let ours = modifiers.platform
+                        && !modifiers.control
+                        && !modifiers.alt
+                        && matches!(
+                            (keystroke.key(), modifiers.shift),
+                            ("b", false) | ("b", true) | ("i", false)
+                        );
+                    ours && binding.predicate().is_none_or(|predicate| {
+                        !predicate.to_string().contains(oyl_editor::KEY_CONTEXT)
+                    })
+                })
+                .map(|binding| format!("{:?}", binding.predicate().map(|p| p.to_string())))
+                .collect()
+        });
+        report.check(
+            global.is_empty(),
+            format!("⌘B, ⌘I and ⇧⌘B are bound only in the editor ({global:?})"),
+        );
+
+        self.with_shell(cx, |shell, _, cx| {
+            shell.set_editor_assist(
+                Some(Arc::new(FakeRewriter)),
+                Some(Arc::new(FakeChecker)),
+                cx,
+            )
+        });
+        self.dispatch(Box::new(actions::SplitMode), cx);
+        self.settle(cx).await;
+        let text = self.editor_text(&main, cx);
+        let line = text
+            .lines()
+            .position(|line| line.starts_with(PROSE_LINE))
+            .unwrap_or(0);
+        // In the middle of a sentence of prose.
+        let location = SourceLocation::new(main.clone(), line as u32 + 1, 10);
+        self.with_shell(cx, move |shell, window, cx| {
+            shell
+                .editor
+                .update(cx, |editor, cx| editor.goto(&location, window, cx));
+            shell.editor.focus_handle(cx).focus(window, cx);
+        });
+        self.frame(cx);
+        // From the palette's command (the same action as the menu item).
+        self.dispatch(Box::new(actions::PolishSelection), cx);
+        let changed = self
+            .wait_app(cx, Duration::from_secs(5), |cx| {
+                self.shell
+                    .read(cx)
+                    .editor
+                    .read(cx)
+                    .text(&main, cx)
+                    .is_some_and(|text| text.contains(POLISHED_MARK))
+            })
+            .await;
+        report.check(
+            changed,
+            "“Polish selection” rewrites the sentence at the cursor through the rewriter",
+        );
+        self.dispatch(Box::new(actions::FactCheckSelection), cx);
+        let toast = self
+            .wait_app(cx, Duration::from_secs(5), |cx| {
+                self.shell
+                    .read(cx)
+                    .toasts
+                    .iter()
+                    .any(|(_, message)| message == "Fact check: 1 problem · 7 claims")
+            })
+            .await;
+        report.check(
+            toast,
+            "“Fact-check selection” runs the checker; a toast says “Fact check: 1 problem · 7 claims”",
+        );
+        let bib = cx.update(|cx| self.shell.read(cx).bib_text.borrow().clone());
+        let asked = FACT_BIB.lock().map(|bib| bib.clone()).unwrap_or_default();
+        report.check(
+            asked == bib,
+            format!("the check got the paper's refs.bib ({} bytes)", asked.len()),
+        );
+        self.with_shell(cx, |shell, _, cx| shell.set_editor_assist(None, None, cx));
+    }
+
+    // -- 8f. Branches ----------------------------------------------------------------
+
+    /// Starts a turn of the self-test agent in a fresh thread of the Agent
+    /// tab and waits for its branch; runs `during` once it exists, then
+    /// waits for the turn and its branch to settle. The thread's id.
+    async fn branch_turn(
+        &self,
+        prompt: &str,
+        during: impl FnOnce(&Path, &Path),
+        article: &Path,
+        cx: &mut AsyncApp,
+    ) -> Option<String> {
+        let chat = cx.update(|cx| self.shell.read(cx).chat.clone());
+        self.press("cmd-n", cx);
+        let agent = HarnessId::new("self-test");
+        cx.update(|cx| {
+            chat.update(cx, |chat, cx| {
+                chat.select(&agent, Some("script".into()), cx)
+            })
+        });
+        let prompt = prompt.to_string();
+        cx.update(|cx| chat.update(cx, |chat, cx| chat.send(prompt, cx)));
+        let thread = cx.update(|cx| chat.read(cx).thread().id.clone());
+        let id = thread.clone();
+        let made = self
+            .wait_app(cx, Duration::from_secs(10), |cx| {
+                self.shell
+                    .read(cx)
+                    .paper
+                    .as_ref()
+                    .is_some_and(|paper| paper.branches.contains_key(&id))
+            })
+            .await;
+        if !made {
+            return None;
+        }
+        let id = thread.clone();
+        let work = cx.update(|cx| {
+            self.shell
+                .read(cx)
+                .paper
+                .as_ref()
+                .and_then(|paper| paper.branches.get(&id))
+                .map(|branch| branch.branch.path().to_path_buf())
+        })?;
+        // The Agent tab's preview shows this thread's branch meanwhile.
+        self.frame(cx);
+        let shown = cx.update(|cx| self.shell.read(cx).preview_branch(cx).map(|(path, _)| path));
+        self.previewed.set(shown.as_deref() == Some(work.as_path()));
+        during(article, &work);
+        let id = thread.clone();
+        self.wait_app(cx, Duration::from_secs(20), |cx| {
+            let shell = self.shell.read(cx);
+            let running = shell.chat.read(cx).is_running();
+            let settling = shell.paper.as_ref().is_some_and(|paper| {
+                paper.branches.get(&id).is_some_and(|branch| {
+                    matches!(
+                        branch.stage,
+                        crate::shell::Stage::Working | crate::shell::Stage::Finishing
+                    )
+                })
+            });
+            !running && !settling
+        })
+        .await;
+        self.settle(cx).await;
+        Some(thread)
+    }
+
+    async fn branches(
+        &self,
+        report: &mut Report,
+        article: &Path,
+        cx: &mut AsyncApp,
+    ) -> Option<String> {
+        report.step("8f. Agent turns on branches: apply, review, re-review, discard");
+        let main = article.join("main.typ");
+        let chat = cx.update(|cx| self.shell.read(cx).chat.clone());
+        let sentences = |text: &str| text.matches(AGENT_SENTENCE).count();
+        self.dispatch(Box::new(actions::AgentMode), cx);
+        self.settle(cx).await;
+
+        // 1. The paper changes elsewhere meanwhile: applied by itself.
+        let before = fs::read_to_string(&main).unwrap_or_default();
+        let extra = article.join("extra.typ");
+        let mut seen: Option<String> = None;
+        let thread = {
+            let (main, extra, seen) = (main.clone(), extra.clone(), &mut seen);
+            self.branch_turn(
+                "Branch turn one.",
+                move |_, work| {
+                    let _ = fs::write(&extra, "= Your own notes\n");
+                    // The agent edits its copy; the paper stays as it was.
+                    let deadline = Instant::now() + Duration::from_secs(5);
+                    while Instant::now() < deadline {
+                        let edited = fs::read_to_string(work.join("main.typ"))
+                            .is_ok_and(|text| text.contains(AGENT_SENTENCE));
+                        if edited {
+                            break;
+                        }
+                        std::thread::sleep(Duration::from_millis(20));
+                    }
+                    *seen = fs::read_to_string(&main).ok();
+                },
+                article,
+                cx,
+            )
+            .await
+        };
+        let untouched = seen.as_deref().map(sentences) == Some(sentences(&before));
+        report.check(
+            thread.is_some() && untouched,
+            "the agent works on its own copy: the paper is untouched while it runs",
+        );
+        report.check(
+            self.previewed.get(),
+            "meanwhile the Agent tab's preview compiles and shows that copy (“Showing …'s branch”)",
+        );
+        let after = fs::read_to_string(&main).unwrap_or_default();
+        let applied_toast = cx.update(|cx| {
+            self.shell
+                .read(cx)
+                .toasts
+                .iter()
+                .any(|(_, message)| message == "Applied · 1 file")
+        });
+        let view = thread
+            .as_ref()
+            .and_then(|thread| cx.update(|cx| chat.read(cx).branch_view(thread).cloned()));
+        report.check(
+            sentences(&after) == sentences(&before) + 1
+                && fs::read_to_string(&extra).is_ok_and(|text| text.contains("Your own notes"))
+                && applied_toast
+                && matches!(view, Some(oyl_chat::BranchView::Applied { files: 1, .. })),
+            "a change of another file meanwhile: applied by itself (“Applied · 1 file”, Undo in the thread)",
+        );
+
+        // 2. The paper changes the same lines: a review, settled three ways.
+        let mut pending = None;
+        for (choice, user_line) in [
+            (oyl_chat::ReviewChoice::Yours, "Your line, kept."),
+            (oyl_chat::ReviewChoice::Agents, "Your line, replaced."),
+            (
+                oyl_chat::ReviewChoice::Both,
+                "Your line, next to the agent's.",
+            ),
+        ] {
+            let before = fs::read_to_string(&main).unwrap_or_default();
+            let line = user_line.to_string();
+            let thread = self
+                .branch_turn(
+                    "Branch turn with a conflict.",
+                    move |article, _| append_line(&article.join("main.typ"), &line),
+                    article,
+                    cx,
+                )
+                .await;
+            let Some(thread) = thread else {
+                report.check(false, format!("a turn for “{user_line}” got its branch"));
+                continue;
+            };
+            let review = cx.update(|cx| chat.read(cx).branch_view(&thread).cloned());
+            let conflict = match &review {
+                Some(oyl_chat::BranchView::Review(review)) => review.conflicts.first().cloned(),
+                _ => None,
+            };
+            let Some(conflict) = conflict else {
+                report.check(false, format!("a review for “{user_line}”: {review:?}"));
+                continue;
+            };
+            if choice == oyl_chat::ReviewChoice::Yours {
+                report.check(
+                    conflict.lines
+                        && conflict.main.contains(user_line)
+                        && conflict.agent.contains(AGENT_SENTENCE),
+                    format!(
+                        "the same lines changed: a review with a Lines conflict at {}",
+                        conflict.place
+                    ),
+                );
+            }
+            let id = thread.clone();
+            let conflict_id = conflict.id.clone();
+            cx.update(|cx| {
+                chat.update(cx, |chat, cx| {
+                    chat.set_review_choice(&id, &conflict_id, choice, cx);
+                    chat.apply_review(&id, cx);
+                })
+            });
+            let id = thread.clone();
+            self.wait_app(cx, Duration::from_secs(10), |cx| {
+                !matches!(
+                    chat.read(cx).branch_view(&id),
+                    Some(oyl_chat::BranchView::Review(_))
+                )
+            })
+            .await;
+            self.settle(cx).await;
+            let text = fs::read_to_string(&main).unwrap_or_default();
+            let (yours, agents) = (
+                text.contains(user_line),
+                sentences(&text) > sentences(&before),
+            );
+            let expected = match choice {
+                oyl_chat::ReviewChoice::Yours => yours && !agents,
+                oyl_chat::ReviewChoice::Agents => !yours && agents,
+                oyl_chat::ReviewChoice::Both => {
+                    yours && agents && text.find(user_line) < text.rfind(AGENT_SENTENCE)
+                }
+            };
+            report.check(
+                expected,
+                format!("“{choice:?}” settles the conflict as chosen (yours: {yours}, agent's: {agents})"),
+            );
+        }
+
+        // 3. The paper changes again before Apply: the review is redone.
+        let before = fs::read_to_string(&main).unwrap_or_default();
+        let thread = self
+            .branch_turn(
+                "Branch turn to discard.",
+                |article, _| append_line(&article.join("main.typ"), "A first try."),
+                article,
+                cx,
+            )
+            .await;
+        if let Some(thread) = thread.clone() {
+            let text = fs::read_to_string(&main).unwrap_or_default();
+            let _ =
+                oyl_core::write_file_atomic(&main, text.replace("A first try.", "A second try."));
+            self.settle(cx).await;
+            let id = thread.clone();
+            cx.update(|cx| chat.update(cx, |chat, cx| chat.apply_review(&id, cx)));
+            let id = thread.clone();
+            let updated = self
+                .wait_app(cx, Duration::from_secs(10), |cx| {
+                    match chat.read(cx).branch_view(&id) {
+                        Some(oyl_chat::BranchView::Review(review)) => {
+                            review.note.as_deref() == Some(crate::shell::REVIEW_UPDATED)
+                        }
+                        _ => false,
+                    }
+                })
+                .await;
+            report.check(
+                updated,
+                "the paper changed again before Apply: “review updated”, nothing written",
+            );
+            let id = thread.clone();
+            cx.update(|cx| chat.update(cx, |chat, cx| chat.discard_branch(&id, cx)));
+            let id = thread.clone();
+            let gone = self
+                .wait_app(cx, Duration::from_secs(10), |cx| {
+                    chat.read(cx).branch_view(&id).is_none()
+                })
+                .await;
+            let text = fs::read_to_string(&main).unwrap_or_default();
+            report.check(
+                gone && text.contains("A second try.") && sentences(&text) == sentences(&before),
+                "Discard drops the agent's work; the paper keeps yours",
+            );
+        } else {
+            report.check(false, "a turn to discard got its branch");
+        }
+
+        // 4. A review left pending for the restart.
+        if let Some(thread) = self
+            .branch_turn(
+                "Branch turn left in review.",
+                |article, _| append_line(&article.join("main.typ"), "Left for later."),
+                article,
+                cx,
+            )
+            .await
+        {
+            let review = cx.update(|cx| {
+                matches!(
+                    chat.read(cx).branch_view(&thread),
+                    Some(oyl_chat::BranchView::Review(_))
+                )
+            });
+            report.check(review, "a review can wait in its thread");
+            pending = review.then_some(thread);
+        }
+        self.dispatch(Box::new(actions::SplitMode), cx);
+        pending
+    }
+
     // -- 9. Reopening -------------------------------------------------------------
 
-    async fn reopen(&self, report: &mut Report, article: &Path, cx: &mut AsyncApp) {
+    async fn reopen(
+        &self,
+        report: &mut Report,
+        article: &Path,
+        pending: Option<String>,
+        cx: &mut AsyncApp,
+    ) {
         report.step("9. Reopening from the same data folder restores the state");
         self.dispatch(Box::new(actions::AgentMode), cx);
         self.with_shell(cx, |shell, window, cx| {
@@ -1667,6 +2547,7 @@ impl SelfTest {
             papers: self.papers.clone(),
             window,
             shell,
+            previewed: std::cell::Cell::new(false),
         };
         let back = second
             .wait(cx, Duration::from_secs(60), |s| {
@@ -1679,6 +2560,18 @@ impl SelfTest {
             "the last paper opens again",
         );
         report.check(s.mode == Some(LayoutMode::Agent), "on the Agent tab");
+        if let Some(thread) = pending {
+            let chat = cx.update(|cx| second.shell.read(cx).chat.clone());
+            let restored = second
+                .wait_app(cx, Duration::from_secs(10), |cx| {
+                    matches!(
+                        chat.read(cx).branch_view(&thread),
+                        Some(oyl_chat::BranchView::Review(_))
+                    )
+                })
+                .await;
+            report.check(restored, "the review left pending is back in its thread");
+        }
         let split = cx.update(|cx| second.shell.read(cx).settings.split_ratio);
         report.check(
             (split - 0.62).abs() < 1e-3,
@@ -1846,5 +2739,283 @@ impl Harness for EditingHarness {
             stopped.store(true, Ordering::SeqCst);
             cancel_inner();
         }))
+    }
+}
+
+/// Appends a line to a file on disk, as the user (or another app) would.
+fn append_line(path: &Path, line: &str) {
+    let text = fs::read_to_string(path).unwrap_or_default();
+    let edited = format!("{}\n{line}\n", text.trim_end());
+    if let Err(err) = oyl_core::write_file_atomic(path, edited) {
+        log::warn!("self-test: {err}");
+    }
+}
+
+/// The start of a line of prose in the article template, where the
+/// editor's AI is tried.
+const PROSE_LINE: &str = "Ask the agent to draft";
+
+/// What [`FakeRewriter`] appends to the text it polishes.
+const POLISHED_MARK: &str = "(polished by the self-test)";
+
+/// The bibliography [`FakeChecker`] was last given.
+static FACT_BIB: std::sync::Mutex<String> = std::sync::Mutex::new(String::new());
+
+/// A rewriter that appends [`POLISHED_MARK`].
+struct FakeRewriter;
+
+impl Rewriter for FakeRewriter {
+    fn name(&self) -> String {
+        "Self-test rewriter".into()
+    }
+
+    fn rewrite(&self, request: RewriteRequest) -> anyhow::Result<TurnHandle> {
+        let text = format!("{} {POLISHED_MARK}", request.text.trim_end());
+        let (tx, rx) = async_channel::unbounded();
+        tx.send_blocking(AgentEvent::TextDelta { text: text.clone() })?;
+        tx.send_blocking(AgentEvent::Completed {
+            success: true,
+            summary: text,
+            session: None,
+        })?;
+        Ok(TurnHandle::new(rx, || {}))
+    }
+}
+
+/// A fact checker that finds one doubtful claim among seven.
+struct FakeChecker;
+
+impl FactChecker for FakeChecker {
+    fn name(&self) -> String {
+        "Self-test checker".into()
+    }
+
+    fn check(&self, request: FactCheckRequest) -> anyhow::Result<FactCheckHandle> {
+        if let Ok(mut bib) = FACT_BIB.lock() {
+            bib.clone_from(&request.bibliography);
+        }
+        let quote = request
+            .text
+            .split_whitespace()
+            .next()
+            .unwrap_or_default()
+            .to_string();
+        let (tx, rx) = async_channel::unbounded();
+        tx.send_blocking(FactCheckEvent::Finding(FactFinding {
+            quote,
+            level: FindingLevel::Questionable,
+            problem: "The self-test doubts this.".into(),
+            suggestion: None,
+            sources: Vec::new(),
+        }))?;
+        tx.send_blocking(FactCheckEvent::Done { claims: 7 })?;
+        Ok(FactCheckHandle::new(rx, || {}))
+    }
+}
+
+/// A discovery run: two progress reports, then a long wait (it is stopped
+/// before it ends).
+fn discovery_script(dir: &Path) -> Vec<ScriptStep> {
+    let phases: Vec<String> = DISCOVERY_PHASES
+        .iter()
+        .map(|phase| (*phase).to_string())
+        .collect();
+    let progress = |phase: usize, step: u32, fraction: f32| {
+        AgentEvent::Progress(oyl_model::agent::Progress {
+            phase: phases[phase].clone(),
+            phases: phases.clone(),
+            step: Some(step),
+            total: Some(5),
+            fraction: Some(fraction),
+            metrics: vec![
+                ("accuracy".into(), "0.931".into()),
+                ("ideas tried".into(), "3".into()),
+            ],
+            state_dir: Some(dir.to_path_buf()),
+        })
+    };
+    let step = |delay: u64, event: AgentEvent| ScriptStep {
+        delay: Duration::from_millis(delay),
+        event,
+    };
+    vec![
+        step(60, progress(0, 1, 0.2)),
+        step(
+            60,
+            AgentEvent::ToolStarted {
+                id: "eval-1".into(),
+                name: "Bash".into(),
+                title: "Run python eval.py --split dev".into(),
+                detail: None,
+            },
+        ),
+        step(60, progress(1, 2, 0.4)),
+        step(
+            30_000,
+            AgentEvent::Completed {
+                success: true,
+                summary: "Discovered.".into(),
+                session: None,
+            },
+        ),
+    ]
+}
+
+/// The id of [`QuickHarness`].
+const QUICK_ID: &str = "self-test-quick";
+
+/// The effort of the last turn [`QuickHarness`] was asked to run.
+static QUICK_EFFORT: std::sync::Mutex<Option<String>> = std::sync::Mutex::new(None);
+/// The capability of the last turn [`QuickHarness`] was asked to run.
+static QUICK_CAPABILITY: std::sync::Mutex<Option<String>> = std::sync::Mutex::new(None);
+/// The composer's placeholder in [`QuickHarness`]'s Discover mode.
+const DISCOVER_PLACEHOLDER: &str = "Describe the goal, the metrics, the data and the budget…";
+
+/// A second scripted agent with more models: its "Long task" model runs
+/// for a few seconds, the others answer at once without editing.
+struct QuickHarness {
+    quick: ScriptedHarness,
+    long: ScriptedHarness,
+    /// A discovery run: progress through its phases, state in a folder.
+    discover: ScriptedHarness,
+}
+
+/// The phases [`QuickHarness`]'s discovery reports.
+const DISCOVERY_PHASES: [&str; 3] = [
+    "Searching the state of the art",
+    "Evaluating ideas",
+    "Writing up",
+];
+/// The id of the frontier's best row in the discovery fixture.
+const FRONTIER_BEST: &str = "i3";
+
+/// Writes the discovery fixture: a Pareto frontier and the explored ideas.
+fn write_discovery_fixture(dir: &Path) {
+    let pareto = "# Pareto frontier (dev)\n\n| id | parent | commit | idea | aspect | accuracy ↑ | latency_ms ↓ |\n|---|---|---|---|---|---:|---:|\n| i3 | i1 | c3 | Wider window | model | 0.931 | 41.2 |\n| i1 | base | c1 | Spectral features | data | 0.905 | 30.1 |\n";
+    let explored = "# Explored ideas\n\n| id | parent | commit | idea | aspect | accuracy | latency_ms | draw | status | observations |\n|---|---|---|---|---|---|---|---|---|---|\n| base | - | c0 | Baseline | - | 0.880 | 28.0 | r=0.10 | kept | The starting point. |\n| i1 | base | c1 | Spectral features | data | 0.905 | 30.1 | r=0.40 | kept | Helps on owls. |\n| i3 | i1 | c3 | Wider window | model | 0.931 | 41.2 | r=0.70 | kept | Best so far. |\n";
+    let written = fs::create_dir_all(dir)
+        .and_then(|()| fs::write(dir.join("pareto.md"), pareto))
+        .and_then(|()| fs::write(dir.join("explored-ideas.md"), explored));
+    if let Err(err) = written {
+        log::warn!("self-test: the discovery fixture: {err}");
+    }
+}
+
+impl QuickHarness {
+    /// The model whose turns take a while.
+    const LONG: &str = "quick-long";
+
+    fn new(discovery: PathBuf) -> Self {
+        write_discovery_fixture(&discovery);
+        let step = |delay: Duration, event: AgentEvent| ScriptStep { delay, event };
+        let mut info =
+            ScriptedHarness::from_events(QUICK_ID, Vec::new(), Duration::from_millis(60)).info();
+        info.name = "Quick agent".into();
+        info.tagline = "A scripted agent that answers at once".into();
+        info.models = [
+            ("quick", "Quick"),
+            ("quick-rapid", "Rapid (fastest)"),
+            (Self::LONG, "Long task (slow)"),
+            ("quick-deep", "Deep"),
+            ("quick-wide", "Wide"),
+        ]
+        .into_iter()
+        .map(|(id, label)| ModelChoice {
+            id: id.into(),
+            label: label.into(),
+        })
+        .collect();
+        info.default_model = Some("quick".into());
+        info.efforts = ["low", "medium", "high", "xhigh", "max"]
+            .into_iter()
+            .map(str::to_owned)
+            .collect();
+        info.default_effort = Some("medium".into());
+        info.capabilities = vec![
+            Capability {
+                id: oyl_chat::DISCOVER.into(),
+                name: "Discover".into(),
+                description: "Researches on its own for a long while.".into(),
+                long_running: true,
+                placeholder: DISCOVER_PLACEHOLDER.into(),
+            },
+            Capability {
+                id: "review".into(),
+                name: "Review".into(),
+                description: "Reviews the paper like a referee.".into(),
+                long_running: false,
+                placeholder: "What should the review look at?".into(),
+            },
+        ];
+        let quick = vec![
+            step(
+                Duration::from_millis(60),
+                AgentEvent::TextDelta {
+                    text: "Owls are birds of prey.".into(),
+                },
+            ),
+            step(
+                Duration::from_millis(60),
+                AgentEvent::Completed {
+                    success: true,
+                    summary: "Answered.".into(),
+                    session: None,
+                },
+            ),
+        ];
+        let long = vec![
+            step(
+                Duration::from_millis(60),
+                AgentEvent::ToolStarted {
+                    id: "search-1".into(),
+                    name: "Search".into(),
+                    title: "Searching: owl hearing".into(),
+                    detail: None,
+                },
+            ),
+            step(
+                Duration::from_millis(3500),
+                AgentEvent::ToolFinished {
+                    id: "search-1".into(),
+                    ok: true,
+                    output: Some("12 results".into()),
+                },
+            ),
+            step(
+                Duration::from_millis(60),
+                AgentEvent::Completed {
+                    success: true,
+                    summary: "Searched.".into(),
+                    session: None,
+                },
+            ),
+        ];
+        Self {
+            quick: ScriptedHarness::new(info.clone(), quick),
+            long: ScriptedHarness::new(info.clone(), long),
+            discover: ScriptedHarness::new(info, discovery_script(&discovery)),
+        }
+    }
+}
+
+impl Harness for QuickHarness {
+    fn info(&self) -> HarnessInfo {
+        self.quick.info()
+    }
+
+    fn start(&self, request: TurnRequest) -> anyhow::Result<TurnHandle> {
+        if let Ok(mut effort) = QUICK_EFFORT.lock() {
+            effort.clone_from(&request.effort);
+        }
+        if let Ok(mut capability) = QUICK_CAPABILITY.lock() {
+            capability.clone_from(&request.capability);
+        }
+        if request.capability.as_deref() == Some(oyl_chat::DISCOVER) {
+            self.discover.start(request)
+        } else if request.model.as_deref() == Some(Self::LONG) {
+            self.long.start(request)
+        } else {
+            self.quick.start(request)
+        }
     }
 }

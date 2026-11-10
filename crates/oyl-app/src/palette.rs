@@ -115,11 +115,17 @@ pub enum CommandId {
     Figures,
     /// ⇧⌘M.
     Problems,
+    /// ⌘B in the editor.
+    Polish,
+    /// ⌘I in the editor.
+    FactCheck,
+    /// ⇧⌘B in the editor.
+    AskAi,
 }
 
 impl CommandId {
     /// Every command, in palette order.
-    pub const ALL: [CommandId; 27] = [
+    pub const ALL: [CommandId; 30] = [
         CommandId::Library,
         CommandId::NewPaper,
         CommandId::OpenFolder,
@@ -132,6 +138,9 @@ impl CommandId {
         CommandId::Outline,
         CommandId::Figures,
         CommandId::Problems,
+        CommandId::Polish,
+        CommandId::FactCheck,
+        CommandId::AskAi,
         CommandId::FocusAgent,
         CommandId::NewChat,
         CommandId::StopAgent,
@@ -179,6 +188,9 @@ impl CommandId {
             CommandId::Outline => "Outline…",
             CommandId::Figures => "Figures…",
             CommandId::Problems => "Problems…",
+            CommandId::Polish => "Polish selection",
+            CommandId::FactCheck => "Fact-check selection",
+            CommandId::AskAi => "Ask AI about selection…",
         }
     }
 
@@ -208,6 +220,9 @@ impl CommandId {
             CommandId::Outline => &["headings", "sections", "toc"],
             CommandId::Figures => &["images", "pictures", "plots"],
             CommandId::Problems => &["errors", "warnings", "diagnostics"],
+            CommandId::Polish => &["grammar", "spelling", "rewrite", "ai", "cmd-b"],
+            CommandId::FactCheck => &["facts", "verify", "claims", "ai", "cmd-i"],
+            CommandId::AskAi => &["rewrite", "instruction", "prompt", "ai"],
         }
     }
 
@@ -241,6 +256,9 @@ impl CommandId {
             CommandId::Outline => Box::new(actions::ShowOutline),
             CommandId::Figures => Box::new(actions::ShowFigures),
             CommandId::Problems => Box::new(actions::ShowProblems),
+            CommandId::Polish => Box::new(actions::PolishSelection),
+            CommandId::FactCheck => Box::new(actions::FactCheckSelection),
+            CommandId::AskAi => Box::new(actions::AskAiAboutSelection),
         }
     }
 
@@ -259,6 +277,7 @@ impl CommandId {
             | CommandId::Outline
             | CommandId::Figures
             | CommandId::Problems => paper,
+            CommandId::Polish | CommandId::FactCheck | CommandId::AskAi => paper,
             CommandId::FocusAgent | CommandId::NewChat => paper,
             CommandId::StopAgent => context.agent_running,
             CommandId::RevealInPreview | CommandId::ExportPdf => paper && context.has_document,
@@ -752,6 +771,9 @@ mod tests {
                 },
             ],
             default_model: Some("cc/opus".into()),
+            efforts: Vec::new(),
+            default_effort: None,
+            capabilities: Vec::new(),
         }
     }
 

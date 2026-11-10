@@ -11,6 +11,7 @@
 
 mod agent;
 mod agent_tab;
+mod branches;
 mod commands;
 mod compile;
 mod media;
@@ -19,6 +20,7 @@ mod paper;
 mod view;
 
 use std::cell::{Cell, RefCell};
+use std::collections::HashMap;
 use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::Arc;
@@ -29,7 +31,6 @@ use gpui_kit::{
     App, Bounds, Context, Entity, FocusHandle, Focusable, Pixels, SharedString, Subscription, Task,
     Window,
 };
-use parking_lot::Mutex;
 use oyl_chat::ChatPane;
 use oyl_core::{LayoutMode, Library, Settings};
 use oyl_editor::EditorPane;
@@ -37,6 +38,7 @@ use oyl_model::Diagnostic;
 use oyl_model::agent::{Harness, HarnessId};
 use oyl_preview::PreviewPane;
 use oyl_typeset::Compiler;
+use parking_lot::Mutex;
 
 use crate::fade::Fade;
 use crate::gate::TurnGate;
@@ -46,6 +48,8 @@ use crate::palette::PaletteView;
 use crate::persist::AppPaths;
 use crate::status::LatexSetup;
 
+pub(crate) use agent::effort_key;
+pub(crate) use branches::{REVIEW_UPDATED, Stage};
 pub(crate) use compile::CompileState;
 pub(crate) use panels::PanelKind;
 pub(crate) use paper::Paper;
@@ -76,6 +80,9 @@ pub struct ShellOptions {
     /// Where the agents come from.
     pub agents: Agents,
 }
+
+/// What a toast's button does (see [`Shell::toast_with_action`]).
+pub(crate) type ToastAction = Rc<dyn Fn(&mut Shell, &mut Window, &mut Context<Shell>)>;
 
 /// What kind of toast.
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -137,6 +144,8 @@ pub(crate) struct HookState {
     pub(crate) history: Option<Arc<oyl_history::History>>,
     /// The current compile errors, for the agent's context.
     pub(crate) errors: Vec<Diagnostic>,
+    /// Turns whose branch is being made: whether the turn ended already.
+    pub(crate) pending: HashMap<String, bool>,
 }
 
 /// The window's content.
@@ -147,6 +156,8 @@ pub struct Shell {
     pub(crate) compiler: Arc<Mutex<Compiler>>,
     pub(crate) gate: Arc<TurnGate>,
     pub(crate) hook: Rc<RefCell<HookState>>,
+    /// The open paper's `refs.bib` as text, for the editor's fact checks.
+    pub(crate) bib_text: Rc<RefCell<String>>,
 
     pub(crate) editor: Entity<EditorPane>,
     pub(crate) preview: Entity<PreviewPane>,
@@ -212,6 +223,11 @@ impl Shell {
         let gate = TurnGate::new();
         let hook = Rc::new(RefCell::new(HookState::default()));
         let editor = cx.new(|cx| EditorPane::new(window, cx));
+        let bib_text: Rc<RefCell<String>> = Rc::default();
+        let bib = bib_text.clone();
+        editor.update(cx, |editor, _| {
+            editor.set_bibliography_provider(Rc::new(move |_: &App| bib.borrow().clone()))
+        });
         let preview = cx.new(|cx| PreviewPane::new(window, cx));
         let (raw, given) = match agents {
             Agents::Given(harnesses) => (
@@ -236,6 +252,7 @@ impl Shell {
             library,
             gate,
             hook,
+            bib_text,
             editor,
             preview,
             chat,
@@ -416,6 +433,47 @@ impl Shell {
         window.push_notification(note, cx);
     }
 
+    /// A toast with one button (`label`) that runs `action` and dismisses
+    /// the toast. It stays until clicked or closed.
+    pub(crate) fn toast_with_action(
+        &mut self,
+        kind: ToastKind,
+        message: impl Into<SharedString>,
+        label: &'static str,
+        action: ToastAction,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        use gpui_kit::component::Sizable as _;
+        use gpui_kit::component::WindowExt as _;
+        use gpui_kit::component::button::Button;
+        use gpui_kit::component::notification::Notification;
+        let message: SharedString = message.into();
+        log::info!("{message}");
+        self.toasts.push((kind, message.to_string()));
+        if self.toasts.len() > 64 {
+            self.toasts.remove(0);
+        }
+        let note = match kind {
+            ToastKind::Success => Notification::success(message),
+            ToastKind::Info => Notification::info(message),
+            ToastKind::Error => Notification::error(message),
+        };
+        let shell = cx.entity().downgrade();
+        let note = note.action(move |_, _, cx| {
+            let note = cx.entity().downgrade();
+            let (shell, action) = (shell.clone(), action.clone());
+            Button::new("oyl-toast-action")
+                .label(label)
+                .small()
+                .on_click(move |_, window, cx| {
+                    let _ = shell.update(cx, |shell, cx| action(shell, window, cx));
+                    let _ = note.update(cx, |note, cx| note.dismiss(window, cx));
+                })
+        });
+        window.push_notification(note, cx);
+    }
+
     /// Writes the settings a moment after the last change, off the main
     /// thread.
     pub(crate) fn save_settings(&mut self, cx: &mut Context<Self>) {
@@ -475,6 +533,9 @@ impl Shell {
         };
         self.library_view
             .update(cx, |view, cx| view.set_data(data, cx));
+        let setting_up = self.agent.preparing.as_ref().map(|(id, _)| id.clone());
+        self.chat
+            .update(cx, |chat, cx| chat.set_setting_up(setting_up, cx));
     }
 }
 

@@ -61,6 +61,10 @@ pub struct Thread {
     /// A title the user gave the thread; `None` reads the first message.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub custom_title: Option<String>,
+    /// The mode its messages go out in: a harness capability's id
+    /// (`discover`, …); `None` is a plain turn ("Ask").
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub mode: Option<String>,
 }
 
 impl Default for Thread {
@@ -83,6 +87,7 @@ impl Thread {
             sessions: BTreeMap::new(),
             turns: Vec::new(),
             custom_title: None,
+            mode: None,
         }
     }
 
@@ -267,6 +272,12 @@ pub struct Turn {
     /// The model it ran with; `None` is the harness default.
     #[serde(default)]
     pub model: Option<String>,
+    /// The effort it ran at; `None` is the harness default.
+    #[serde(default)]
+    pub effort: Option<String>,
+    /// The capability it ran as (`Capability::id`); `None` is a plain turn.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub capability: Option<String>,
     /// Files attached to the message (absolute paths).
     #[serde(default)]
     pub attachments: Vec<PathBuf>,
@@ -306,6 +317,8 @@ impl Turn {
             prompt: prompt.into(),
             harness,
             model: None,
+            effort: None,
+            capability: None,
             attachments: Vec::new(),
             context: Vec::new(),
             started_at: Utc::now(),
@@ -343,8 +356,33 @@ impl Turn {
         }
         match self.blocks.last() {
             Some(Block::Thinking { .. }) => "Thinking…".to_string(),
-            Some(Block::Status { message }) if !message.trim().is_empty() => message.trim().to_string(),
+            Some(Block::Status { message }) if !message.trim().is_empty() => {
+                message.trim().to_string()
+            }
             _ => "Writing…".to_string(),
+        }
+    }
+
+    /// How the turn went, in a few words: "Done · 3 files changed",
+    /// "Failed · <reason>", "Stopped"; what it does while it runs.
+    pub fn outcome(&self) -> String {
+        match &self.status {
+            TurnStatus::Running => self.activity(),
+            TurnStatus::Succeeded => match self.files_changed.len() {
+                0 => "Done".to_string(),
+                1 => "Done · 1 file changed".to_string(),
+                n => format!("Done · {n} files changed"),
+            },
+            TurnStatus::Failed { message } => {
+                let reason = message.lines().next().unwrap_or("").trim();
+                if reason.is_empty() {
+                    "Failed".to_string()
+                } else {
+                    format!("Failed · {}", ellipsize(reason, 80))
+                }
+            }
+            TurnStatus::Stopped => "Stopped".to_string(),
+            TurnStatus::Interrupted => "Interrupted".to_string(),
         }
     }
 
@@ -463,7 +501,8 @@ impl Turn {
             }
             AgentEvent::FileChanged { .. }
             | AgentEvent::Completed { .. }
-            | AgentEvent::Failed { .. } => {}
+            | AgentEvent::Failed { .. }
+            | AgentEvent::Progress(_) => {}
         }
     }
 

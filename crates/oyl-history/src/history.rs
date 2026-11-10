@@ -433,7 +433,15 @@ impl History {
         tx.prune(retention)
     }
 
-    fn begin(&self, mode: LockMode) -> Result<Tx<'_>> {
+    /// The time now, from the history's clock.
+    pub(crate) fn now(&self) -> DateTime<Utc> {
+        self.clock.now()
+    }
+
+    /// Starts an operation on the store: takes the in-process and the
+    /// on-disk lock (`Exclusive` for anything that writes to the store or
+    /// the paper folder) and brings the index up to date.
+    pub(crate) fn begin(&self, mode: LockMode) -> Result<Tx<'_>> {
         let mut index = match self.index.lock() {
             Ok(index) => index,
             Err(poisoned) => {
@@ -474,7 +482,7 @@ fn diff_pairs(pairs: Vec<Pair>) -> Vec<FileDiff> {
 
 /// One operation on the store, holding both the in-process and the on-disk
 /// lock.
-struct Tx<'a> {
+pub(crate) struct Tx<'a> {
     // Declared first so the file lock is released before the index.
     _lock: File,
     index: MutexGuard<'a, Index>,
@@ -492,6 +500,43 @@ impl<'a> Tx<'a> {
 
     fn find(&self, id: VersionId) -> Result<Manifest> {
         self.index.find(id).cloned().ok_or(HistoryError::NotFound(id))
+    }
+
+    /// The newest version.
+    pub(crate) fn latest_version(&self) -> Option<VersionId> {
+        self.index.latest().map(|latest| latest.id)
+    }
+
+    /// Records what the paper folder holds now as typing would, so that
+    /// edits not in the history yet are kept apart from what is written to
+    /// the folder next.
+    pub(crate) fn record_pending_typing(&mut self) -> Result<()> {
+        let working = self.scan()?;
+        self.record(RecordKind::Typing { protect: None }, &working)?;
+        Ok(())
+    }
+
+    /// Records the tracked files of `folder` — the paper folder, or an exact
+    /// copy of it — as a new version of the paper by `author`. `None` when
+    /// they match the latest version.
+    pub(crate) fn record_snapshot_of(
+        &mut self,
+        folder: &Path,
+        author: Author,
+        label: Option<String>,
+    ) -> Result<Option<Version>> {
+        let empty = Files::new();
+        let reference = self.index.latest().map_or(&empty, |latest| &latest.files);
+        let working = tracking::scan(folder, reference)?;
+        let recorded = self.record(
+            RecordKind::Snapshot {
+                author,
+                label,
+                restored_from: None,
+            },
+            &working,
+        )?;
+        Ok(recorded.into_version())
     }
 
     /// The folder now, with the content of what differs from the latest
@@ -581,6 +626,8 @@ impl<'a> Tx<'a> {
             && !self.index.has_unreadable_after(latest.number)
             && within(latest.updated, TYPING_IDLE)
             && within(latest.started, TYPING_SPAN)
+            // A branch's base stays what the branch started from.
+            && !crate::branch::is_branch_base(self.root(), latest.id)
     }
 
     /// Whether the change from `before` to `working` (scanned against it)

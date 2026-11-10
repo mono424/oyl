@@ -17,14 +17,20 @@ use crate::{
     claude::ClaudeParser,
     codex::CodexParser,
     detect::Setup,
-    guard::missing_tokens,
+    guard::{instruction_allows, missing_tokens},
     process::{self, Spawn},
 };
 
-/// The model a Claude rewrite uses unless the request names one: Sonnet,
-/// for the quality of the prose (see the crate's measurements: Haiku is a
-/// little faster but smooths less and slips more often).
-pub const CLAUDE_REWRITE_MODEL: &str = "sonnet";
+/// The model a Claude polish (⌘B) uses unless the request names one: Haiku.
+/// Measured on short paragraphs (LaTeX, Typst, German) with `--effort low`:
+/// Haiku answers in 1.1–1.4 s, Sonnet in 2.5–4.2 s, with edits as good on
+/// those samples — and an inline key has to feel instant.
+pub const CLAUDE_REWRITE_MODEL: &str = "haiku";
+
+/// The model a fact fix (a rewrite guided by a finding and the user's
+/// remarks) uses unless the request names one: Sonnet, because it has to
+/// get facts and phrasing right together, and the user is waiting in a card.
+pub const CLAUDE_FACT_FIX_MODEL: &str = "sonnet";
 /// Characters of context kept on each side of the selection.
 const CONTEXT_CHARS: usize = 1200;
 
@@ -56,13 +62,26 @@ rewritten so that it fixes that problem:
 dates, names or sources.
 - Keep the author's voice, tense, register and terminology, and roughly the same length."
         }
+        RewriteKind::Custom => {
+            "You are the editor of an academic paper. You get one passage of the paper in <text>, with a \
+little of the surrounding paper in <before> and <after> for context only, and in <instruction> what the \
+author wants done with the passage. Return the passage rewritten exactly as the instruction asks:
+
+- Do what the instruction says and nothing else; keep what it does not ask to change.
+- Never invent facts, numbers, results or sources.
+- Keep the author's voice, tense, register and terminology unless the instruction asks otherwise."
+        }
+    };
+    let unless = match kind {
+        RewriteKind::Custom => " unless the instruction asks to change them",
+        RewriteKind::Polish | RewriteKind::FactFix => "",
     };
     format!(
         "{task}
 - Keep the language of the passage. Never translate it.
 - The paper is written in {format}. Keep every command, environment, citation (\\cite{{…}}, @key), \
-reference (\\ref{{…}}, @label), label, math ($…$), comment and URL exactly as written, and keep the \
-line breaks where they are.
+reference (\\ref{{…}}, @label), label, math ($…$), comment and URL exactly as written{unless}, and \
+keep the line breaks where they are.
 - If nothing needs to change, return the passage exactly as it is.
 
 Answer with the passage only: no quotes, no code fences, no tags, no preamble, no explanation."
@@ -77,11 +96,16 @@ pub(crate) fn user_message(request: &RewriteRequest) -> String {
         "<before>\n{before}\n</before>\n\n<text>\n{}\n</text>\n\n<after>\n{after}\n</after>\n",
         request.text
     );
-    if request.kind == RewriteKind::FactFix {
-        message.push_str(&format!(
+    match request.kind {
+        RewriteKind::FactFix => message.push_str(&format!(
             "\n<guidance>\n{}\n</guidance>\n",
             request.guidance.trim()
-        ));
+        )),
+        RewriteKind::Custom => message.push_str(&format!(
+            "\n<instruction>\n{}\n</instruction>\n",
+            request.guidance.trim()
+        )),
+        RewriteKind::Polish => {}
     }
     message.push_str("\nReturn the rewritten <text> only.");
     message
@@ -115,7 +139,15 @@ pub(crate) fn finalize(request: &RewriteRequest, raw: &str) -> Result<String, St
     let lead = &original[..original.len() - original.trim_start().len()];
     let trail = &original[original.trim_end().len()..];
     let result = format!("{lead}{core}{trail}");
-    let missing = missing_tokens(original, &result, request.engine);
+    // An instruction of the author's own may ask to drop or change a
+    // citation or math; anything it does not name must survive.
+    let missing: Vec<String> = missing_tokens(original, &result, request.engine)
+        .into_iter()
+        .filter(|token| {
+            request.kind != RewriteKind::Custom
+                || !instruction_allows(token, &request.guidance, request.engine)
+        })
+        .collect();
     if let Some(first) = missing.first() {
         let more = match missing.len() {
             1 => String::new(),
@@ -424,7 +456,10 @@ impl Rewriter for ClaudeRewriter {
             .model
             .clone()
             .filter(|m| !m.is_empty() && m != crate::claude::DEFAULT_MODEL)
-            .unwrap_or_else(|| CLAUDE_REWRITE_MODEL.into());
+            .unwrap_or_else(|| match request.kind {
+                RewriteKind::Polish => CLAUDE_REWRITE_MODEL.into(),
+                RewriteKind::FactFix | RewriteKind::Custom => CLAUDE_FACT_FIX_MODEL.into(),
+            });
         let cwd = scratch_dir();
         let spawn = Spawn {
             program: claude.path,
@@ -455,7 +490,12 @@ impl CodexRewriter {
 }
 
 /// The `codex` arguments of one rewrite (the prompt goes to stdin).
-pub(crate) fn codex_args(model: Option<&str>) -> Vec<OsString> {
+pub(crate) fn codex_args(kind: RewriteKind, model: Option<&str>) -> Vec<OsString> {
+    // A polish must be quick; a fix or an instruction needs a little thought.
+    let effort = match kind {
+        RewriteKind::Polish => "low",
+        RewriteKind::FactFix | RewriteKind::Custom => "medium",
+    };
     let mut args: Vec<OsString> = [
         "exec",
         "--json",
@@ -463,11 +503,11 @@ pub(crate) fn codex_args(model: Option<&str>) -> Vec<OsString> {
         "read-only",
         "--skip-git-repo-check",
         "-c",
-        "model_reasoning_effort=\"low\"",
     ]
     .into_iter()
     .map(OsString::from)
     .collect();
+    args.push(format!("model_reasoning_effort=\"{effort}\"").into());
     if let Some(model) = model {
         args.push("--model".into());
         args.push(model.into());
@@ -505,7 +545,7 @@ impl Rewriter for CodexRewriter {
         let cwd = scratch_dir();
         let spawn = Spawn {
             program: codex.path,
-            args: codex_args(model.as_deref()),
+            args: codex_args(request.kind, model.as_deref()),
             cwd: cwd.clone(),
             env: detection.child_env(),
             stdin: codex_prompt(&request).into_bytes(),
@@ -782,7 +822,7 @@ mod tests {
         assert_eq!(after("--output-format").as_deref(), Some("stream-json"));
         assert!(after("--system-prompt").is_some_and(|p| p.contains("copy editor")));
         assert!(args.contains(&"--no-session-persistence".to_owned()));
-        let codex: Vec<String> = codex_args(Some("gpt-6-luna"))
+        let codex: Vec<String> = codex_args(RewriteKind::Polish, Some("gpt-6-luna"))
             .iter()
             .map(|a| a.to_string_lossy().into_owned())
             .collect();
@@ -791,5 +831,64 @@ mod tests {
             "exec --json --sandbox read-only --skip-git-repo-check -c model_reasoning_effort=\"low\" --model gpt-6-luna -"
         );
         assert!(codex_prompt(&request).contains("Do not run any command"));
+        let custom = codex_args(RewriteKind::Custom, None);
+        assert!(
+            custom
+                .iter()
+                .any(|a| a == "model_reasoning_effort=\"medium\"")
+        );
+        let mut instructed = request.clone();
+        instructed.kind = RewriteKind::Custom;
+        instructed.guidance = "Make it a question.".into();
+        let prompt = codex_prompt(&instructed);
+        assert!(prompt.contains("<instruction>\nMake it a question.\n</instruction>"));
+        assert!(prompt.contains("unless the instruction asks to change them"));
+    }
+
+    fn custom(text: &str, instruction: &str) -> RewriteRequest {
+        RewriteRequest {
+            kind: RewriteKind::Custom,
+            text: text.into(),
+            engine: Some(Engine::Latex),
+            guidance: instruction.into(),
+            ..RewriteRequest::default()
+        }
+    }
+
+    #[test]
+    fn custom_instructions_may_drop_what_they_name_but_nothing_else() {
+        let text = r"Owls hunt by sound \cite{konishi1973}, locating prey within $1^\circ$ (see \cref{fig:ear}).";
+        // Asked for: the citation may go.
+        let without_cite =
+            r"Owls hunt by sound, locating prey within $1^\circ$ (see \cref{fig:ear}).";
+        assert!(finalize(&custom(text, "Remove the citation"), without_cite).is_ok());
+        // Not asked for: the same drop is refused.
+        let refused =
+            finalize(&custom(text, "Make it more formal"), without_cite).expect_err("silent drop");
+        assert!(refused.contains(r"\cite{konishi1973}"), "{refused}");
+        // Dropping the math is fine when the instruction names it, not otherwise.
+        let no_math = r"Owls hunt by sound \cite{konishi1973}, locating prey to within a degree (see \cref{fig:ear}).";
+        assert!(
+            finalize(
+                &custom(text, "drop the equation and say it in words"),
+                no_math
+            )
+            .is_ok()
+        );
+        assert!(finalize(&custom(text, "shorten it"), no_math).is_err());
+        // An instruction about the citation does not excuse a lost reference.
+        let both_gone = "Owls hunt by sound, locating prey within $1^\\circ$.";
+        let err = finalize(&custom(text, "remove the citation"), both_gone).expect_err("reference");
+        assert!(err.contains(r"\cref{fig:ear}"), "{err}");
+        // Polish and fact fixes never drop anything.
+        let mut polish_request = custom(text, "Remove the citation");
+        polish_request.kind = RewriteKind::Polish;
+        assert!(finalize(&polish_request, without_cite).is_err());
+        let prompt = system_prompt(RewriteKind::Custom, Some(Engine::Latex));
+        assert!(
+            prompt.contains("<instruction>")
+                && prompt.contains("unless the instruction asks to change them")
+        );
+        assert!(!system_prompt(RewriteKind::Polish, None).contains("unless the instruction"));
     }
 }

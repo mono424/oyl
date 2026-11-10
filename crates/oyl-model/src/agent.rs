@@ -91,6 +91,35 @@ pub struct HarnessInfo {
     pub models: Vec<ModelChoice>,
     /// The model used when the user picked none.
     pub default_model: Option<String>,
+    /// Reasoning-effort levels the harness can run its models at, lowest
+    /// first (e.g. `low`, `medium`, `high`, `xhigh`, `max`). Empty when it
+    /// has no such setting.
+    #[serde(default)]
+    pub efforts: Vec<String>,
+    /// The effort used when the user picked none.
+    #[serde(default)]
+    pub default_effort: Option<String>,
+    /// Specialised agents the harness offers besides a plain turn (Sorcar's
+    /// discovery loop, paper writing, reviewing, …), offered as modes.
+    #[serde(default)]
+    pub capabilities: Vec<Capability>,
+}
+
+/// A specialised agent a harness offers, run instead of a plain turn when
+/// `TurnRequest::capability` names it.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Capability {
+    /// Passed back in `TurnRequest::capability`, e.g. `discover`.
+    pub id: String,
+    /// "Discover", "Review", …
+    pub name: String,
+    /// One line on what it does, for the mode picker.
+    pub description: String,
+    /// Runs for minutes to hours on its own (the app treats it as a
+    /// background task from the start).
+    pub long_running: bool,
+    /// The composer's placeholder in this mode.
+    pub placeholder: String,
 }
 
 impl HarnessInfo {
@@ -134,6 +163,11 @@ pub struct TurnRequest {
     pub attachments: Vec<PathBuf>,
     /// Current compile errors, so "fix it" works without pasting them.
     pub diagnostics: Vec<Diagnostic>,
+    /// One of `HarnessInfo::efforts`; `None` uses the harness default.
+    pub effort: Option<String>,
+    /// One of `HarnessInfo::capabilities` (`Capability::id`); `None` is a
+    /// plain turn.
+    pub capability: Option<String>,
 }
 
 /// What a running turn reports. Events arrive in order; exactly one of
@@ -177,6 +211,35 @@ pub enum AgentEvent {
     },
     /// The turn could not run or crashed.
     Failed { message: String },
+    /// Structured progress of a long-running task (a discovery run, a
+    /// write-and-review loop), for progress indicators. Each event replaces
+    /// the previous one.
+    Progress(Progress),
+}
+
+/// Where a long-running task stands.
+#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
+pub struct Progress {
+    /// The current phase, short ("Searching the state of the art",
+    /// "Round 7", "Reviewing draft 2").
+    pub phase: String,
+    /// The phases the task goes through, in order, when known — for a
+    /// step timeline. `phase` is one of them.
+    #[serde(default)]
+    pub phases: Vec<String>,
+    /// Step `step` of `total` (rounds, drafts…), when countable.
+    pub step: Option<u32>,
+    pub total: Option<u32>,
+    /// 0.0–1.0 when the task can tell; `None` draws an indeterminate
+    /// indicator.
+    pub fraction: Option<f32>,
+    /// Headline numbers, in priority order ("accuracy" → "0.931",
+    /// "ideas tried" → "12").
+    #[serde(default)]
+    pub metrics: Vec<(String, String)>,
+    /// A folder the task keeps human-readable state in (Sorcar's discovery
+    /// writes `pareto.md`, `ideas.md`, `explored-ideas.md` there).
+    pub state_dir: Option<PathBuf>,
 }
 
 impl AgentEvent {
@@ -245,6 +308,10 @@ pub enum RewriteKind {
     /// `RewriteRequest::guidance` (the finding, its sources and the user's
     /// remarks), changing as little else as possible.
     FactFix,
+    /// ⇧⌘B in the editor: do with the text what the user asked for in
+    /// `RewriteRequest::guidance` ("make it more formal", "turn into a
+    /// list", "shorten to one sentence").
+    Custom,
 }
 
 /// One quick, tool-less rewrite of a piece of the paper: text in, text out.
@@ -264,8 +331,8 @@ pub struct RewriteRequest {
     /// A model id of the rewriter; `None` uses its default (a fast one).
     pub model: Option<String>,
     /// For `FactFix`: what is wrong, the sources, and the user's remarks on
-    /// how to fix it ("use the 2023 value", "keep it vague"). Empty for
-    /// `Polish`.
+    /// how to fix it ("use the 2023 value", "keep it vague"). For `Custom`:
+    /// the user's instruction. Empty for `Polish`.
     pub guidance: String,
 }
 

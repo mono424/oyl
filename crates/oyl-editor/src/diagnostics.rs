@@ -182,9 +182,15 @@ pub(crate) fn hover_markdown(diagnostics: &[&InlineDiagnostic]) -> String {
 /// and moves them through edits) and the editor's hover provider.
 pub(crate) type SharedDiagnostics = Rc<RefCell<Vec<InlineDiagnostic>>>;
 
+/// Told an offset of the text the pointer rests on.
+pub(crate) type OffsetListener = Rc<dyn Fn(usize, &mut Window, &mut App)>;
+
 /// Shows the message under the pointer.
 pub(crate) struct DiagnosticHover {
     pub diagnostics: SharedDiagnostics,
+    /// Told every offset the editor asks about (the pane finds the
+    /// fact-check finding under the pointer with it).
+    pub on_offset: Option<OffsetListener>,
 }
 
 impl HoverProvider for DiagnosticHover {
@@ -192,9 +198,12 @@ impl HoverProvider for DiagnosticHover {
         &self,
         text: &Rope,
         offset: usize,
-        _window: &mut Window,
-        _cx: &mut App,
+        window: &mut Window,
+        cx: &mut App,
     ) -> Task<anyhow::Result<Option<lsp_types::Hover>>> {
+        if let Some(on_offset) = &self.on_offset {
+            on_offset(offset, window, cx);
+        }
         let diagnostics = self.diagnostics.borrow();
         let under: Vec<&InlineDiagnostic> = diagnostics
             .iter()

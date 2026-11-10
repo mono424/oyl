@@ -9,19 +9,20 @@ use std::time::Duration;
 
 use chrono::Utc;
 use gpui_kit::component::button::{Button, ButtonCustomVariant, ButtonVariants as _};
-use gpui_kit::component::input::{InputEvent, Textarea, TextareaState};
+use gpui_kit::component::input::{Escape, Input, InputEvent, InputState, Textarea, TextareaState};
 use gpui_kit::component::message_scroller::{MessageScroller, MessageScrollerState};
+use gpui_kit::component::scroll::ScrollableElement as _;
 use gpui_kit::component::{Disableable as _, Icon, IconName, Sizable as _, StyledExt as _};
 use gpui_kit::prelude::*;
 use gpui_kit::{
     Anchor, AnyElement, App, Bounds, ClickEvent, Context, Entity, EventEmitter, ExternalPaths,
-    FocusHandle, Focusable, Global, KeyBinding, MouseButton, Pixels, SharedString,
+    FocusHandle, Focusable, Global, KeyBinding, MouseButton, Pixels, ScrollHandle, SharedString,
     StyleRefinement, Subscription, Task, Window, anchored, canvas, deferred, div, point, px,
 };
-use std::cell::Cell;
-use oyl_model::agent::{Harness, HarnessId, HarnessInfo, TurnRequest};
+use oyl_model::agent::{Capability, Harness, HarnessId, HarnessInfo, Readiness, TurnRequest};
 use oyl_ui::Tokens;
 use oyl_ui::prelude::*;
+use std::cell::{Cell, RefCell};
 
 use crate::context::{
     ContextExclusions, ContextKind, EditorContext, PaperContext, QueuedMessage, add_attachments,
@@ -40,31 +41,66 @@ gpui_kit::actions!(
         /// Esc in the pane: leave it. The pane does not handle it; the app
         /// shell does (it shows the source again).
         Leave,
-        /// Closes the picker or threads popover (Esc).
+        /// Closes the model picker, or the sidebar's tray (Esc).
         ClosePopover,
-        /// Highlights the row above in the popover (↑).
+        /// Highlights the model above in the picker (↑).
         PopoverUp,
-        /// Highlights the row below in the popover (↓).
+        /// Highlights the model below in the picker (↓).
         PopoverDown,
-        /// Picks the highlighted row of the popover (Enter).
+        /// Picks the highlighted model of the picker (Enter).
         PopoverConfirm
     ]
 );
 
 const KEY_CONTEXT: &str = "ChatPane";
-/// The key context of the picker and threads popovers.
+/// The key context of the model picker.
 const POPOVER_CONTEXT: &str = "ChatPopover";
-/// Width of the popovers.
-const POPOVER_WIDTH: f32 = 300.;
-/// Inner padding of the popovers.
-const POPOVER_PADDING: f32 = 12.;
-/// The threads popover scrolls past this height.
-const POPOVER_MAX_HEIGHT: f32 = 380.;
+/// The picker's search field, inside the picker: its keys move the
+/// highlight instead of the caret.
+const POPOVER_SEARCH_CONTEXT: &str = "ChatPopover > Input";
+/// Width of the model picker.
+const PICKER_WIDTH: f32 = 272.;
+/// Inner padding of the model picker.
+const PICKER_PADDING: f32 = 4.;
+/// The picker scrolls past this height.
+const PICKER_MAX_HEIGHT: f32 = 420.;
+/// The picker offers a search field when there are more models than this.
+const PICKER_SEARCH_ABOVE: usize = 6;
+/// Height of the search field, its hairline included.
+const PICKER_SEARCH_HEIGHT: f32 = 33.;
+/// Space between the search field and the first group.
+const PICKER_SEARCH_GAP: f32 = 4.;
+/// Height of a harness heading in the picker.
+const PICKER_GROUP_HEIGHT: f32 = 22.;
+/// Space above every harness heading but the first.
+const PICKER_GROUP_GAP: f32 = 6.;
+/// Height of a model row in the picker.
+const PICKER_ROW_HEIGHT: f32 = 28.;
+/// Height of an effort pill in the picker.
+const PICKER_PILL_HEIGHT: f32 = 22.;
+/// Height of the picker's effort section: hairline, eyebrow, pills.
+const PICKER_EFFORT_HEIGHT: f32 = 4. + 1. + 22. + PICKER_PILL_HEIGHT + 4.;
+/// Height of the picker's trigger in the composer.
+const TRIGGER_HEIGHT: f32 = 22.;
+/// The trigger's label is cut past this width.
+const TRIGGER_MAX_WIDTH: f32 = 240.;
+
+/// Where each effort pill was laid out, by effort.
+type PillBounds = Rc<RefCell<Vec<(String, Bounds<Pixels>)>>>;
+
+/// The capability id of discovery (auto-research), offered first class.
+pub const DISCOVER: &str = "discover";
+/// What "New discovery" puts in the composer: lines the user fills.
+pub const DISCOVERY_STARTER: &str =
+    "Goal: \nMetrics (in priority order): \nData / code: \nBudget: ";
+/// How a finished task whose branch waits for a review reads.
+pub const NEEDS_REVIEW: &str = "Needs review";
+/// What the "Ask" mode says it is.
+const ASK_DESCRIPTION: &str = "A plain turn: the agent answers and edits the paper.";
 
 /// How long a stopped agent may take to end its stream before the pane
 /// gives up on it.
 const STOP_GRACE: Duration = Duration::from_secs(5);
-
 
 /// The composer grows up to this many lines, then scrolls.
 const COMPOSER_MAX_LINES: usize = 8;
@@ -73,9 +109,9 @@ const COMPOSER_MAX_LINES: usize = 8;
 /// [`ChatPane::set_context_provider`]).
 pub type ContextProvider = Rc<dyn Fn(&App) -> EditorContext>;
 
-/// Called with the turn id and the prompt right before a turn starts (see
-/// [`ChatPane::set_before_turn`]).
-pub type BeforeTurnHook = Rc<dyn Fn(&str, &str, &mut App)>;
+/// Called with the thread id, the turn id and the prompt right before a
+/// turn starts (see [`ChatPane::set_before_turn`]).
+pub type BeforeTurnHook = Rc<dyn Fn(&str, &str, &str, &mut App)>;
 
 /// What the pane reports to the app shell. Subscribe with
 /// `cx.subscribe(&pane, …)`.
@@ -96,6 +132,8 @@ pub enum ChatEvent {
     /// A turn ended: completed, failed, stopped, or abandoned because the
     /// pane switched paper. `success` is true only for a completed turn.
     TurnFinished {
+        /// The thread it belongs to.
+        thread: String,
         /// The turn's id.
         turn: String,
         /// Whether the agent completed it.
@@ -108,17 +146,56 @@ pub enum ChatEvent {
         /// The turn to undo.
         turn: String,
     },
-    /// The user picked a harness or a model in the picker (to persist).
+    /// The user picked a harness, a model or an effort in the picker (to
+    /// persist).
     HarnessSelected {
         /// The chosen harness.
         harness: HarnessId,
         /// The chosen model; `None` is the harness default.
         model: Option<String>,
+        /// The effort chosen for that harness; `None` is its default.
+        effort: Option<String>,
     },
     /// The user clicked a changed-file chip.
     OpenFile {
         /// Absolute path.
         path: PathBuf,
+    },
+    /// A turn ended in a thread that is not on screen (not by Stop). It is
+    /// listed in [`ThreadsOverview::finished`] until the thread is shown.
+    FinishedOffScreen(FinishedThread),
+    /// A different thread is on screen.
+    ThreadShown {
+        /// Its id.
+        thread: String,
+    },
+    /// The user applies a thread's review with these choices (conflict id,
+    /// choice). Answer with [`ChatPane::set_branch_view`].
+    ApplyReview {
+        /// The thread.
+        thread: String,
+        /// How each conflict is settled.
+        choices: Vec<(String, ReviewChoice)>,
+    },
+    /// The user discards a thread's branch (a review, or an agent's
+    /// unfinished work). Answer with [`ChatPane::set_branch_view`].
+    DiscardBranch {
+        /// The thread.
+        thread: String,
+    },
+    /// The user brings an orphaned branch's work back (Finish). Answer with
+    /// [`ChatPane::set_branch_view`].
+    FinishBranch {
+        /// The thread.
+        thread: String,
+    },
+    /// A turn in a long-running mode started and its thread went on in
+    /// the background; a fresh thread is on screen.
+    StartedInBackground {
+        /// The thread now running in the background.
+        thread: String,
+        /// Its title.
+        title: String,
     },
 }
 
@@ -152,14 +229,66 @@ fn resolve_choice(
     Some((index, model))
 }
 
-/// "Claude Opus (your Claude subscription)" → "Claude Opus".
-fn short_model_label(label: &str) -> String {
-    let short = label.split(" (").next().unwrap_or(label).trim();
-    ellipsize(if short.is_empty() { label } else { short }, 28)
+/// The effort a turn on `info` runs at: `chosen` when the harness offers
+/// it; `None` is the harness default.
+fn resolve_effort(info: &HarnessInfo, chosen: Option<&str>) -> Option<String> {
+    chosen
+        .filter(|chosen| info.efforts.iter().any(|effort| effort == chosen))
+        .map(str::to_string)
 }
 
-/// The picker chip: "Sorcar · Claude Opus".
-fn picker_label(infos: &[HarnessInfo], resolved: Option<&(usize, Option<String>)>) -> String {
+/// The effort the picker shows as current: the chosen one, else the
+/// harness default. None when the harness offers no efforts.
+fn shown_effort(info: &HarnessInfo, chosen: Option<&str>) -> Option<String> {
+    resolve_effort(info, chosen).or_else(|| {
+        info.default_effort
+            .clone()
+            .filter(|default| info.efforts.contains(default))
+    })
+}
+
+/// "Claude Haiku (your Claude subscription, fastest)" → "Claude Haiku" and
+/// the hint "via subscription · fastest".
+fn split_model_label(label: &str) -> (String, Option<String>) {
+    let label = label.trim();
+    let Some((name, rest)) = label.split_once(" (") else {
+        return (label.to_string(), None);
+    };
+    let name = name.trim();
+    if name.is_empty() {
+        return (label.to_string(), None);
+    }
+    let inner = rest.strip_suffix(')').unwrap_or(rest);
+    let parts: Vec<String> = inner
+        .split(',')
+        .map(str::trim)
+        .filter(|part| !part.is_empty())
+        .map(|part| {
+            if part.starts_with("your ") && part.ends_with(" subscription") {
+                "via subscription".to_string()
+            } else {
+                part.to_string()
+            }
+        })
+        .collect();
+    (
+        name.to_string(),
+        (!parts.is_empty()).then(|| parts.join(" · ")),
+    )
+}
+
+/// "Claude Opus (your Claude subscription)" → "Claude Opus".
+fn short_model_label(label: &str) -> String {
+    ellipsize(&split_model_label(label).0, 28)
+}
+
+/// The picker's trigger: "Sorcar · Claude Opus", then " · high" with an
+/// effort.
+fn picker_label(
+    infos: &[HarnessInfo],
+    resolved: Option<&(usize, Option<String>)>,
+    effort: Option<&str>,
+) -> String {
     let Some((index, model)) = resolved else {
         return if infos.is_empty() {
             "No agent".to_string()
@@ -169,10 +298,15 @@ fn picker_label(infos: &[HarnessInfo], resolved: Option<&(usize, Option<String>)
     };
     let info = &infos[*index];
     let model = model.clone().or_else(|| info.default_model.clone());
-    match model.and_then(|id| info.models.iter().find(|choice| choice.id == id)) {
+    let mut label = match model.and_then(|id| info.models.iter().find(|choice| choice.id == id)) {
         Some(choice) => format!("{} · {}", info.name, short_model_label(&choice.label)),
         None => info.name.clone(),
+    };
+    if let Some(effort) = effort {
+        label.push_str(" · ");
+        label.push_str(effort);
     }
+    label
 }
 
 /// Why nothing can be sent, when no harness is usable.
@@ -228,6 +362,13 @@ fn install_keys(cx: &mut App) {
         KeyBinding::new("up", PopoverUp, Some(POPOVER_CONTEXT)),
         KeyBinding::new("down", PopoverDown, Some(POPOVER_CONTEXT)),
         KeyBinding::new("enter", PopoverConfirm, Some(POPOVER_CONTEXT)),
+        // Bound after the input's own keys, so these win in the search field.
+        KeyBinding::new("escape", ClosePopover, Some(POPOVER_SEARCH_CONTEXT)),
+        KeyBinding::new("up", PopoverUp, Some(POPOVER_SEARCH_CONTEXT)),
+        KeyBinding::new("down", PopoverDown, Some(POPOVER_SEARCH_CONTEXT)),
+        KeyBinding::new("enter", PopoverConfirm, Some(POPOVER_SEARCH_CONTEXT)),
+        // The sidebar's tray of background agents closes the same way.
+        KeyBinding::new("escape", ClosePopover, Some(crate::sidebar::TRAY_CONTEXT)),
     ]);
 }
 
@@ -252,11 +393,26 @@ pub struct ChatPane {
     input: Entity<TextareaState>,
     scroller: Entity<MessageScrollerState>,
     focus_handle: FocusHandle,
+    /// The model picker, while it is open.
     popover: Option<Popover>,
     popover_focus: FocusHandle,
-    /// Where the picker chip is, as last laid out (a press on it toggles
-    /// the picker instead of closing it).
+    /// The picker's list, scrolled to the highlighted model.
+    picker_scroll: ScrollHandle,
+    /// Where the picker's trigger is, as last laid out (a press on it
+    /// toggles the picker instead of closing it).
     picker_bounds: Rc<Cell<Bounds<Pixels>>>,
+    /// The harness the app is setting up right now (its picker heading
+    /// says "setting up…").
+    setting_up: Option<HarnessId>,
+    /// The effort chosen for each harness (absent: its default).
+    efforts: HashMap<HarnessId, String>,
+    /// The mode menu, while open: its highlighted entry.
+    mode_menu: Option<usize>,
+    mode_focus: FocusHandle,
+    /// Where the mode pill is, as last laid out.
+    mode_bounds: Rc<Cell<Bounds<Pixels>>>,
+    /// Where each effort pill of the open picker is, as last laid out.
+    effort_bounds: PillBounds,
     attachments: Vec<PathBuf>,
     exclusions: ContextExclusions,
     /// Messages sent while their thread's turn ran, per thread.
@@ -264,6 +420,12 @@ pub struct ChatPane {
     notice: Option<SharedString>,
     /// The turns running, at most one per thread.
     runs: Vec<ActiveRun>,
+    /// Turns that ended off screen, not looked at since (oldest first).
+    finished: Vec<FinishedThread>,
+    /// What became of each thread's branch.
+    branches: review::BranchViews,
+    /// Each thread's latest turn as a task.
+    tasks: tasks::Tasks,
     next_run_id: u64,
     ui: Rc<ViewState>,
     placeholder: SharedString,
@@ -291,7 +453,7 @@ impl ChatPane {
         install_keys(cx);
         let infos: Vec<HarnessInfo> = harnesses.iter().map(|harness| harness.info()).collect();
         let resolved = resolve_choice(&infos, None);
-        let placeholder = placeholder_for(&infos, resolved.as_ref());
+        let placeholder = placeholder_for(&infos, resolved.as_ref(), None);
         let input = cx.new(|cx| {
             TextareaState::new(window, cx)
                 .auto_grow(1, COMPOSER_MAX_LINES)
@@ -319,12 +481,22 @@ impl ChatPane {
             focus_handle: cx.focus_handle(),
             popover: None,
             popover_focus: cx.focus_handle(),
+            picker_scroll: ScrollHandle::new(),
             picker_bounds: Rc::default(),
+            setting_up: None,
+            efforts: HashMap::new(),
+            effort_bounds: Rc::default(),
+            mode_menu: None,
+            mode_focus: cx.focus_handle(),
+            mode_bounds: Rc::default(),
             attachments: Vec::new(),
             exclusions: ContextExclusions::default(),
             queued: HashMap::new(),
             notice: None,
             runs: Vec::new(),
+            finished: Vec::new(),
+            branches: review::BranchViews::default(),
+            tasks: tasks::Tasks::default(),
             next_run_id: 0,
             ui: Rc::new(ViewState::default()),
             placeholder,
@@ -363,6 +535,39 @@ impl ChatPane {
         cx.notify();
     }
 
+    /// The effort chosen for each harness (e.g. from saved settings); a
+    /// harness without one runs at its default. Does not emit
+    /// [`ChatEvent::HarnessSelected`].
+    pub fn set_efforts(&mut self, efforts: HashMap<HarnessId, String>, cx: &mut Context<Self>) {
+        self.efforts = efforts;
+        cx.notify();
+    }
+
+    /// The effort of the harness in use, as the picker shows it (its
+    /// default when none was chosen); `None` when it offers no efforts.
+    pub fn effort(&self) -> Option<String> {
+        let (index, _) = self.resolved()?;
+        let info = &self.infos[index];
+        shown_effort(info, self.efforts.get(&info.id).map(String::as_str))
+    }
+
+    /// The efforts the harness in use offers, lowest first.
+    pub fn efforts_offered(&self) -> Vec<String> {
+        self.resolved()
+            .map(|(index, _)| self.infos[index].efforts.clone())
+            .unwrap_or_default()
+    }
+
+    /// Where the open picker's pill for `effort` is, as last laid out.
+    pub fn effort_pill_bounds(&self, effort: &str) -> Option<Bounds<Pixels>> {
+        self.popover.as_ref()?;
+        self.effort_bounds
+            .borrow()
+            .iter()
+            .find(|(known, _)| known == effort)
+            .map(|(_, bounds)| *bounds)
+    }
+
     /// The harness and model the next message goes to.
     pub fn selection(&self) -> Option<(HarnessId, Option<String>)> {
         self.resolved()
@@ -389,6 +594,7 @@ impl ChatPane {
             self.restore_to_composer(queued.prompt);
         }
         self.queued.clear();
+        self.finished.clear();
         self.attachments.clear();
         self.exclusions.clear();
         self.notice = None;
@@ -480,6 +686,7 @@ impl ChatPane {
             return;
         }
         self.runs[index].stopping = true;
+        self.task_stopping(thread_id);
         self.unqueue(thread_id, cx);
         let run = &self.runs[index];
         let run_id = run.id;
@@ -508,6 +715,23 @@ impl ChatPane {
         }
     }
 
+    /// Stops every running turn (quitting, switching paper).
+    pub fn stop_all(&mut self, cx: &mut Context<Self>) {
+        let threads: Vec<String> = self.runs.iter().map(|run| run.thread_id.clone()).collect();
+        for thread in threads {
+            self.stop_thread(&thread, cx);
+        }
+    }
+
+    /// Forgets that the turn of thread `id` ended unseen.
+    pub fn dismiss_finished(&mut self, id: &str, cx: &mut Context<Self>) {
+        let before = self.finished.len();
+        self.finished.retain(|finished| finished.id != id);
+        if self.finished.len() != before {
+            cx.notify();
+        }
+    }
+
     /// Starts a fresh thread; the current one stays in the list (and keeps
     /// running when its turn is not done).
     pub fn new_thread(&mut self, window: &mut Window, cx: &mut Context<Self>) {
@@ -516,7 +740,9 @@ impl ChatPane {
             let thread = self.fresh_thread();
             self.install_thread(thread, cx);
         }
+        self.thread.mode = None;
         self.focus_composer(window, cx);
+        cx.notify();
     }
 
     /// Shows the thread `id` (live when its turn is running).
@@ -558,6 +784,8 @@ impl ChatPane {
         }
         self.queued.remove(id);
         self.background.remove(id);
+        self.finished.retain(|finished| finished.id != id);
+        self.forget_task(id);
         if let Some(store) = &self.store
             && let Err(err) = store.delete(id)
         {
@@ -583,8 +811,8 @@ impl ChatPane {
         cx.notify();
     }
 
-    /// The threads of the paper for a list: the ones running, then the
-    /// others, newest first.
+    /// The threads of the paper for a list: every thread (running ones on
+    /// top), the turns running, and the ones that ended unseen.
     pub fn threads_overview(&self) -> ThreadsOverview {
         let running = self
             .runs
@@ -605,17 +833,40 @@ impl ChatPane {
                 })
             })
             .collect::<Vec<_>>();
-        let recent = self
-            .recent
-            .iter()
-            .filter(|summary| !running.iter().any(|run| run.id == summary.id))
-            .cloned()
-            .collect();
+        let mut recent = self.recent.clone();
+        for run in &self.runs {
+            if recent.iter().any(|summary| summary.id == run.thread_id) {
+                continue;
+            }
+            if let Some(thread) = self.thread_of(&run.thread_id) {
+                recent.push(ThreadSummary {
+                    id: thread.id.clone(),
+                    title: thread.title(),
+                    updated_at: thread.updated_at,
+                    turns: thread.turns.len(),
+                });
+            }
+        }
+        let started = |id: &str| {
+            running
+                .iter()
+                .find(|thread| thread.id == id)
+                .map(|thread| thread.started_at)
+        };
+        recent.sort_by(|a, b| match (started(&a.id), started(&b.id)) {
+            (Some(a), Some(b)) => b.cmp(&a),
+            (Some(_), None) => std::cmp::Ordering::Less,
+            (None, Some(_)) => std::cmp::Ordering::Greater,
+            (None, None) => b.updated_at.cmp(&a.updated_at).then(a.id.cmp(&b.id)),
+        });
         ThreadsOverview {
             running,
+            finished: self.finished.clone(),
             recent,
             current: self.thread.id.clone(),
             current_is_new: self.thread.is_empty(),
+            current_is_discovery: self.mode().as_deref() == Some(DISCOVER),
+            discovery_available: self.discovery_available(),
         }
     }
 
@@ -624,7 +875,7 @@ impl ChatPane {
         self.runs.len()
     }
 
-    /// Whether a turn is running (including one being stopped).    /// Whether a turn is running in any thread (including one being
+    /// Whether a turn is running in any thread (including one being
     /// stopped).
     pub fn is_running(&self) -> bool {
         !self.runs.is_empty()
@@ -635,15 +886,135 @@ impl ChatPane {
         self.current_run().is_some()
     }
 
-    /// Where the harness and model picker chip is, as last laid out
-    /// (window coordinates).
+    /// Where the model picker's trigger is, as last laid out (window
+    /// coordinates).
     pub fn picker_bounds(&self) -> Bounds<Pixels> {
         self.picker_bounds.get()
     }
 
-    /// Which popover is open: "agent" (the picker).
+    /// Which popover is open: "agent" (the model picker) or "mode" (the
+    /// mode menu).
     pub fn open_popover(&self) -> Option<&'static str> {
-        self.popover.as_ref().map(|_| "agent")
+        if self.popover.is_some() {
+            Some("agent")
+        } else if self.mode_menu.is_some() {
+            Some("mode")
+        } else {
+            None
+        }
+    }
+
+    /// The mode messages of the thread on screen go out in: a capability
+    /// of the harness in use (`None`: "Ask", a plain turn).
+    pub fn mode(&self) -> Option<String> {
+        self.active_capability()
+            .map(|capability| capability.id.clone())
+    }
+
+    /// The modes the harness in use offers: "Ask", then its capabilities.
+    pub fn modes(&self) -> Vec<ModeEntry> {
+        mode_entries(self.resolved_info())
+    }
+
+    /// Sends the thread on screen's next messages in mode `id` (`None`:
+    /// "Ask").
+    pub fn set_mode(&mut self, id: Option<String>, cx: &mut Context<Self>) {
+        if self.thread.mode == id {
+            return;
+        }
+        self.thread.mode = id;
+        if !self.thread.is_empty() {
+            self.save_thread();
+        }
+        cx.notify();
+    }
+
+    /// What the composer holds.
+    pub fn composer_text(&self, cx: &App) -> String {
+        self.input.read(cx).value().to_string()
+    }
+
+    /// The composer's placeholder for the harness and mode in use.
+    pub fn placeholder(&self) -> SharedString {
+        placeholder_for(
+            &self.infos,
+            self.resolved().as_ref(),
+            self.thread.mode.as_deref(),
+        )
+    }
+
+    /// Where the mode pill is, as last laid out (window coordinates).
+    pub fn mode_pill_bounds(&self) -> Bounds<Pixels> {
+        self.mode_bounds.get()
+    }
+
+    /// Whether a usable harness offers discovery.
+    pub fn discovery_available(&self) -> bool {
+        self.infos.iter().any(can_discover)
+    }
+
+    /// A fresh thread in Discover mode, its composer holding the starter
+    /// lines (goal, metrics, data, budget) with the caret after "Goal:".
+    /// Switches to a harness that can discover when the one in use cannot.
+    pub fn new_discovery(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if !self.resolved_info().is_some_and(can_discover) {
+            let Some(id) = self
+                .infos
+                .iter()
+                .find(|info| can_discover(info))
+                .map(|info| info.id.clone())
+            else {
+                return;
+            };
+            self.pick(id, None, cx);
+        }
+        self.new_thread(window, cx);
+        self.thread.mode = Some(DISCOVER.to_string());
+        if self.input.read(cx).value().trim().is_empty() {
+            let caret = DISCOVERY_STARTER
+                .find('\n')
+                .unwrap_or(DISCOVERY_STARTER.len());
+            self.input.update(cx, |input, cx| {
+                input.set_value(DISCOVERY_STARTER.to_string(), window, cx);
+                input.set_selected_range(caret..caret, cx);
+            });
+        }
+        self.focus_composer(window, cx);
+        cx.notify();
+    }
+
+    /// Tells the pane which harness the app is setting up (`None`: none);
+    /// its heading in the picker then says "setting up…".
+    pub fn set_setting_up(&mut self, harness: Option<HarnessId>, cx: &mut Context<Self>) {
+        if self.setting_up != harness {
+            self.setting_up = harness;
+            cx.notify();
+        }
+    }
+
+    /// The models the open picker lists, in order (empty when it is
+    /// closed).
+    pub fn picker_models(&self) -> Vec<PickerModel> {
+        self.picker_rows()
+            .into_iter()
+            .filter_map(|row| match row {
+                PickerRow::Model(row) => Some(PickerModel {
+                    harness: row.harness,
+                    model: row.model,
+                    name: row.name,
+                    enabled: row.enabled,
+                    selected: row.selected,
+                }),
+                PickerRow::Group { .. } | PickerRow::Reason(_) => None,
+            })
+            .collect()
+    }
+
+    /// Whether the open picker shows its search field.
+    pub fn picker_has_search(&self) -> bool {
+        self.popover
+            .as_ref()
+            .is_some_and(|popover| popover.search.is_some())
     }
 
     /// Marks a turn as undone or not (e.g. to revert after a failed undo).
@@ -671,7 +1042,42 @@ impl ChatPane {
         cx.emit(ChatEvent::OpenFile { path });
     }
 
+    /// A thread off screen whose branch waits for a review: listed as
+    /// finished unseen, "Needs review".
+    fn mark_needs_review(&mut self, thread: &str) {
+        if let Some(finished) = self.finished.iter_mut().find(|f| f.id == thread) {
+            finished.outcome = NEEDS_REVIEW.to_string();
+            finished.success = true;
+            return;
+        }
+        if thread == self.thread.id {
+            return;
+        }
+        let Some(summary) = self.recent.iter().find(|summary| summary.id == thread) else {
+            return;
+        };
+        let now = Utc::now();
+        self.finished.push(FinishedThread {
+            id: summary.id.clone(),
+            title: summary.title.clone(),
+            success: true,
+            files_changed: 0,
+            error: None,
+            outcome: NEEDS_REVIEW.to_string(),
+            started_at: summary.updated_at,
+            finished_at: now.max(summary.updated_at),
+        });
+    }
+
     pub(crate) fn undo_turn(&mut self, turn_id: &str, cx: &mut Context<Self>) {
+        // The footer's "Applied" goes with the undo.
+        let thread = self.thread.id.clone();
+        if matches!(
+            self.branches.views.get(&thread),
+            Some(BranchView::Applied { turn, .. }) if turn == turn_id
+        ) {
+            self.branches.views.remove(&thread);
+        }
         if self.current_run().is_some() {
             return;
         }
@@ -727,8 +1133,36 @@ impl ChatPane {
             self.thread.model = model.clone();
             self.save_thread();
         }
-        cx.emit(ChatEvent::HarnessSelected { harness, model });
+        let effort = self.efforts.get(&harness).cloned();
+        cx.emit(ChatEvent::HarnessSelected {
+            harness,
+            model,
+            effort,
+        });
         cx.notify();
+    }
+
+    /// Runs the harness in use at `effort` from now on.
+    fn pick_effort(&mut self, effort: String, cx: &mut Context<Self>) {
+        let Some((index, model)) = self.resolved() else {
+            return;
+        };
+        let harness = self.infos[index].id.clone();
+        if !self.infos[index].efforts.contains(&effort) {
+            return;
+        }
+        self.efforts.insert(harness.clone(), effort.clone());
+        cx.emit(ChatEvent::HarnessSelected {
+            harness,
+            model,
+            effort: Some(effort),
+        });
+        cx.notify();
+    }
+
+    /// The effort the next turn runs at (`None`: the harness default).
+    fn turn_effort(&self, info: &HarnessInfo) -> Option<String> {
+        resolve_effort(info, self.efforts.get(&info.id).map(String::as_str))
     }
 
     // -- Threads -------------------------------------------------------------
@@ -743,7 +1177,14 @@ impl ChatPane {
     }
 
     fn install_thread(&mut self, thread: Thread, cx: &mut Context<Self>) {
-        self.thread = thread;
+        let previous = std::mem::replace(&mut self.thread, thread).id;
+        self.boards_follow(&previous, cx);
+        cx.emit(ChatEvent::ThreadShown {
+            thread: self.thread.id.clone(),
+        });
+        // Shown: no longer unseen.
+        let shown = self.thread.id.clone();
+        self.finished.retain(|finished| finished.id != shown);
         // A thread remembers its harness; adopt it when it can run.
         if let Some(harness) = self.thread.harness.clone()
             && self
@@ -878,7 +1319,7 @@ impl ChatPane {
 
     /// Applies what changed the composer outside of an event with a window.
     fn sync_composer(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        let placeholder = placeholder_for(&self.infos, self.resolved().as_ref());
+        let placeholder = self.placeholder();
         if placeholder != self.placeholder {
             self.placeholder = placeholder.clone();
             self.input.update(cx, |input, cx| {
@@ -999,69 +1440,131 @@ impl ChatPane {
         cx.notify();
     }
 
-    // -- Popovers ----------------------------------------------------------
+    // -- The model picker ----------------------------------------------------
 
-    /// Opens a popover, or closes it when it is the one open.
-    fn toggle_popover(&mut self, kind: PopoverKind, window: &mut Window, cx: &mut Context<Self>) {
-        if self.popover.as_ref().is_some_and(|p| p.kind == kind) {
+    /// Opens the model picker, or closes it when it is open.
+    fn toggle_picker(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.popover.is_some() {
             self.close_popover(window, cx);
             return;
         }
-        if kind == PopoverKind::Agent {
-            self.refresh_harness_info(cx);
+        self.close_mode_menu(window, cx);
+        self.refresh_harness_info(cx);
+        let search = (model_count(&self.infos) > PICKER_SEARCH_ABOVE)
+            .then(|| cx.new(|cx| InputState::new(window, cx).placeholder("Search models")));
+        let search_events = search
+            .as_ref()
+            .map(|search| cx.subscribe_in(search, window, Self::on_search_event));
+        self.popover = Some(Popover {
+            highlighted: None,
+            query: String::new(),
+            search: search.clone(),
+            _search_events: search_events,
+        });
+        self.picker_scroll = ScrollHandle::new();
+        self.reset_highlight();
+        match search {
+            Some(search) => search.update(cx, |search, cx| search.focus(window, cx)),
+            None => self.popover_focus.focus(window, cx),
         }
-        let rows = self.popover_rows(kind);
-        let highlighted = rows
-            .iter()
-            .rposition(|row| row.checked && row.enabled)
-            .or_else(|| rows.iter().position(|row| row.enabled));
-        self.popover = Some(Popover { kind, highlighted });
-        self.popover_focus.focus(window, cx);
         cx.notify();
     }
 
     fn close_popover(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        if self.popover.take().is_some() {
-            if self.popover_focus.is_focused(window) {
-                self.input.update(cx, |input, cx| input.focus(window, cx));
-            }
-            cx.notify();
+        let Some(popover) = self.popover.take() else {
+            return;
+        };
+        let search_focused = popover
+            .search
+            .as_ref()
+            .is_some_and(|search| search.focus_handle(cx).is_focused(window));
+        if search_focused || self.popover_focus.is_focused(window) {
+            self.input.update(cx, |input, cx| input.focus(window, cx));
+        }
+        cx.notify();
+    }
+
+    /// The picker's rows, as it shows them now (none when it is closed).
+    fn picker_rows(&self) -> Vec<PickerRow> {
+        let Some(popover) = self.popover.as_ref() else {
+            return Vec::new();
+        };
+        picker_rows(
+            &self.infos,
+            self.resolved().as_ref(),
+            self.setting_up.as_ref(),
+            &popover.query,
+        )
+    }
+
+    /// Highlights the model in use (or the first pickable one) and scrolls
+    /// it into view.
+    fn reset_highlight(&mut self) {
+        let highlighted = initial_highlight(&self.picker_rows());
+        if let Some(popover) = self.popover.as_mut() {
+            popover.highlighted = highlighted;
+        }
+        if let Some(index) = highlighted {
+            self.picker_scroll.scroll_to_item(index);
         }
     }
 
-    /// The rows of a popover, as it shows them now.
-    fn popover_rows(&self, kind: PopoverKind) -> Vec<PopoverRow> {
-        match kind {
-            PopoverKind::Agent => agent_rows(&self.infos, self.resolved().as_ref()),
+    fn set_picker_query(&mut self, query: String, cx: &mut Context<Self>) {
+        let Some(popover) = self.popover.as_mut() else {
+            return;
+        };
+        if popover.query == query {
+            return;
+        }
+        popover.query = query;
+        self.reset_highlight();
+        cx.notify();
+    }
+
+    fn on_search_event(
+        &mut self,
+        search: &Entity<InputState>,
+        event: &InputEvent,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        match event {
+            InputEvent::Change => {
+                let query = search.read(cx).value().to_string();
+                self.set_picker_query(query, cx);
+            }
+            InputEvent::PressEnter { .. } => self.confirm_highlight(window, cx),
+            InputEvent::Focus | InputEvent::Blur => {}
         }
     }
 
     fn move_highlight(&mut self, step: isize, cx: &mut Context<Self>) {
-        let Some(kind) = self.popover.as_ref().map(|p| p.kind) else {
-            return;
-        };
-        let rows = self.popover_rows(kind);
+        let rows = self.picker_rows();
         let current = self.popover.as_ref().and_then(|p| p.highlighted);
         if let Some(next) = step_highlight(&rows, current, step)
             && let Some(popover) = self.popover.as_mut()
         {
             popover.highlighted = Some(next);
+            self.picker_scroll.scroll_to_item(next);
             cx.notify();
         }
     }
 
+    /// Picks the model on `index`: its harness and the model, in one go.
     fn pick_row(&mut self, index: usize, window: &mut Window, cx: &mut Context<Self>) {
-        let Some(kind) = self.popover.as_ref().map(|p| p.kind) else {
+        let Some(PickerRow::Model(row)) = self.picker_rows().into_iter().nth(index) else {
             return;
         };
-        let rows = self.popover_rows(kind);
-        let Some(row) = rows.get(index).filter(|row| row.enabled).cloned() else {
+        if !row.enabled {
             return;
-        };
+        }
         self.close_popover(window, cx);
-        match row.action {
-            RowAction::Harness(harness) => self.pick(harness, None, cx),
-            RowAction::Model { harness, model } => self.pick(harness, Some(model), cx),
+        self.pick(row.harness, row.model, cx);
+    }
+
+    fn confirm_highlight(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if let Some(index) = self.popover.as_ref().and_then(|p| p.highlighted) {
+            self.pick_row(index, window, cx);
         }
     }
 
@@ -1077,9 +1580,78 @@ impl ChatPane {
         self.move_highlight(1, cx);
     }
 
-    fn on_popover_confirm(&mut self, _: &PopoverConfirm, window: &mut Window, cx: &mut Context<Self>) {
-        if let Some(index) = self.popover.as_ref().and_then(|p| p.highlighted) {
-            self.pick_row(index, window, cx);
+    fn on_popover_confirm(
+        &mut self,
+        _: &PopoverConfirm,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.confirm_highlight(window, cx);
+    }
+
+    // -- The mode menu ---------------------------------------------------------
+
+    /// Opens the mode menu, or closes it when it is open.
+    fn toggle_mode_menu(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.mode_menu.is_some() {
+            self.close_mode_menu(window, cx);
+            return;
+        }
+        self.close_popover(window, cx);
+        self.refresh_harness_info(cx);
+        let current = self.mode();
+        let highlighted = self
+            .modes()
+            .iter()
+            .position(|entry| entry.id == current)
+            .unwrap_or(0);
+        self.mode_menu = Some(highlighted);
+        self.mode_focus.focus(window, cx);
+        cx.notify();
+    }
+
+    fn close_mode_menu(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if self.mode_menu.take().is_some() {
+            if self.mode_focus.is_focused(window) {
+                self.input.update(cx, |input, cx| input.focus(window, cx));
+            }
+            cx.notify();
+        }
+    }
+
+    fn pick_mode(&mut self, index: usize, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(entry) = self.modes().into_iter().nth(index) else {
+            return;
+        };
+        self.close_mode_menu(window, cx);
+        self.set_mode(entry.id, cx);
+    }
+
+    fn step_mode(&mut self, step: isize, cx: &mut Context<Self>) {
+        let count = self.modes().len();
+        if let Some(highlighted) = self.mode_menu.as_mut()
+            && count > 0
+        {
+            *highlighted = (*highlighted as isize + step).rem_euclid(count as isize) as usize;
+            cx.notify();
+        }
+    }
+
+    fn on_mode_close(&mut self, _: &ClosePopover, window: &mut Window, cx: &mut Context<Self>) {
+        self.close_mode_menu(window, cx);
+    }
+
+    fn on_mode_up(&mut self, _: &PopoverUp, _: &mut Window, cx: &mut Context<Self>) {
+        self.step_mode(-1, cx);
+    }
+
+    fn on_mode_down(&mut self, _: &PopoverDown, _: &mut Window, cx: &mut Context<Self>) {
+        self.step_mode(1, cx);
+    }
+
+    fn on_mode_confirm(&mut self, _: &PopoverConfirm, window: &mut Window, cx: &mut Context<Self>) {
+        if let Some(index) = self.mode_menu {
+            self.pick_mode(index, window, cx);
         }
     }
 
@@ -1123,7 +1695,34 @@ impl ChatPane {
         cx: &mut Context<Self>,
     ) -> bool {
         let id = self.thread.id.clone();
-        self.start_turn_in(&id, prompt, attachments, editor, context_labels, cx)
+        let long_running = self
+            .active_capability()
+            .is_some_and(|capability| capability.long_running);
+        let started = self.start_turn_in(&id, prompt, attachments, editor, context_labels, cx);
+        if started && long_running {
+            self.send_to_background(cx);
+        }
+        started
+    }
+
+    /// The thread on screen goes on in the background (its turn runs in a
+    /// long-running mode); a fresh thread takes its place.
+    fn send_to_background(&mut self, cx: &mut Context<Self>) {
+        let (thread, title) = (self.thread.id.clone(), self.thread.title());
+        self.set_aside_current();
+        let fresh = self.fresh_thread();
+        self.install_thread(fresh, cx);
+        cx.emit(ChatEvent::StartedInBackground { thread, title });
+    }
+
+    /// The info of the harness in use.
+    fn resolved_info(&self) -> Option<&HarnessInfo> {
+        self.resolved().map(|(index, _)| &self.infos[index])
+    }
+
+    /// The capability the thread on screen's messages go out as.
+    fn active_capability(&self) -> Option<&Capability> {
+        find_capability(self.resolved_info()?, self.thread.mode.as_deref())
     }
 
     /// [`Self::start_turn`] in thread `thread_id` (on screen or not).
@@ -1140,6 +1739,13 @@ impl ChatPane {
             !self.runs.iter().any(|run| run.thread_id == thread_id),
             "one turn per thread"
         );
+        if self.branch_pending(thread_id) {
+            self.show_notice(
+                "Apply or discard this thread's changes first; the next message starts afresh.",
+                cx,
+            );
+            return false;
+        }
         let Some(paper) = self.paper.clone() else {
             self.show_notice("Open a paper to talk to the agent.", cx);
             return false;
@@ -1156,8 +1762,15 @@ impl ChatPane {
         let on_screen = thread_id == self.thread.id;
 
         let turn_id = new_id();
+        let effort = self.turn_effort(&info);
+        let capability = self
+            .thread_of(thread_id)
+            .and_then(|thread| find_capability(&info, thread.mode.as_deref()))
+            .map(|capability| capability.id.clone());
         let mut turn = Turn::new(turn_id.clone(), prompt.clone(), info.id.clone());
         turn.model = model.clone();
+        turn.effort = effort.clone();
+        turn.capability = capability.clone();
         turn.attachments = attachments.clone();
         turn.context = context_labels;
         let Some(thread) = self.thread_of_mut(thread_id) else {
@@ -1175,7 +1788,14 @@ impl ChatPane {
             });
         }
 
-        let request = build_request(&paper, &editor, &prompt, model, session, attachments);
+        let mut request = build_request(&paper, &editor, &prompt, model, session, attachments);
+        request.effort = effort;
+        request.capability = capability;
+        let title = self
+            .thread_of(thread_id)
+            .map(Thread::title)
+            .unwrap_or_default();
+        self.begin_task(thread_id, &info, &request, title, cx);
         self.next_run_id += 1;
         let run_id = self.next_run_id;
         self.runs.push(ActiveRun {
@@ -1193,7 +1813,7 @@ impl ChatPane {
             turn: turn_id.clone(),
         });
         if let Some(hook) = self.before_turn.clone() {
-            hook(&turn_id, &prompt, cx);
+            hook(thread_id, &turn_id, &prompt, cx);
         }
         if on_screen {
             self.save_thread();
@@ -1267,7 +1887,8 @@ impl ChatPane {
         let Some(thread) = self.thread_of_mut(&thread_id) else {
             return;
         };
-        let applied = thread.apply(&turn_id, event);
+        let applied = thread.apply(&turn_id, event.clone());
+        self.task_event(&thread_id, &event, cx);
         if let Some(path) = applied.file_changed {
             cx.emit(ChatEvent::FileChanged { path });
         }
@@ -1327,11 +1948,47 @@ impl ChatPane {
             .thread_of(&run.thread_id)
             .and_then(|thread| thread.turn(&run.turn_id))
             .map(|turn| turn.status.clone());
+        let reason = match &status {
+            Some(TurnStatus::Failed { message }) => Some(message.clone()),
+            _ => None,
+        };
+        self.end_task(
+            &run.thread_id,
+            status == Some(TurnStatus::Succeeded),
+            reason,
+            cx,
+        );
         cx.emit(ChatEvent::TurnFinished {
+            thread: run.thread_id.clone(),
             turn: run.turn_id.clone(),
             success: status == Some(TurnStatus::Succeeded),
         });
         let on_screen = run.thread_id == self.thread.id;
+        // Ended out of sight, and not because the user stopped it: worth
+        // telling.
+        if !on_screen
+            && !run.stopping
+            && let Some(finished) = self.thread_of(&run.thread_id).and_then(|thread| {
+                let turn = thread.turn(&run.turn_id)?;
+                Some(FinishedThread {
+                    id: thread.id.clone(),
+                    title: thread.title(),
+                    success: turn.status == TurnStatus::Succeeded,
+                    files_changed: turn.files_changed.len(),
+                    error: match &turn.status {
+                        TurnStatus::Failed { message } => Some(message.clone()),
+                        _ => None,
+                    },
+                    outcome: turn.outcome(),
+                    started_at: turn.started_at,
+                    finished_at: turn.finished_at.unwrap_or_else(Utc::now),
+                })
+            })
+        {
+            self.finished.retain(|known| known.id != finished.id);
+            self.finished.push(finished.clone());
+            cx.emit(ChatEvent::FinishedOffScreen(finished));
+        }
         if on_screen {
             self.save_thread();
         } else {
@@ -1375,8 +2032,14 @@ impl ChatPane {
             .collect();
         let effective = effective_context(&editor, &none);
         let id = thread_id.to_string();
-        if !self.start_turn_in(&id, queued.prompt, queued.attachments, effective, labels, cx)
-            && id != self.thread.id
+        if !self.start_turn_in(
+            &id,
+            queued.prompt,
+            queued.attachments,
+            effective,
+            labels,
+            cx,
+        ) && id != self.thread.id
         {
             self.background.remove(&id);
         }
@@ -1393,7 +2056,10 @@ impl ChatPane {
         if let Some(thread) = self.thread_of_mut(&run.thread_id) {
             thread.stop_turn(&run.turn_id);
         }
+        self.task_stopping(&run.thread_id);
+        self.end_task(&run.thread_id, false, None, cx);
         cx.emit(ChatEvent::TurnFinished {
+            thread: run.thread_id,
             turn: run.turn_id,
             success: false,
         });
@@ -1452,36 +2118,44 @@ impl ChatPane {
             .into_any_element()
     }
 
-    /// A popover: a raised card of rows, our own spacing.
-    fn render_popover(&self, kind: PopoverKind, k: &Tokens, cx: &mut Context<Self>) -> AnyElement {
-        let rows = self.popover_rows(kind);
+    /// The model picker: a raised card listing every model of every
+    /// harness, grouped by harness.
+    fn render_popover(&self, k: &Tokens, cx: &mut Context<Self>) -> AnyElement {
+        let rows = self.picker_rows();
         let highlighted = self.popover.as_ref().and_then(|p| p.highlighted);
-        let mut children: Vec<AnyElement> = Vec::new();
-        let mut section = None;
-        for (index, row) in rows.into_iter().enumerate() {
-            if section != Some(row.section) {
-                if section.is_some() {
-                    children.push(
-                        div()
-                            .my(px(8.))
-                            .child(oyl_ui::hairline(cx))
-                            .into_any_element(),
-                    );
-                }
-                if let Some(label) = row.heading {
-                    children.push(
-                        oyl_ui::eyebrow(label, cx)
-                            .px(px(10.))
-                            .pb(px(6.))
-                            .into_any_element(),
-                    );
-                }
-                section = Some(row.section);
+        let search = self.popover.as_ref().and_then(|p| p.search.clone());
+        let efforts = self.render_efforts(k, cx);
+        let list_max = PICKER_MAX_HEIGHT
+            - 2. * PICKER_PADDING
+            - if search.is_some() {
+                PICKER_SEARCH_HEIGHT + PICKER_SEARCH_GAP
+            } else {
+                0.
             }
-            children.push(self.render_row(index, row, highlighted == Some(index), k, cx));
-        }
-        let picker = self.picker_bounds.clone();
+            - if efforts.is_some() {
+                PICKER_EFFORT_HEIGHT
+            } else {
+                0.
+            };
+        let empty = rows.is_empty().then(|| {
+            div()
+                .h_flex()
+                .h(px(PICKER_ROW_HEIGHT))
+                .px(px(10.))
+                .text_xs()
+                .text_color(k.text_faint)
+                .child("No model matches")
+        });
+        let children: Vec<AnyElement> = rows
+            .into_iter()
+            .enumerate()
+            .map(|(index, row)| {
+                self.render_picker_row(index, row, highlighted == Some(index), k, cx)
+            })
+            .collect();
+        let trigger = self.picker_bounds.clone();
         oyl_ui::raised(cx)
+            .rounded(k.radius_m)
             .id("chat-popover")
             .key_context(POPOVER_CONTEXT)
             .track_focus(&self.popover_focus)
@@ -1489,86 +2163,232 @@ impl ChatPane {
             .on_action(cx.listener(Self::on_popover_up))
             .on_action(cx.listener(Self::on_popover_down))
             .on_action(cx.listener(Self::on_popover_confirm))
-            .on_mouse_down_out(cx.listener(move |this, event: &gpui_kit::MouseDownEvent, window, cx| {
-                // A press on the popover's own button toggles it there.
-                if !picker.get().contains(&event.position) {
-                    this.close_popover(window, cx);
-                }
-            }))
+            .on_action(cx.listener(|this, _: &Escape, window, cx| this.close_popover(window, cx)))
+            .on_mouse_down_out(cx.listener(
+                move |this, event: &gpui_kit::MouseDownEvent, window, cx| {
+                    // A press on the trigger toggles the picker there.
+                    if !trigger.get().contains(&event.position) {
+                        this.close_popover(window, cx);
+                    }
+                },
+            ))
             .occlude()
-            .w(px(POPOVER_WIDTH))
-            .p(px(POPOVER_PADDING))
+            .w(px(PICKER_WIDTH))
+            .p(px(PICKER_PADDING))
             .v_flex()
             .font_family(k.ui_font.clone())
             .text_color(k.text)
+            .children(search.map(|search| {
+                div()
+                    .flex_none()
+                    .v_flex()
+                    .h(px(PICKER_SEARCH_HEIGHT))
+                    .mb(px(PICKER_SEARCH_GAP))
+                    .child(
+                        Input::new(&search)
+                            .appearance(false)
+                            .xsmall()
+                            .h(px(PICKER_SEARCH_HEIGHT - 1.))
+                            .px(px(10.))
+                            .py(px(8.))
+                            .text_xs(),
+                    )
+                    .child(oyl_ui::hairline(cx))
+            }))
             .child(
                 div()
-                    .id("chat-popover-rows")
-                    .v_flex()
-                    .max_h(px(POPOVER_MAX_HEIGHT))
-                    .overflow_y_scroll()
-                    .children(children),
+                    .relative()
+                    .child(
+                        div()
+                            .id("chat-popover-rows")
+                            .track_scroll(&self.picker_scroll)
+                            .overflow_y_scroll()
+                            .max_h(px(list_max))
+                            .v_flex()
+                            .children(children)
+                            .children(empty),
+                    )
+                    .vertical_scrollbar(&self.picker_scroll),
             )
+            .children(efforts)
             .into_any_element()
     }
 
-    fn render_row(
+    /// Under the models: the efforts the harness in use offers, as a row of
+    /// small pills (none when it offers none).
+    fn render_efforts(&self, k: &Tokens, cx: &mut Context<Self>) -> Option<AnyElement> {
+        let offered = self.efforts_offered();
+        if offered.is_empty() {
+            return None;
+        }
+        let current = self.effort();
+        let measured = self.effort_bounds.clone();
+        measured.borrow_mut().clear();
+        let (accent, accent_soft, faint, soft) =
+            (k.accent, k.accent_soft, k.text_faint, k.text_soft);
+        let pills = offered.into_iter().enumerate().map(|(index, effort)| {
+            let selected = current.as_deref() == Some(effort.as_str());
+            let (picked, bounds, all) = (effort.clone(), effort.clone(), measured.clone());
+            div()
+                .id(("chat-effort", index))
+                .relative()
+                .h(px(PICKER_PILL_HEIGHT))
+                .px(px(8.))
+                .flex()
+                .items_center()
+                .rounded(k.radius_s)
+                .text_xs()
+                .cursor_pointer()
+                .map(|this| {
+                    if selected {
+                        this.bg(accent_soft).text_color(accent)
+                    } else {
+                        this.text_color(faint)
+                            .hover(move |style| style.text_color(soft))
+                    }
+                })
+                .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+                .on_click(cx.listener(move |this, _, _, cx| this.pick_effort(picked.clone(), cx)))
+                .child(effort)
+                .child(
+                    canvas(
+                        move |b, _, _| {
+                            let mut all = all.borrow_mut();
+                            all.retain(|(known, _)| *known != bounds);
+                            all.push((bounds.clone(), b));
+                        },
+                        |_, _, _, _| {},
+                    )
+                    .absolute()
+                    .size_full(),
+                )
+        });
+        Some(
+            div()
+                .flex_none()
+                .v_flex()
+                .h(px(PICKER_EFFORT_HEIGHT))
+                .pt(px(4.))
+                .child(oyl_ui::hairline(cx))
+                .child(
+                    div()
+                        .h(px(22.))
+                        .px(px(10.))
+                        .flex()
+                        .items_end()
+                        .pb(px(4.))
+                        .child(oyl_ui::eyebrow("Effort", cx)),
+                )
+                .child(
+                    div()
+                        .h(px(PICKER_PILL_HEIGHT + 4.))
+                        .px(px(6.))
+                        .h_flex()
+                        .gap(px(2.))
+                        .children(pills),
+                )
+                .into_any_element(),
+        )
+    }
+
+    fn render_picker_row(
         &self,
         index: usize,
-        row: PopoverRow,
+        row: PickerRow,
         highlighted: bool,
         k: &Tokens,
         cx: &mut Context<Self>,
     ) -> AnyElement {
-        let hover = k.surface_hover;
-        let title_color = if row.enabled { k.text } else { k.text_faint };
-        div()
-            .id(("chat-popover-row", index))
-            .h_flex()
-            .gap(px(8.))
-            .px(px(10.))
-            .py(px(8.))
-            .rounded(k.radius_m)
-            .when(highlighted && row.enabled, |this| this.bg(hover))
-            .when(row.enabled, |this| {
-                this.cursor_pointer()
-                    .hover(move |style| style.bg(hover))
-                    .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
-                    .on_click(cx.listener(move |this, _, window, cx| {
-                        this.pick_row(index, window, cx)
-                    }))
-            })
-            .child(
+        match row {
+            PickerRow::Group {
+                name,
+                status,
+                first,
+            } => div()
+                .id(("chat-picker-row", index))
+                .h_flex()
+                .flex_none()
+                .h(px(PICKER_GROUP_HEIGHT))
+                .when(!first, |this| this.mt(px(PICKER_GROUP_GAP)))
+                .px(px(10.))
+                .gap(px(8.))
+                .text_xs()
+                .text_color(k.text_faint)
+                .child(div().flex_none().font_medium().child(name))
+                .child(
+                    div()
+                        .flex_1()
+                        .min_w_0()
+                        .truncate()
+                        .text_right()
+                        .child(status),
+                )
+                .into_any_element(),
+            PickerRow::Reason(reason) => div()
+                .id(("chat-picker-row", index))
+                .flex_none()
+                .px(px(10.))
+                .pb(px(4.))
+                .text_xs()
+                .text_color(k.text_faint)
+                .child(reason)
+                .into_any_element(),
+            PickerRow::Model(row) => {
+                let hover = k.surface_hover;
+                let name_color = if row.selected {
+                    k.accent
+                } else if row.enabled {
+                    k.text
+                } else {
+                    k.text_faint
+                };
                 div()
-                    .v_flex()
-                    .flex_1()
-                    .min_w_0()
-                    .gap(px(1.))
+                    .id(("chat-picker-row", index))
+                    .h_flex()
+                    .flex_none()
+                    .h(px(PICKER_ROW_HEIGHT))
+                    .px(px(10.))
+                    .gap(px(6.))
+                    .rounded(k.radius_s)
+                    .text_sm()
+                    .when(highlighted && row.enabled, |this| this.bg(hover))
+                    .when(row.enabled, |this| {
+                        this.cursor_pointer()
+                            .hover(move |style| style.bg(hover))
+                            .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+                            .on_click(cx.listener(move |this, _, window, cx| {
+                                this.pick_row(index, window, cx)
+                            }))
+                    })
                     .child(
                         div()
+                            .flex_shrink_0()
+                            .max_w(px(PICKER_WIDTH * 0.6))
                             .truncate()
-                            .text_sm()
-                            .text_color(title_color)
-                            .child(row.title),
+                            .text_color(name_color)
+                            .child(row.name),
                     )
-                    .children(row.detail.map(|detail| {
+                    .child(
                         div()
+                            .flex_1()
+                            .min_w_0()
                             .truncate()
                             .text_xs()
                             .text_color(k.text_faint)
-                            .child(detail)
-                    })),
-            )
-            .when(row.checked, |this| {
-                this.child(
-                    div()
-                        .flex_none()
-                        .flex()
-                        .items_center()
-                        .child(Icon::new(IconName::Check).size(px(14.)).text_color(k.accent)),
-                )
-            })
-            .into_any_element()
+                            .children(row.hint),
+                    )
+                    .when(row.selected, |this| {
+                        this.child(
+                            div().flex_none().flex().items_center().child(
+                                Icon::new(IconName::Check)
+                                    .size(px(12.))
+                                    .text_color(k.accent),
+                            ),
+                        )
+                    })
+                    .into_any_element()
+            }
+        }
     }
 
     fn render_empty(
@@ -1732,46 +2552,200 @@ impl ChatPane {
         )
     }
 
+    /// The picker's trigger in the composer: "Sorcar · Claude Opus ⌄".
     fn render_picker(&self, k: &Tokens, cx: &mut Context<Self>) -> AnyElement {
         let resolved = self.resolved();
-        let label = picker_label(&self.infos, resolved.as_ref());
+        let effort = self.effort();
+        let label = picker_label(&self.infos, resolved.as_ref(), effort.as_deref());
         let bounds = self.picker_bounds.clone();
+        let open = self.popover.is_some();
+        let (hover, soft) = (k.surface_hover, k.text_soft);
         div()
             .relative()
             .flex()
             .items_center()
             .child(
-                Button::new("chat-harness")
-                    .ghost()
-                    .xsmall()
-                    .label(label)
-                    .dropdown_caret(true)
-                    .max_w(px(220.))
-                    .text_color(k.text_soft)
-                    .on_click(cx.listener(|this, _, window, cx| {
-                        this.toggle_popover(PopoverKind::Agent, window, cx)
-                    })),
+                div()
+                    .id("chat-harness")
+                    .h_flex()
+                    .h(px(TRIGGER_HEIGHT))
+                    .max_w(px(TRIGGER_MAX_WIDTH))
+                    .px(px(8.))
+                    .gap(px(4.))
+                    .rounded(k.radius_s)
+                    .text_xs()
+                    .text_color(k.text_faint)
+                    .cursor_pointer()
+                    .when(open, |this| this.bg(hover).text_color(soft))
+                    .hover(move |style| style.bg(hover).text_color(soft))
+                    .child(div().min_w_0().truncate().child(label))
+                    .child(
+                        div()
+                            .flex_none()
+                            .flex()
+                            .items_center()
+                            .child(Icon::new(IconName::ChevronDown).size(px(10.))),
+                    )
+                    .on_click(cx.listener(|this, _, window, cx| this.toggle_picker(window, cx))),
             )
             .child(
                 canvas(move |b, _, _| bounds.set(b), |_, _, _, _| {})
                     .absolute()
                     .size_full(),
             )
-            .children(
-                self.popover
-                    .as_ref()
-                    .filter(|p| p.kind == PopoverKind::Agent)
-                    .map(|_| {
-                        // Opens upward from the top-left of the chip.
-                        div().absolute().left_0().top_0().child(deferred(
-                            anchored()
-                                .anchor(Anchor::BottomLeft)
-                                .offset(point(px(0.), px(-6.)))
-                                .snap_to_window_with_margin(px(8.))
-                                .child(self.render_popover(PopoverKind::Agent, k, cx)),
-                        ))
-                    }),
+            .children(self.popover.as_ref().map(|_| {
+                // Opens upward from the top-left of the trigger.
+                div().absolute().left_0().top_0().child(deferred(
+                    anchored()
+                        .anchor(Anchor::BottomLeft)
+                        .offset(point(px(0.), px(-6.)))
+                        .snap_to_window_with_margin(px(8.))
+                        .child(self.render_popover(k, cx)),
+                ))
+            }))
+            .into_any_element()
+    }
+
+    /// The mode pill left of the model trigger: "Ask ⌄", "Discover ⌄".
+    fn render_mode_pill(&self, k: &Tokens, cx: &mut Context<Self>) -> AnyElement {
+        let active = self.active_capability();
+        let label = active.map_or_else(|| "Ask".to_string(), |capability| capability.name.clone());
+        let bounds = self.mode_bounds.clone();
+        let open = self.mode_menu.is_some();
+        let (hover, soft) = (k.surface_hover, k.text_soft);
+        let plain = active.is_none();
+        let rest = if plain { k.text_faint } else { k.accent };
+        div()
+            .relative()
+            .flex()
+            .items_center()
+            .child(
+                div()
+                    .id("chat-mode")
+                    .h_flex()
+                    .h(px(TRIGGER_HEIGHT))
+                    .px(px(8.))
+                    .gap(px(4.))
+                    .rounded(k.radius_s)
+                    .text_xs()
+                    .text_color(rest)
+                    .cursor_pointer()
+                    .when(open, |this| this.bg(hover))
+                    .hover(move |style| {
+                        let style = style.bg(hover);
+                        if plain { style.text_color(soft) } else { style }
+                    })
+                    .child(div().child(label))
+                    .child(
+                        div()
+                            .flex_none()
+                            .flex()
+                            .items_center()
+                            .child(Icon::new(IconName::ChevronDown).size(px(10.))),
+                    )
+                    .on_click(cx.listener(|this, _, window, cx| this.toggle_mode_menu(window, cx))),
             )
+            .child(
+                canvas(move |b, _, _| bounds.set(b), |_, _, _, _| {})
+                    .absolute()
+                    .size_full(),
+            )
+            .children(self.mode_menu.map(|highlighted| {
+                div().absolute().left_0().top_0().child(deferred(
+                    anchored()
+                        .anchor(Anchor::BottomLeft)
+                        .offset(point(px(0.), px(-6.)))
+                        .snap_to_window_with_margin(px(8.))
+                        .child(self.render_mode_menu(highlighted, k, cx)),
+                ))
+            }))
+            .into_any_element()
+    }
+
+    /// The mode menu: "Ask", then the capabilities of the harness in use,
+    /// each with its one-line description.
+    fn render_mode_menu(
+        &self,
+        highlighted: usize,
+        k: &Tokens,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
+        let current = self.mode();
+        let pill = self.mode_bounds.clone();
+        let hover = k.surface_hover;
+        let rows = self.modes().into_iter().enumerate().map(|(index, entry)| {
+            let selected = entry.id == current;
+            div()
+                .id(("chat-mode-row", index))
+                .v_flex()
+                .gap(px(1.))
+                .px(px(10.))
+                .py(px(6.))
+                .rounded(k.radius_s)
+                .cursor_pointer()
+                .when(highlighted == index, |this| this.bg(hover))
+                .hover(move |style| style.bg(hover))
+                .on_mouse_down(MouseButton::Left, |_, _, cx| cx.stop_propagation())
+                .on_click(cx.listener(move |this, _, window, cx| this.pick_mode(index, window, cx)))
+                .child(
+                    div()
+                        .h_flex()
+                        .gap(px(6.))
+                        .child(
+                            div()
+                                .text_sm()
+                                .text_color(if selected { k.accent } else { k.text })
+                                .child(entry.name),
+                        )
+                        .when(entry.long_running, |this| {
+                            this.child(
+                                div()
+                                    .text_xs()
+                                    .text_color(k.text_faint)
+                                    .child("runs in the background"),
+                            )
+                        })
+                        .child(div().flex_1())
+                        .when(selected, |this| {
+                            this.child(
+                                div().flex_none().flex().items_center().child(
+                                    Icon::new(IconName::Check)
+                                        .size(px(12.))
+                                        .text_color(k.accent),
+                                ),
+                            )
+                        }),
+                )
+                .child(
+                    div()
+                        .text_xs()
+                        .text_color(k.text_faint)
+                        .child(entry.description),
+                )
+        });
+        oyl_ui::raised(cx)
+            .rounded(k.radius_m)
+            .id("chat-mode-menu")
+            .key_context(POPOVER_CONTEXT)
+            .track_focus(&self.mode_focus)
+            .on_action(cx.listener(Self::on_mode_close))
+            .on_action(cx.listener(Self::on_mode_up))
+            .on_action(cx.listener(Self::on_mode_down))
+            .on_action(cx.listener(Self::on_mode_confirm))
+            .on_mouse_down_out(cx.listener(
+                move |this, event: &gpui_kit::MouseDownEvent, window, cx| {
+                    // A press on the pill toggles the menu there.
+                    if !pill.get().contains(&event.position) {
+                        this.close_mode_menu(window, cx);
+                    }
+                },
+            ))
+            .occlude()
+            .w(px(PICKER_WIDTH))
+            .p(px(PICKER_PADDING))
+            .v_flex()
+            .font_family(k.ui_font.clone())
+            .children(rows)
             .into_any_element()
     }
 
@@ -1853,6 +2827,7 @@ impl ChatPane {
             .child(
                 oyl_ui::surface(cx)
                     .id("chat-composer")
+                    .relative()
                     .v_flex()
                     .w_full()
                     .gap(px(4.))
@@ -1864,6 +2839,19 @@ impl ChatPane {
                     .on_drop(cx.listener(|this, paths: &ExternalPaths, _, cx| {
                         this.attach(paths.paths(), cx)
                     }))
+                    .when(self.active_capability().is_some(), |this| {
+                        // A mode other than Ask: an accent line along the top.
+                        this.child(
+                            div()
+                                .absolute()
+                                .top(px(-1.))
+                                .left(px(12.))
+                                .right(px(12.))
+                                .h(px(2.))
+                                .rounded_full()
+                                .bg(accent),
+                        )
+                    })
                     .children(chip_row)
                     .child(
                         Textarea::new(&self.input)
@@ -1875,7 +2863,8 @@ impl ChatPane {
                         div()
                             .h_flex()
                             .w_full()
-                            .gap(px(4.))
+                            .gap(px(2.))
+                            .child(self.render_mode_pill(k, cx))
                             .child(self.render_picker(k, cx))
                             .child(div().flex_1())
                             .child(action),
@@ -1891,14 +2880,14 @@ impl Render for ChatPane {
         let k = cx.tokens().clone();
         let editor = self.editor_context(cx);
 
-        let mut column: Vec<AnyElement> = vec![
-            self.render_header(&k),
-            if self.thread.is_empty() {
-                self.render_empty(&editor, &k, cx)
-            } else {
-                self.render_transcript(&k, cx)
-            },
-        ];
+        let mut column: Vec<AnyElement> = vec![self.render_header(&k)];
+        column.extend(self.render_task_header(&k, cx));
+        column.push(match self.render_board() {
+            Some(board) => board,
+            None if self.thread.is_empty() => self.render_empty(&editor, &k, cx),
+            None => self.render_transcript(&k, cx),
+        });
+        column.extend(self.render_branch_footer(&k, cx));
         column.extend(self.render_notice(&k, cx));
         column.extend(self.render_queued(&k, cx));
         column.push(self.render_composer(&editor, &k, window, cx));
@@ -1920,10 +2909,18 @@ impl Render for ChatPane {
 fn placeholder_for(
     infos: &[HarnessInfo],
     resolved: Option<&(usize, Option<String>)>,
+    mode: Option<&str>,
 ) -> SharedString {
-    match resolved {
-        Some((index, _)) => format!("Ask {} to change the paper…", infos[*index].name).into(),
-        None => "No agent is available".into(),
+    let Some((index, _)) = resolved else {
+        return "No agent is available".into();
+    };
+    let info = &infos[*index];
+    match find_capability(info, mode)
+        .map(|capability| capability.placeholder.trim())
+        .filter(|placeholder| !placeholder.is_empty())
+    {
+        Some(placeholder) => placeholder.to_string().into(),
+        None => format!("Ask {} to change the paper…", info.name).into(),
     }
 }
 
@@ -1992,113 +2989,285 @@ pub struct RunningThread {
     pub stopping: bool,
 }
 
-/// The paper's threads for a list: running first, then the rest.
+/// A turn that ended in a thread not on screen, not looked at since.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct FinishedThread {
+    /// The thread id.
+    pub id: String,
+    /// Its title (first message, or the user's).
+    pub title: String,
+    /// Whether the agent completed the turn.
+    pub success: bool,
+    /// How many files the turn changed.
+    pub files_changed: usize,
+    /// What went wrong, when it failed.
+    pub error: Option<String>,
+    /// "Done · 3 files changed", "Failed · …".
+    pub outcome: String,
+    /// When the turn started.
+    pub started_at: chrono::DateTime<Utc>,
+    /// When it ended.
+    pub finished_at: chrono::DateTime<Utc>,
+}
+
+/// The paper's threads for a list.
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct ThreadsOverview {
     /// Threads with a turn running.
     pub running: Vec<RunningThread>,
-    /// The other saved threads, newest first.
+    /// Turns that ended off screen and were not looked at since.
+    pub finished: Vec<FinishedThread>,
+    /// Every thread of the paper, newest activity first: the running ones
+    /// (active now) on top.
     pub recent: Vec<ThreadSummary>,
     /// The thread on screen.
     pub current: String,
     /// The thread on screen is new (nothing sent yet).
     pub current_is_new: bool,
+    /// The thread on screen is in Discover mode.
+    pub current_is_discovery: bool,
+    /// A usable harness offers discovery.
+    pub discovery_available: bool,
 }
 
-/// Which popover.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-enum PopoverKind {
-    /// Harness and model, from the composer's chip.
-    Agent,
-}
-
-/// An open popover and its keyboard highlight.
-#[derive(Clone, Copy, Debug, PartialEq, Eq)]
-struct Popover {
-    kind: PopoverKind,
-    /// Index into the popover's rows.
-    highlighted: Option<usize>,
-}
-
-/// What picking a row does.
+/// A mode of the composer, as the mode menu lists it.
 #[derive(Clone, Debug, PartialEq, Eq)]
-enum RowAction {
-    Harness(HarnessId),
-    Model { harness: HarnessId, model: String },
+pub struct ModeEntry {
+    /// The capability id; `None` is "Ask", a plain turn.
+    pub id: Option<String>,
+    /// "Ask", "Discover", …
+    pub name: String,
+    /// One line on what it does.
+    pub description: String,
+    /// It runs on its own for a long time (it goes to the background).
+    pub long_running: bool,
 }
 
-/// One row of a popover.
-#[derive(Clone, Debug, PartialEq)]
-struct PopoverRow {
-    /// Rows of one section are drawn together; a hairline separates
-    /// sections.
-    section: usize,
-    /// The eyebrow above the section (read from its first row).
-    heading: Option<&'static str>,
-    title: String,
-    detail: Option<String>,
-    checked: bool,
-    enabled: bool,
-    action: RowAction,
+/// "Ask", then the capabilities `info` offers.
+fn mode_entries(info: Option<&HarnessInfo>) -> Vec<ModeEntry> {
+    let ask = ModeEntry {
+        id: None,
+        name: "Ask".to_string(),
+        description: ASK_DESCRIPTION.to_string(),
+        long_running: false,
+    };
+    std::iter::once(ask)
+        .chain(info.into_iter().flat_map(|info| {
+            info.capabilities.iter().map(|capability| ModeEntry {
+                id: Some(capability.id.clone()),
+                name: capability.name.clone(),
+                description: capability.description.clone(),
+                long_running: capability.long_running,
+            })
+        }))
+        .collect()
 }
 
-/// The picker: one row per harness (its status beneath), then the models
-/// of the harness in use.
-fn agent_rows(infos: &[HarnessInfo], current: Option<&(usize, Option<String>)>) -> Vec<PopoverRow> {
-    let mut rows: Vec<PopoverRow> = infos
+/// The capability of `info` with this id.
+fn find_capability<'a>(info: &'a HarnessInfo, id: Option<&str>) -> Option<&'a Capability> {
+    let id = id?;
+    info.capabilities
         .iter()
-        .enumerate()
-        .map(|(index, info)| PopoverRow {
-            section: 0,
-            heading: None,
-            title: info.name.clone(),
-            detail: Some(info.status.trim().to_string()).filter(|s| !s.is_empty()),
-            checked: current.is_some_and(|(selected, _)| *selected == index),
-            enabled: info.is_usable(),
-            action: RowAction::Harness(info.id.clone()),
-        })
-        .collect();
-    if let Some((index, model)) = current
-        && let Some(info) = infos.get(*index)
-    {
-        let active = model.clone().or_else(|| info.default_model.clone());
-        rows.extend(info.models.iter().map(|choice| PopoverRow {
-            section: 1,
-            heading: Some("Model"),
-            title: choice.label.clone(),
-            detail: None,
-            checked: active.as_deref() == Some(choice.id.as_str()),
-            enabled: true,
-            action: RowAction::Model {
+        .find(|capability| capability.id == id)
+}
+
+/// Whether `info` is usable and offers discovery.
+fn can_discover(info: &HarnessInfo) -> bool {
+    info.is_usable() && find_capability(info, Some(DISCOVER)).is_some()
+}
+
+/// A model as the open picker lists it (see [`ChatPane::picker_models`]).
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct PickerModel {
+    /// The harness it belongs to.
+    pub harness: HarnessId,
+    /// The model; `None` is the default of a harness that lists none.
+    pub model: Option<String>,
+    /// The model's name, without the parenthetical hint.
+    pub name: String,
+    /// Whether it can be picked (its harness is usable).
+    pub enabled: bool,
+    /// Whether it is the model in use.
+    pub selected: bool,
+}
+
+/// The open model picker.
+struct Popover {
+    /// Index into the picker's rows.
+    highlighted: Option<usize>,
+    /// What the search field holds.
+    query: String,
+    /// The search field, when there are enough models for one.
+    search: Option<Entity<InputState>>,
+    _search_events: Option<Subscription>,
+}
+
+/// One row of the model picker.
+#[derive(Clone, Debug, PartialEq)]
+enum PickerRow {
+    /// A harness heading: its name and a short status.
+    Group {
+        name: String,
+        status: &'static str,
+        /// The first heading has no gap above it.
+        first: bool,
+    },
+    /// Why an unusable harness cannot run (its status line).
+    Reason(String),
+    /// A model of a harness.
+    Model(ModelRow),
+}
+
+impl PickerRow {
+    fn pickable(&self) -> bool {
+        matches!(self, Self::Model(row) if row.enabled)
+    }
+}
+
+/// A model row of the picker.
+#[derive(Clone, Debug, PartialEq)]
+struct ModelRow {
+    harness: HarnessId,
+    /// `None`: the default of a harness that lists no models.
+    model: Option<String>,
+    name: String,
+    /// What the label said in parentheses ("fastest", "via subscription").
+    hint: Option<String>,
+    selected: bool,
+    enabled: bool,
+}
+
+/// How many rows of models the picker lists (a harness without models
+/// gets one, its default).
+fn model_count(infos: &[HarnessInfo]) -> usize {
+    infos.iter().map(|info| info.models.len().max(1)).sum()
+}
+
+/// The short status beside a harness heading.
+fn harness_status(info: &HarnessInfo, setting_up: bool) -> &'static str {
+    if setting_up {
+        return "setting up…";
+    }
+    match info.readiness {
+        Readiness::Ready => "ready",
+        Readiness::SetsUpOnFirstUse => "sets up on first use",
+        Readiness::Unavailable => "not installed",
+    }
+}
+
+/// Whether every word of `query` appears in `text`, its letters in order
+/// (case does not matter).
+fn fuzzy_matches(query: &str, text: &str) -> bool {
+    let text = text.to_lowercase();
+    query.split_whitespace().all(|word| {
+        let mut letters = text.chars();
+        word.to_lowercase()
+            .chars()
+            .all(|wanted| letters.any(|letter| letter == wanted))
+    })
+}
+
+/// The picker: every model of every harness, under a heading per harness.
+/// A query keeps the models whose name or harness name match it, and drops
+/// the headings left without models.
+fn picker_rows(
+    infos: &[HarnessInfo],
+    current: Option<&(usize, Option<String>)>,
+    setting_up: Option<&HarnessId>,
+    query: &str,
+) -> Vec<PickerRow> {
+    let mut rows = Vec::new();
+    for (index, info) in infos.iter().enumerate() {
+        // The model in use, when this harness is the one in use.
+        let active = current
+            .filter(|(selected, _)| *selected == index)
+            .map(|(_, model)| model.clone().or_else(|| info.default_model.clone()));
+        let models: Vec<ModelRow> = if info.models.is_empty() {
+            vec![ModelRow {
                 harness: info.id.clone(),
-                model: choice.id.clone(),
-            },
-        }));
+                model: None,
+                name: "Default".into(),
+                hint: None,
+                selected: active.is_some(),
+                enabled: info.is_usable(),
+            }]
+        } else {
+            info.models
+                .iter()
+                .map(|choice| {
+                    let (name, hint) = split_model_label(&choice.label);
+                    ModelRow {
+                        harness: info.id.clone(),
+                        model: Some(choice.id.clone()),
+                        name,
+                        hint,
+                        selected: active
+                            .as_ref()
+                            .is_some_and(|active| active.as_deref() == Some(choice.id.as_str())),
+                        enabled: info.is_usable(),
+                    }
+                })
+                .collect()
+        };
+        let models: Vec<ModelRow> = models
+            .into_iter()
+            .filter(|row| fuzzy_matches(query, &format!("{} {}", row.name, info.name)))
+            .collect();
+        if models.is_empty() {
+            continue;
+        }
+        rows.push(PickerRow::Group {
+            name: info.name.clone(),
+            status: harness_status(info, setting_up == Some(&info.id)),
+            first: rows.is_empty(),
+        });
+        let reason = info.status.trim();
+        if !info.is_usable() && !reason.is_empty() {
+            rows.push(PickerRow::Reason(reason.to_string()));
+        }
+        rows.extend(models.into_iter().map(PickerRow::Model));
     }
     rows
 }
 
-/// The next pickable row from `current`, `step` rows on (wrapping).
-fn step_highlight(rows: &[PopoverRow], current: Option<usize>, step: isize) -> Option<usize> {
-    let enabled: Vec<usize> = rows
+/// The row highlighted when the picker opens or its query changes: the
+/// model in use, else the first one that can be picked.
+fn initial_highlight(rows: &[PickerRow]) -> Option<usize> {
+    rows.iter()
+        .position(|row| row.pickable() && matches!(row, PickerRow::Model(model) if model.selected))
+        .or_else(|| rows.iter().position(PickerRow::pickable))
+}
+
+/// The next pickable row from `current`, `step` rows on (wrapping, across
+/// harnesses).
+fn step_highlight(rows: &[PickerRow], current: Option<usize>, step: isize) -> Option<usize> {
+    let pickable: Vec<usize> = rows
         .iter()
         .enumerate()
-        .filter(|(_, row)| row.enabled)
+        .filter(|(_, row)| row.pickable())
         .map(|(index, _)| index)
         .collect();
-    if enabled.is_empty() {
+    if pickable.is_empty() {
         return None;
     }
-    let position = current.and_then(|current| enabled.iter().position(|&i| i == current));
+    let position = current.and_then(|current| pickable.iter().position(|&i| i == current));
     let next = match position {
         None if step >= 0 => 0,
-        None => enabled.len() - 1,
-        Some(position) => {
-            (position as isize + step).rem_euclid(enabled.len() as isize) as usize
-        }
+        None => pickable.len() - 1,
+        Some(position) => (position as isize + step).rem_euclid(pickable.len() as isize) as usize,
     };
-    Some(enabled[next])
+    Some(pickable[next])
 }
+
+#[path = "review.rs"]
+mod review;
+#[path = "tasks.rs"]
+mod tasks;
+pub use review::{
+    BranchView, REVIEW_INTRO, ReviewChoice, ReviewConflict, ReviewFile, ReviewLine, ReviewLineKind,
+    ReviewView, applied_line,
+};
+pub use tasks::ThreadView;
 
 #[cfg(test)]
 #[path = "ui_tests.rs"]
@@ -2107,7 +3276,7 @@ mod ui_tests;
 #[cfg(test)]
 mod tests {
     use super::*;
-    use oyl_model::agent::{ModelChoice, Readiness};
+    use oyl_model::agent::ModelChoice;
 
     fn info(id: &str, readiness: Readiness, models: &[(&str, &str)]) -> HarnessInfo {
         HarnessInfo {
@@ -2124,12 +3293,19 @@ mod tests {
                 })
                 .collect(),
             default_model: models.first().map(|(id, _)| id.to_string()),
+            efforts: Vec::new(),
+            default_effort: None,
+            capabilities: Vec::new(),
         }
     }
 
     fn infos() -> Vec<HarnessInfo> {
         vec![
-            info("codex", Readiness::Unavailable, &[]),
+            info(
+                "codex",
+                Readiness::Unavailable,
+                &[("gpt-x", "GPT X (fastest)")],
+            ),
             info(
                 "sorcar",
                 Readiness::Ready,
@@ -2188,18 +3364,22 @@ mod tests {
     fn labels_for_the_picker_and_composer() {
         let infos = infos();
         assert_eq!(
-            picker_label(&infos, Some(&(1, None))),
+            picker_label(&infos, Some(&(1, None)), None),
             "SORCAR · Claude Opus"
         );
         assert_eq!(
-            picker_label(&infos, Some(&(1, Some("cc/sonnet".into())))),
+            picker_label(&infos, Some(&(1, Some("cc/sonnet".into()))), None),
             "SORCAR · Claude Sonnet"
         );
-        assert_eq!(picker_label(&infos, Some(&(2, None))), "CLAUDE-CODE");
-        assert_eq!(picker_label(&[], None), "No agent");
-        assert_eq!(picker_label(&infos, None), "No agent available");
+        assert_eq!(picker_label(&infos, Some(&(2, None)), None), "CLAUDE-CODE");
         assert_eq!(
-            placeholder_for(&infos, Some(&(1, None))),
+            picker_label(&infos, Some(&(1, None)), Some("high")),
+            "SORCAR · Claude Opus · high"
+        );
+        assert_eq!(picker_label(&[], None, None), "No agent");
+        assert_eq!(picker_label(&infos, None, None), "No agent available");
+        assert_eq!(
+            placeholder_for(&infos, Some(&(1, None)), None),
             SharedString::from("Ask SORCAR to change the paper…")
         );
         assert_eq!(
@@ -2209,35 +3389,147 @@ mod tests {
         assert_eq!(short_model_label("(odd)"), "(odd)");
     }
 
-    #[test]
-    fn the_picker_lists_harnesses_then_models() {
-        let infos = infos();
-        let rows = agent_rows(&infos, Some(&(1, None)));
-        let titles: Vec<&str> = rows.iter().map(|r| r.title.as_str()).collect();
-        assert_eq!(
-            titles,
-            vec![
-                "CODEX",
-                "SORCAR",
-                "CLAUDE-CODE",
-                "Claude Opus (your Claude subscription)",
-                "Claude Sonnet"
-            ]
-        );
-        assert!(!rows[0].enabled, "an unusable harness is dimmed");
-        assert!(rows[1].checked && rows[3].checked, "harness and default model");
-        assert_eq!(rows[3].heading, Some("Model"));
-        let rows = agent_rows(&infos, Some(&(1, Some("cc/sonnet".into()))));
-        assert!(rows[4].checked && !rows[3].checked);
+    fn names(rows: &[PickerRow]) -> Vec<String> {
+        rows.iter()
+            .map(|row| match row {
+                PickerRow::Group { name, status, .. } => format!("# {name} ({status})"),
+                PickerRow::Reason(reason) => format!("! {reason}"),
+                PickerRow::Model(row) => {
+                    let mut text = format!("- {}", row.name);
+                    if let Some(hint) = &row.hint {
+                        text.push_str(&format!(" [{hint}]"));
+                    }
+                    if row.selected {
+                        text.push_str(" *");
+                    }
+                    if !row.enabled {
+                        text.push_str(" (dimmed)");
+                    }
+                    text
+                }
+            })
+            .collect()
     }
 
     #[test]
-    fn the_highlight_skips_rows_that_cannot_be_picked() {
-        let rows = agent_rows(&infos(), Some(&(1, None)));
-        assert_eq!(step_highlight(&rows, Some(1), 1), Some(2));
-        assert_eq!(step_highlight(&rows, Some(1), -1), Some(4), "wraps past the dimmed row");
-        assert_eq!(step_highlight(&rows, None, 1), Some(1));
+    fn the_picker_lists_every_model_of_every_harness() {
+        let infos = infos();
+        let rows = picker_rows(&infos, Some(&(1, None)), None, "");
+        assert_eq!(
+            names(&rows),
+            vec![
+                "# CODEX (not installed)",
+                "! codex status",
+                "- GPT X [fastest] (dimmed)",
+                "# SORCAR (ready)",
+                "- Claude Opus [via subscription] *",
+                "- Claude Sonnet",
+                "# CLAUDE-CODE (sets up on first use)",
+                "- Default",
+            ]
+        );
+        assert!(matches!(rows[0], PickerRow::Group { first: true, .. }));
+        assert!(matches!(rows[3], PickerRow::Group { first: false, .. }));
+        let rows = picker_rows(&infos, Some(&(1, Some("cc/sonnet".into()))), None, "");
+        assert_eq!(names(&rows)[5], "- Claude Sonnet *");
+        let rows = picker_rows(
+            &infos,
+            Some(&(2, None)),
+            Some(&HarnessId::new("sorcar")),
+            "",
+        );
+        assert_eq!(names(&rows)[3], "# SORCAR (setting up…)");
+        assert_eq!(names(&rows)[7], "- Default *");
+        assert_eq!(model_count(&infos), 4);
+    }
+
+    #[test]
+    fn a_query_filters_models_and_hides_empty_harnesses() {
+        let infos = infos();
+        let current = Some(&(1, None));
+        assert_eq!(
+            names(&picker_rows(&infos, current, None, "son")),
+            vec!["# SORCAR (ready)", "- Claude Sonnet"]
+        );
+        assert!(matches!(
+            picker_rows(&infos, current, None, "son")[0],
+            PickerRow::Group { first: true, .. }
+        ));
+        assert_eq!(
+            names(&picker_rows(&infos, current, None, "CODEX")),
+            vec![
+                "# CODEX (not installed)",
+                "! codex status",
+                "- GPT X [fastest] (dimmed)"
+            ]
+        );
+        assert_eq!(
+            names(&picker_rows(&infos, current, None, "sorcar opus")),
+            vec!["# SORCAR (ready)", "- Claude Opus [via subscription] *"]
+        );
+        assert!(picker_rows(&infos, current, None, "zzz").is_empty());
+    }
+
+    #[test]
+    fn model_labels_lose_their_parentheticals_to_the_hint() {
+        assert_eq!(
+            split_model_label("Claude Haiku (your Claude subscription, fastest)"),
+            (
+                "Claude Haiku".into(),
+                Some("via subscription · fastest".into())
+            )
+        );
+        assert_eq!(
+            split_model_label("Default (your Codex setting)"),
+            ("Default".into(), Some("your Codex setting".into()))
+        );
+        assert_eq!(
+            split_model_label("GPT-6.1 Sol"),
+            ("GPT-6.1 Sol".into(), None)
+        );
+        assert_eq!(split_model_label("(odd)"), ("(odd)".into(), None));
+    }
+
+    #[test]
+    fn the_highlight_moves_across_harnesses_and_skips_dimmed_models() {
+        let rows = picker_rows(&infos(), Some(&(1, None)), None, "");
+        assert_eq!(initial_highlight(&rows), Some(4), "the model in use");
+        assert_eq!(step_highlight(&rows, Some(4), 1), Some(5));
+        assert_eq!(
+            step_highlight(&rows, Some(5), 1),
+            Some(7),
+            "into the next harness"
+        );
+        assert_eq!(
+            step_highlight(&rows, Some(7), 1),
+            Some(4),
+            "wraps past the dimmed model"
+        );
+        assert_eq!(step_highlight(&rows, Some(4), -1), Some(7));
+        assert_eq!(step_highlight(&rows, None, 1), Some(4));
         assert_eq!(step_highlight(&[], None, 1), None);
+        let rows = picker_rows(&infos(), Some(&(1, None)), None, "codex");
+        assert_eq!(initial_highlight(&rows), None, "nothing to pick");
+    }
+
+    #[test]
+    fn an_effort_counts_only_where_the_harness_offers_it() {
+        let mut sorcar = info("sorcar", Readiness::Ready, &[("cc/opus", "Claude Opus")]);
+        assert_eq!(resolve_effort(&sorcar, Some("high")), None, "no efforts");
+        assert_eq!(shown_effort(&sorcar, Some("high")), None);
+        sorcar.efforts = vec!["low".into(), "high".into(), "max".into()];
+        sorcar.default_effort = Some("low".into());
+        assert_eq!(
+            resolve_effort(&sorcar, Some("high")).as_deref(),
+            Some("high")
+        );
+        assert_eq!(resolve_effort(&sorcar, Some("ultra")), None);
+        assert_eq!(
+            shown_effort(&sorcar, None).as_deref(),
+            Some("low"),
+            "the default"
+        );
+        assert_eq!(shown_effort(&sorcar, Some("max")).as_deref(), Some("max"));
     }
 
     #[test]

@@ -54,11 +54,13 @@ entries of the works the passage cites (\\cite{{key}} or @key refers to the entr
 1. Find the checkable factual claims in <text>: numbers, dates, names, attributions, quotations, causal \
 or empirical claims, and what a cited work is said to show.
 2. Verify them with web search and by reading reliable sources: primary sources, official data, the cited \
-work itself, reviews. Be quick: a few searches, read only what you need.
-3. Report only real problems. \"incorrect\": reliable sources contradict the claim. \"questionable\": the \
-sources clearly cannot support the claim as written (unsupported, outdated, overstated, or the cited work \
-does not say it). Never report style, wording, grammar or opinions. When sources agree, or you cannot \
-tell, report nothing for that claim.
+work itself, reviews. Do not rely on memory: search before you judge a claim, and list in \"sources\" only \
+pages you actually found. Be quick: a few searches, read only what you need.
+3. Report only real problems. \"incorrect\": reliable sources contradict the claim — a number, date, name \
+or attribution that differs from what they state is incorrect. \"questionable\": the sources clearly cannot \
+support the claim as written (unsupported, outdated, overstated, or the cited work does not say it). Never \
+report style, wording, grammar or opinions. When sources agree, or you cannot tell, report nothing for that \
+claim.
 
 Answer with one JSON object and nothing else — no prose, no code fences:
 {{\"claims\": <how many claims you checked>, \"findings\": [{{\"quote\": \"<the wrong part of <text>, \

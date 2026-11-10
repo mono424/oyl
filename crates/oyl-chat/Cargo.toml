@@ -9,6 +9,7 @@ publish.workspace = true
 gpui-kit.workspace = true
 oyl-ui = { path = "../oyl-ui" }
 oyl-model = { path = "../oyl-model" }
+oyl-tasks = { path = "../oyl-tasks" }
 serde.workspace = true
 serde_json.workspace = true
 anyhow.workspace = true

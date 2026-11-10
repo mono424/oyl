@@ -9,13 +9,18 @@
 //! gate, the background work [`Opener::open`]s it, and the wrapped harness
 //! only starts once it is open. The pane sees an ordinary harness whose
 //! `start` returns at once.
+//!
+//! The opener may also send the turn elsewhere: to the working copy of a
+//! branch made for it ([`Redirect`]), so the agent never edits the paper
+//! itself.
 
+use std::path::{Path, PathBuf};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, mpsc};
 use std::time::Duration;
 
-use parking_lot::Mutex;
 use oyl_model::agent::{AgentEvent, Harness, HarnessInfo, TurnHandle, TurnRequest};
+use parking_lot::Mutex;
 
 /// The longest a turn waits for its "before" version. A history that cannot
 /// write in this time is not worth holding the user up for; the turn starts
@@ -25,22 +30,63 @@ pub const GATE_TIMEOUT: Duration = Duration::from_secs(30);
 /// What a turn stopped before it started reports.
 const STOPPED_BEFORE_START: &str = "Stopped before the agent started.";
 
+/// Where a turn runs instead of the paper folder: every path of its
+/// request inside `from` is moved into `to`.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Redirect {
+    /// The paper folder.
+    pub from: PathBuf,
+    /// The branch's working copy.
+    pub to: PathBuf,
+}
+
+impl Redirect {
+    /// `path` moved from the paper folder into the working copy (as it is
+    /// when outside the paper folder).
+    pub fn map(&self, path: &Path) -> PathBuf {
+        match path.strip_prefix(&self.from) {
+            Ok(relative) => self.to.join(relative),
+            Err(_) => path.to_path_buf(),
+        }
+    }
+
+    /// The request, run in the working copy.
+    pub fn apply(&self, mut request: TurnRequest) -> TurnRequest {
+        request.project_root = self.map(&request.project_root);
+        request.main_file = request.main_file.map(|path| self.map(&path));
+        request.active_file = request.active_file.map(|path| self.map(&path));
+        if let Some(selection) = request.selection.as_mut() {
+            selection.file = self.map(&selection.file);
+        }
+        for diagnostic in &mut request.diagnostics {
+            diagnostic.file = diagnostic.file.as_deref().map(|file| self.map(file));
+        }
+        request
+    }
+}
+
 /// The gate shared by the hook and the wrapped harnesses.
 #[derive(Default)]
 pub struct TurnGate {
-    armed: Mutex<Option<mpsc::Receiver<()>>>,
+    armed: Mutex<Option<mpsc::Receiver<Option<Redirect>>>>,
 }
 
 /// Opens an armed gate when dropped or told to.
 pub struct Opener {
-    tx: mpsc::Sender<()>,
+    tx: mpsc::Sender<Option<Redirect>>,
 }
 
 impl Opener {
-    /// Lets the turn start.
+    /// Lets the turn start in the paper folder.
     pub fn open(self) {
+        self.open_in(None);
+    }
+
+    /// Lets the turn start, in a branch's working copy when `redirect`
+    /// says so.
+    pub fn open_in(self, redirect: Option<Redirect>) {
         // A turn that went away already does not need the signal.
-        let _ = self.tx.send(());
+        let _ = self.tx.send(redirect);
     }
 }
 
@@ -58,7 +104,7 @@ impl TurnGate {
         Opener { tx }
     }
 
-    fn take(&self) -> Option<mpsc::Receiver<()>> {
+    fn take(&self) -> Option<mpsc::Receiver<Option<Redirect>>> {
         self.armed.lock().take()
     }
 }
@@ -110,8 +156,13 @@ impl Harness for GatedHarness {
         std::thread::Builder::new()
             .name("oyl-gated-turn".into())
             .spawn(move || {
-                // Opened, dropped or timed out: the turn goes ahead.
-                let _ = wait.recv_timeout(GATE_TIMEOUT);
+                // Opened, dropped or timed out: the turn goes ahead, in the
+                // branch it was given if any.
+                let redirect = wait.recv_timeout(GATE_TIMEOUT).ok().flatten();
+                let request = match &redirect {
+                    Some(redirect) => redirect.apply(request),
+                    None => request,
+                };
                 if thread_stopped.load(Ordering::SeqCst) {
                     let _ = tx.send_blocking(AgentEvent::Completed {
                         success: false,
@@ -206,6 +257,39 @@ mod tests {
         // The gate is single-use: the next turn goes straight through.
         let handle = gated.start(TurnRequest::default()).unwrap();
         assert_eq!(collect(&handle).len(), 2);
+    }
+
+    #[test]
+    fn a_redirect_moves_the_request_into_the_branch() {
+        let redirect = Redirect {
+            from: "/papers/owls".into(),
+            to: "/papers/owls/.oyl/branches/b/work".into(),
+        };
+        let request = TurnRequest {
+            project_root: "/papers/owls".into(),
+            main_file: Some("/papers/owls/main.typ".into()),
+            active_file: Some("/papers/owls/sec/intro.typ".into()),
+            attachments: vec!["/Users/me/figure.png".into()],
+            ..TurnRequest::default()
+        };
+        let moved = redirect.apply(request);
+        assert_eq!(
+            moved.project_root,
+            PathBuf::from("/papers/owls/.oyl/branches/b/work")
+        );
+        assert_eq!(
+            moved.main_file.as_deref(),
+            Some(Path::new("/papers/owls/.oyl/branches/b/work/main.typ"))
+        );
+        assert_eq!(
+            moved.active_file.as_deref(),
+            Some(Path::new("/papers/owls/.oyl/branches/b/work/sec/intro.typ"))
+        );
+        assert_eq!(
+            moved.attachments,
+            vec![PathBuf::from("/Users/me/figure.png")],
+            "outside"
+        );
     }
 
     #[test]

@@ -70,8 +70,19 @@ card in place of the source — thread on top, composer at the bottom, harness
 and model picker inside the composer — and the paper on the right, so the
 agent's edits are seen landing. ⌘L jumps to it and back; a dot on the tab shows
 a running turn from any tab. A quiet sidebar on the left of the Agent tab
-lists the running tasks (live activity, elapsed time, stop) and the recent
-threads of the paper; several threads can run at once.
+lists the paper's recent threads for quick questions. Long-running tasks keep
+going in the background: a button at the bottom of the sidebar reads "N agents
+running" and opens a tray of them (live activity, elapsed time, stop) to check
+back in; a toast says when one finishes off-screen. Several threads can run at
+once.
+
+Every agent task works on its own **branch**: a private copy of the paper in
+`.oyl/branches/`, never the user's files. When it finishes and the user has
+not changed the files it touched, its changes are applied automatically (a
+normal, undoable version). If the user changed them meanwhile, the user's
+changes are merged into the branch first and Oyl asks: review the result,
+pick per conflict, apply or discard. While a task runs, the Agent tab's paper
+shows that task's branch, so its work is visible before it lands.
 
 Everything else is an overlay opened from the palette or a key, never a
 permanent panel:
@@ -79,7 +90,7 @@ permanent panel:
 - **Command palette** ⌘K — switch paper, open file, jump to section, insert
   citation, insert figure, every command.
 - **Papers** ⌘O — the library: recent papers, new paper, open folder.
-- **Sources** ⌘⇧B — the bibliography.
+- **Sources** ⇧⌘R — the bibliography.
 - **History** ⌘⇧H — versions, diff, restore.
 - **Outline** ⌘⇧O, **Figures** ⌘⇧F, **Problems** ⌘⇧M.
 

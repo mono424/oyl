@@ -65,6 +65,18 @@ impl Shell {
     fn compile_request(&self, cx: &gpui_kit::App) -> Option<CompileRequest> {
         let paper = self.paper.as_ref()?;
         let engine = paper.engine();
+        // The Agent tab shows the thread's branch while its agent works (or
+        // its review waits): compiled from its working copy, as saved.
+        if let Some((work, _)) = self.preview_branch(cx) {
+            let main = paper.project.main_path();
+            let relative = main.strip_prefix(paper.root()).unwrap_or(&main);
+            return Some(CompileRequest {
+                main: work.join(relative),
+                root: work,
+                engine,
+                overlays: HashMap::new(),
+            });
+        }
         let overlays = match engine {
             Engine::Typst => self.editor.read(cx).unsaved(cx),
             Engine::Latex => HashMap::new(),

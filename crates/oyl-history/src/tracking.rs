@@ -94,7 +94,9 @@ fn is_hidden(name: &str) -> bool {
     name.starts_with('.')
 }
 
-fn keep_dir(name: &str) -> bool {
+/// Whether a folder of this name is looked into: not hidden, not build
+/// output or installed dependencies.
+pub(crate) fn keep_dir(name: &str) -> bool {
     !is_hidden(name) && !SKIPPED_DIRS.contains(&name) && !name.starts_with("_minted")
 }
 

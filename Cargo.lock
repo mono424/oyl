@@ -5553,6 +5553,7 @@ dependencies = [
  "oyl-panels",
  "oyl-preview",
  "oyl-sources",
+ "oyl-tasks",
  "oyl-typeset",
  "oyl-ui",
  "parking_lot",
@@ -5572,6 +5573,7 @@ dependencies = [
  "gpui-pre",
  "log",
  "oyl-model",
+ "oyl-tasks",
  "oyl-ui",
  "serde",
  "serde_json",
@@ -5608,8 +5610,10 @@ name = "oyl-editor"
 version = "0.1.0"
 dependencies = [
  "anyhow",
+ "async-channel",
  "diffy",
  "gpui-kit",
+ "gpui-pre",
  "log",
  "lsp-types",
  "oyl-model",
@@ -5624,6 +5628,7 @@ name = "oyl-history"
 version = "0.1.0"
 dependencies = [
  "chrono",
+ "diffy",
  "log",
  "oyl-model",
  "serde",
@@ -5701,6 +5706,23 @@ dependencies = [
  "unicode-normalization",
  "ureq 3.5.1",
  "walkdir",
+]
+
+[[package]]
+name = "oyl-tasks"
+version = "0.1.0"
+dependencies = [
+ "anyhow",
+ "async-channel",
+ "gpui-kit",
+ "gpui-pre",
+ "log",
+ "notify",
+ "oyl-model",
+ "oyl-ui",
+ "serde",
+ "serde_json",
+ "smol",
 ]
 
 [[package]]

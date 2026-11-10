@@ -95,6 +95,9 @@ impl Harness for ScriptHarness {
             status: String::new(),
             models: Vec::new(),
             default_model: None,
+            efforts: Vec::new(),
+            default_effort: None,
+            capabilities: Vec::new(),
         }
     }
 
@@ -193,7 +196,7 @@ impl Checks<'_> {
                 selection: None,
                 diagnostics: vec![Diagnostic::error("boom"), Diagnostic::warning("meh")],
             }));
-            pane.set_before_turn(Rc::new(move |_, prompt, _| {
+            pane.set_before_turn(Rc::new(move |_, _, prompt, _| {
                 world.note(format!("hook {prompt}"))
             }));
             pane.send("one", cx);

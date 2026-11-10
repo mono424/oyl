@@ -326,6 +326,9 @@ mod tests {
                 label: "M".into(),
             }],
             default_model: None,
+            efforts: Vec::new(),
+            default_effort: None,
+            capabilities: Vec::new(),
         }
     }
 

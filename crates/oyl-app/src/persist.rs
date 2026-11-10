@@ -17,6 +17,7 @@ const WINDOW_FILE: &str = "window.json";
 
 /// Turn id → version id, in the paper's `.oyl/`.
 const TURNS_FILE: &str = "agent-turns.json";
+const BRANCHES_FILE: &str = "agent-branches.json";
 
 /// Where the app reads and writes.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -130,18 +131,69 @@ impl TurnVersions {
     }
 }
 
+/// Which thread (and turn) each agent branch of a paper belongs to, so a
+/// review or an unfinished branch finds its thread after a restart.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct BranchThreads {
+    /// Branch id (its `Display` form) → its thread.
+    pub branches: BTreeMap<String, BranchThread>,
+}
+
+/// The thread and turn of a branch.
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct BranchThread {
+    /// The chat thread id.
+    pub thread: String,
+    /// The turn that made the branch.
+    pub turn: String,
+}
+
+impl BranchThreads {
+    fn file(root: &Path) -> PathBuf {
+        root.join(oyl_core::project::STATE_DIR).join(BRANCHES_FILE)
+    }
+
+    /// The paper's record; empty when there is none or it does not read.
+    pub fn load(root: &Path) -> BranchThreads {
+        fs::read_to_string(Self::file(root))
+            .ok()
+            .and_then(|text| serde_json::from_str(&text).ok())
+            .unwrap_or_default()
+    }
+
+    /// Writes the record (atomically).
+    pub fn save(&self, root: &Path) -> anyhow::Result<()> {
+        let text = serde_json::to_string_pretty(self)?;
+        oyl_core::write_file_atomic(&Self::file(root), text)?;
+        Ok(())
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
 
     #[test]
+    fn branch_threads_round_trip() {
+        let dir = tempfile::tempdir().unwrap();
+        assert_eq!(BranchThreads::load(dir.path()), BranchThreads::default());
+        let mut record = BranchThreads::default();
+        record.branches.insert(
+            "b1".into(),
+            BranchThread {
+                thread: "t1".into(),
+                turn: "u1".into(),
+            },
+        );
+        record.save(dir.path()).unwrap();
+        assert_eq!(BranchThreads::load(dir.path()), record);
+    }
+
+    #[test]
     fn a_data_dir_override_keeps_papers_inside_it() {
         let paths = AppPaths::in_dir("/tmp/oyl-test".into());
         assert_eq!(paths.data_dir, Path::new("/tmp/oyl-test"));
-        assert_eq!(
-            paths.default_papers_dir,
-            Path::new("/tmp/oyl-test/Papers")
-        );
+        assert_eq!(paths.default_papers_dir, Path::new("/tmp/oyl-test/Papers"));
     }
 
     #[test]

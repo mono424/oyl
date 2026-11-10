@@ -20,23 +20,40 @@
 //!   commands and Typst `#figure`/`#table`/`#cite` snippets; headings.
 //! - **Diagnostics** ([`EditorPane::set_diagnostics`]): a squiggle under the
 //!   spot, the message on hover.
+//! - **Writing aids**, through a [`Rewriter`](oyl_model::agent::Rewriter)
+//!   and a [`FactChecker`](oyl_model::agent::FactChecker) the app hands in
+//!   ([`EditorPane::set_rewriter`], [`EditorPane::set_fact_checker`],
+//!   [`EditorPane::set_bibliography_provider`]). ⌘B polishes the selection
+//!   (or the sentence at the cursor); ⇧⌘B opens a prompt box to say what to
+//!   do with it; both run in the background, follow edits elsewhere, are
+//!   called off by an edit inside, and land as one undoable edit. ⌘I checks
+//!   the facts of the selection (or the paragraph) and underlines what is
+//!   wrong or doubtful, each with a card to apply, rewrite (with a remark)
+//!   or dismiss the suggestion ([`EditorEvent::FactCheckFinished`],
+//!   [`EditorPane::findings_count`]).
 //! - **Events** ([`EditorEvent`]) for edits, saves, the cursor, and pasted
 //!   images or dropped files, which the app stores and then inserts with
 //!   [`EditorPane::insert_at_cursor`].
 //!
 //! Keys inside the pane: ⌘S save, ⌘/ toggle line comments, ⌘F search (the
-//! editor's own).
+//! editor's own), ⌘B polish, ⇧⌘B custom rewrite, ⌘I fact check, Esc closes
+//! the prompt box or a card, or calls off what is running.
 
+mod anchor;
 mod comments;
 mod completion;
 mod diagnostics;
+mod glow;
 mod io;
 mod language;
 mod merge;
 mod pane;
+mod prose;
+mod rewrite;
 mod style;
 mod syntax;
 
 pub use pane::{
-    AUTOSAVE_DELAY, CURSOR_DEBOUNCE, EditorEvent, EditorPane, KEY_CONTEXT, Save, ToggleLineComment,
+    AUTOSAVE_DELAY, CURSOR_DEBOUNCE, CustomPrompt, EditorEvent, EditorPane, FactCheck, KEY_CONTEXT,
+    Polish, Save, ToggleLineComment,
 };

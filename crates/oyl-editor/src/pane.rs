@@ -15,7 +15,7 @@ use gpui_kit::component::input::Editor;
 use gpui_kit::prelude::*;
 use gpui_kit::{
     App, Bounds, ClipboardEntry, ClipboardItem, Context, Div, Entity, EntityId, EventEmitter,
-    ExternalPaths, FocusHandle, Focusable, Global, KeyBinding, Pixels, Render,
+    ExternalPaths, FocusHandle, Focusable, Global, KeyBinding, MouseMoveEvent, Pixels, Render,
     Subscription, Task, WeakEntity, Window, div, point, px, relative,
 };
 use oyl_model::agent::Selection;
@@ -26,12 +26,14 @@ use crate::comments::toggle_line_comments;
 use crate::completion::{
     ArmedSnippet, CompletionData, LabelSource, OylCompletions, highlight_typed,
 };
-use crate::diagnostics::{self, DiagnosticHover, SharedDiagnostics, shift_range};
+use crate::diagnostics::{self, DiagnosticHover, OffsetListener, SharedDiagnostics, shift_range};
 use crate::io;
 use crate::language::{FileKind, register_language_configs};
 use crate::merge::{MergeOutcome, OffsetMap, has_conflict_markers, merge3, single_edit};
 use crate::style::{StyledEditor, editor_style};
 use crate::syntax::{OylSyntaxTheme, typst_highlighter_factory};
+
+mod assist;
 
 gpui_kit::actions!(
     oyl_editor,
@@ -39,7 +41,20 @@ gpui_kit::actions!(
         /// Save every changed file now (⌘S).
         Save,
         /// Comment or uncomment the selected lines (⌘/).
-        ToggleLineComment
+        ToggleLineComment,
+        /// Polish the selection, or the sentence at the cursor: spelling,
+        /// grammar and a subtle smoothing, as one undoable edit (⌘B). On a
+        /// polish that is running, call it off.
+        Polish,
+        /// Check the facts of the selection, or of the paragraph at the
+        /// cursor, and underline what is wrong or doubtful (⌘I). On a check
+        /// that is running, call it off.
+        FactCheck,
+        /// Ask the AI to do something with the selection, or the sentence at
+        /// the cursor: a prompt box opens under it, Enter rewrites it as one
+        /// undoable edit (⇧⌘B). Pressed again, close the box; on a rewrite
+        /// that is running, call it off.
+        CustomPrompt
     ]
 );
 
@@ -83,6 +98,14 @@ pub enum EditorEvent {
     PastedImage { bytes: Vec<u8>, extension: String },
     /// Files were dropped onto the editor, or copied files were pasted.
     DroppedFiles { paths: Vec<PathBuf> },
+    /// A fact check (⌘I) of text in `path` finished: `claims` claims were
+    /// checked and `findings` problems underlined. Not sent when it failed
+    /// or was called off (the pane says so under the text).
+    FactCheckFinished {
+        path: PathBuf,
+        findings: usize,
+        claims: usize,
+    },
 }
 
 /// One open file.
@@ -106,6 +129,8 @@ struct Buffer {
     diagnostics: SharedDiagnostics,
     decorations: TextDecorationCollection,
     armed: Rc<RefCell<Vec<ArmedSnippet>>>,
+    /// Rewrites and fact checks running in this file, its findings.
+    assist: assist::BufferAssist,
     _subscriptions: Vec<Subscription>,
 }
 
@@ -141,6 +166,9 @@ fn install_globals(cx: &mut App) {
     cx.bind_keys([
         KeyBinding::new("cmd-s", Save, Some(KEY_CONTEXT)),
         KeyBinding::new("cmd-/", ToggleLineComment, Some(KEY_CONTEXT)),
+        KeyBinding::new("cmd-b", Polish, Some(KEY_CONTEXT)),
+        KeyBinding::new("cmd-shift-b", CustomPrompt, Some(KEY_CONTEXT)),
+        KeyBinding::new("cmd-i", FactCheck, Some(KEY_CONTEXT)),
     ]);
     register_language_configs(cx);
 }
@@ -162,6 +190,8 @@ pub struct EditorPane {
     syntax: Arc<OylSyntaxTheme>,
     last_cursor: Option<(EntityId, usize)>,
     cursor_task: Option<Task<()>>,
+    /// ⌘B polish, ⇧⌘B custom rewrite, ⌘I fact check.
+    assist: assist::Assist,
     _subscriptions: Vec<Subscription>,
 }
 
@@ -183,6 +213,7 @@ impl EditorPane {
             syntax: Arc::new(OylSyntaxTheme::new(cx.tokens())),
             last_cursor: None,
             cursor_task: None,
+            assist: assist::Assist::default(),
             _subscriptions: vec![theme],
         }
     }
@@ -216,10 +247,12 @@ impl EditorPane {
         self.save_all(cx)?;
         {
             let mut labels = self.completion.labels.borrow_mut();
-            for buffer in &self.buffers {
+            for buffer in &mut self.buffers {
                 labels.remove(&buffer.path);
+                buffer.assist.cancel_all();
             }
         }
+        self.assist.forget_spans();
         self.buffers.clear();
         self.active = None;
         self.diagnostics.clear();
@@ -519,14 +552,27 @@ impl EditorPane {
             data: self.completion.clone(),
             armed: armed.clone(),
         };
-        let hover = DiagnosticHover {
-            diagnostics: diagnostics.clone(),
-        };
         let language = kind.language().to_string();
         let typst = kind == FileKind::Typst;
         let initial = text.clone();
+        let pane = cx.weak_entity();
+        let hover_diagnostics = diagnostics.clone();
 
         let state = cx.new(|cx| {
+            // The offset under the pointer also tells the pane which
+            // fact-check finding is hovered (after the editor's own update).
+            let id = cx.entity_id();
+            let on_offset: OffsetListener = Rc::new(move |offset, window, cx| {
+                let pane = pane.clone();
+                window.defer(cx, move |_, cx| {
+                    pane.update(cx, |pane, cx| pane.pointer_at(id, offset, cx))
+                        .ok();
+                });
+            });
+            let hover = DiagnosticHover {
+                diagnostics: hover_diagnostics,
+                on_offset: Some(on_offset),
+            };
             let mut state = EditorState::new(window, cx)
                 .language(language)
                 .line_number(true)
@@ -549,6 +595,7 @@ impl EditorPane {
         let decorations = state.update(cx, |state, cx| {
             state.create_decorations_collection(Vec::new(), cx)
         });
+        let assist = assist::BufferAssist::new(&state, cx);
 
         let id = state.entity_id();
         let subscriptions = vec![
@@ -583,6 +630,7 @@ impl EditorPane {
             diagnostics,
             decorations,
             armed,
+            assist,
             _subscriptions: subscriptions,
         });
         let index = self.buffers.len() - 1;
@@ -682,6 +730,7 @@ impl EditorPane {
         } else {
             self.buffers[index].autosave = None;
         }
+        self.track_assist_edits(index, event, cx);
         cx.notify();
     }
 
@@ -739,6 +788,7 @@ impl EditorPane {
             return;
         }
         self.last_cursor = Some((id, offset));
+        self.sync_cursor_span(cx);
         self.cursor_task = Some(cx.spawn(async move |this, cx| {
             cx.background_executor().timer(CURSOR_DEBOUNCE).await;
             this.update(cx, |this, cx| {
@@ -777,6 +827,9 @@ impl EditorPane {
         for buffer in &self.buffers {
             let decorations = diagnostics::decorations(&buffer.diagnostics.borrow(), &tokens);
             buffer.decorations.set(decorations, cx);
+        }
+        for index in 0..self.buffers.len() {
+            self.paint_assist(index, cx);
         }
         cx.notify();
     }
@@ -973,8 +1026,9 @@ impl Focusable for EditorPane {
 }
 
 impl Render for EditorPane {
-    fn render(&mut self, _window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
+    fn render(&mut self, window: &mut Window, cx: &mut Context<Self>) -> impl IntoElement {
         let tokens = cx.tokens().clone();
+        let overlays = self.render_assist(window, cx);
         let zen = self.zen;
         let editor = self
             .active
@@ -1014,6 +1068,18 @@ impl Render for EditorPane {
             })
             .on_action(cx.listener(Self::on_save))
             .on_action(cx.listener(Self::on_toggle_line_comment))
+            .on_action(cx.listener(Self::on_polish))
+            .on_action(cx.listener(Self::on_fact_check))
+            .on_action(cx.listener(Self::on_custom_prompt))
+            .on_action(cx.listener(Self::on_escape))
+            .on_mouse_move(cx.listener(|this, event: &MouseMoveEvent, _, cx| {
+                this.assist_pointer_moved(event.position, cx)
+            }))
+            .on_hover(cx.listener(|this, hovered: &bool, _, cx| {
+                if !hovered {
+                    this.assist_pointer_left(cx);
+                }
+            }))
             .on_drop(
                 cx.listener(|this: &mut Self, paths: &ExternalPaths, _, cx| {
                     this.files_dropped(paths, cx)
@@ -1025,7 +1091,9 @@ impl Render for EditorPane {
             .flex()
             .flex_row()
             .text_color(tokens.text)
+            .relative()
             .child(column.flex_1().min_w_0())
+            .children(overlays)
     }
 }
 

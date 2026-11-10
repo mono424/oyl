@@ -35,6 +35,8 @@ const ESCALATION_STEP: Duration = Duration::from_millis(2500);
 /// How long a process may live on after it sent its terminal event before
 /// it gets SIGTERM (and SIGKILL after twice as long).
 const LINGER_GRACE: Duration = Duration::from_secs(5);
+/// How often a running process's parser is ticked.
+const TICK: Duration = Duration::from_millis(100);
 /// What a stopped turn says.
 pub(crate) const STOPPED_SUMMARY: &str = "Stopped.";
 
@@ -63,9 +65,24 @@ impl Spawn {
             .stderr(Stdio::piped())
             // Its own process group, so a Stop reaches everything it started.
             .process_group(0);
+        if let Some(ceiling) = branch_git_ceiling(&self.cwd) {
+            command.env("GIT_CEILING_DIRECTORIES", ceiling);
+        }
         reset_child_signals(&mut command);
         command
     }
+}
+
+/// When `cwd` is inside an agent branch (a private copy of a paper under
+/// `<paper>/.oyl/branches/`), the folder git must not search above: the
+/// agent's git commands then see only the branch, never the repository the
+/// user's paper may live in.
+pub(crate) fn branch_git_ceiling(cwd: &Path) -> Option<PathBuf> {
+    let parts: Vec<_> = cwd.components().collect();
+    let at = parts
+        .windows(2)
+        .rposition(|pair| pair[0].as_os_str() == ".oyl" && pair[1].as_os_str() == "branches")?;
+    Some(parts[..at + 2].iter().collect())
 }
 
 /// Turns one process's output into agent events.
@@ -76,6 +93,11 @@ pub(crate) trait StreamParser: Send {
     /// One line of stderr, without its newline. Most harnesses only keep
     /// stderr for the failure report, which the driver does by itself.
     fn stderr_line(&mut self, _line: &str, _out: &mut Vec<AgentEvent>) {}
+
+    /// Called about ten times a second while the process runs, for parsers
+    /// that also watch something besides the pipes (state files). Must be
+    /// quick; the default does nothing.
+    fn tick(&mut self, _out: &mut Vec<AgentEvent>) {}
 
     /// The resume token known so far, for the terminal event of a stopped
     /// or crashed turn.
@@ -352,6 +374,7 @@ impl Turn {
             &mut |line, out| match line {
                 LineRef::Out(text) => parser.stdout_line(text, out),
                 LineRef::Err(text) => parser.stderr_line(text, out),
+                LineRef::Tick => parser.tick(out),
             },
             &mut events,
         );
@@ -403,6 +426,7 @@ impl Turn {
                 &mut |line, out| {
                     let text = match line {
                         LineRef::Out(text) | LineRef::Err(text) => text,
+                        LineRef::Tick => return,
                     };
                     if let Some(message) = on_line(text) {
                         out.push(AgentEvent::Status { message });
@@ -481,6 +505,7 @@ impl Turn {
         let mut ended_at: Option<Instant> = None;
         let mut lingering_signalled = false;
         let mut timed_out = false;
+        let mut last_tick = Instant::now();
         loop {
             match rx.recv_timeout(Duration::from_millis(100)) {
                 Ok(Line::Out(text)) => on_line(LineRef::Out(&text), events),
@@ -495,6 +520,10 @@ impl Turn {
                     out_done = true;
                     err_done = true;
                 }
+            }
+            if last_tick.elapsed() >= TICK {
+                last_tick = Instant::now();
+                on_line(LineRef::Tick, events);
             }
             for event in events.drain(..) {
                 self.emit(event);
@@ -584,10 +613,11 @@ impl Turn {
     }
 }
 
-/// A line as handed to the parser.
+/// A line as handed to the parser, or a tick of the clock.
 pub(crate) enum LineRef<'a> {
     Out(&'a str),
     Err(&'a str),
+    Tick,
 }
 
 fn spawn_reader(
@@ -714,6 +744,43 @@ fn boxed(pipe: impl Read + Send + 'static) -> Box<dyn Read + Send> {
 
 #[cfg(test)]
 mod tests {
+
+    #[test]
+    fn git_stops_at_the_branches_folder_of_a_paper() {
+        assert_eq!(
+            branch_git_ceiling(Path::new("/Users/a/Papers/p/.oyl/branches/k1/work")),
+            Some(PathBuf::from("/Users/a/Papers/p/.oyl/branches"))
+        );
+        assert_eq!(
+            branch_git_ceiling(Path::new("/Users/a/Papers/p/.oyl/branches/k1/work/sub")),
+            Some(PathBuf::from("/Users/a/Papers/p/.oyl/branches"))
+        );
+        assert_eq!(branch_git_ceiling(Path::new("/Users/a/Papers/p")), None);
+        assert_eq!(
+            branch_git_ceiling(Path::new("/Users/a/code/experiments")),
+            None
+        );
+        assert_eq!(branch_git_ceiling(Path::new("/x/.oyl/history")), None);
+    }
+
+    #[test]
+    fn agent_processes_in_a_branch_get_the_ceiling() {
+        let dir = tempfile::tempdir().expect("tempdir");
+        let work = dir.path().join("p/.oyl/branches/k1/work");
+        std::fs::create_dir_all(&work).expect("mkdir");
+        let spawn = Spawn {
+            program: "/bin/sh".into(),
+            args: vec!["-c".into(), "printf %s \"$GIT_CEILING_DIRECTORIES\"".into()],
+            cwd: work.clone(),
+            env: vec![],
+            stdin: Vec::new(),
+        };
+        let output = spawn.command().stdin(Stdio::null()).output().expect("run");
+        assert_eq!(
+            String::from_utf8_lossy(&output.stdout),
+            dir.path().join("p/.oyl/branches").to_string_lossy()
+        );
+    }
     use super::*;
 
     struct LineParser {

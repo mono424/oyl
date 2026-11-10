@@ -75,13 +75,6 @@ fn ease_out_cubic(t: f32) -> f32 {
     1. - (1. - t).powi(3)
 }
 
-/// A soft pulse between 0.35 and 1 for the agent's dot, over one period
-/// (`delta` in 0..1).
-pub fn pulse(delta: f32) -> f32 {
-    let wave = (delta * std::f32::consts::TAU).cos() * 0.5 + 0.5;
-    0.35 + 0.65 * wave
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -135,15 +128,5 @@ mod tests {
         let before = fade;
         fade.set(false, start + Duration::from_secs(3));
         assert_eq!(fade, before);
-    }
-
-    #[test]
-    fn the_pulse_breathes_between_its_bounds() {
-        assert!((pulse(0.) - 1.).abs() < 1e-6);
-        assert!((pulse(0.5) - 0.35).abs() < 1e-6);
-        for step in 0..=20 {
-            let value = pulse(step as f32 / 20.);
-            assert!((0.35..=1.0001).contains(&value));
-        }
     }
 }

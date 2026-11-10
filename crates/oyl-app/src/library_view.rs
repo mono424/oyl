@@ -12,9 +12,11 @@ use gpui_kit::component::button::{Button, ButtonVariants as _};
 use gpui_kit::component::input::{Input, InputEvent, InputState};
 use gpui_kit::component::{Disableable as _, IconName, Sizable as _, StyledExt as _};
 use gpui_kit::prelude::*;
+use std::sync::Arc;
+
 use gpui_kit::{
-    AnyElement, App, Context, Entity, EventEmitter, FocusHandle, Focusable, Render, SharedString,
-    Subscription, Window, div, px,
+    AnyElement, App, Context, Entity, EventEmitter, FocusHandle, Focusable, Image, ImageFormat,
+    ObjectFit, Render, SharedString, Subscription, Window, div, img, px,
 };
 use oyl_core::LibraryEntry;
 use oyl_core::templates::{self, DEFAULT_TEMPLATE_ID};
@@ -22,6 +24,11 @@ use oyl_model::Engine;
 use oyl_ui::prelude::*;
 
 use crate::fuzzy;
+
+/// Oyl's logo (artwork on transparency).
+const LOGO: &[u8] = include_bytes!("../../../assets/logo.png");
+/// The logo's size in the card's header.
+const LOGO_SIZE: f32 = 48.;
 
 /// What the card asks the shell to do.
 #[derive(Clone, Debug, PartialEq)]
@@ -71,6 +78,8 @@ pub struct LibraryData {
 /// The library card.
 pub struct LibraryView {
     data: LibraryData,
+    /// Oyl's logo, above the welcome line.
+    logo: Arc<Image>,
     filter: Entity<InputState>,
     name: Entity<InputState>,
     form_open: bool,
@@ -160,6 +169,7 @@ impl LibraryView {
             form_open: false,
             engine: Engine::Typst,
             template: DEFAULT_TEMPLATE_ID,
+            logo: Arc::new(Image::from_bytes(ImageFormat::Png, LOGO.to_vec())),
             focus_handle: cx.focus_handle(),
             _subscriptions: subscriptions,
         }
@@ -227,6 +237,12 @@ impl LibraryView {
         div()
             .v_flex()
             .gap(px(6.))
+            .child(
+                img(self.logo.clone())
+                    .size(px(LOGO_SIZE))
+                    .object_fit(ObjectFit::Contain)
+                    .mb(px(6.)),
+            )
             .child(
                 div()
                     .font_family(k.serif_font.clone())
@@ -506,9 +522,7 @@ impl LibraryView {
                             .child(short_path(&entry.path)),
                     ),
             )
-            .when(current, |this| {
-                this.child(oyl_ui::accent_chip("Open", cx))
-            })
+            .when(current, |this| this.child(oyl_ui::accent_chip("Open", cx)))
             .child(oyl_ui::chip(entry.engine.label(), cx))
             .child(
                 div()

@@ -106,6 +106,15 @@ impl Shell {
         if changed {
             self.settings.layout_mode = mode;
             self.save_settings(cx);
+            // In and out of the Agent tab the preview may switch between
+            // the paper and a branch.
+            let branches = self
+                .paper
+                .as_ref()
+                .is_some_and(|paper| !paper.branches.is_empty());
+            if branches {
+                self.request_compile(window, cx);
+            }
         }
         self.reveal_header(cx);
         self.focus_content(window, cx);
@@ -329,6 +338,22 @@ impl Shell {
                 self.pasted_image(bytes, extension, window, cx)
             }
             EditorEvent::DroppedFiles { paths } => self.dropped_files(paths, window, cx),
+            EditorEvent::FactCheckFinished {
+                path,
+                findings,
+                claims,
+            } => {
+                log::info!(
+                    "fact check of {}: {claims} claims, {findings} findings",
+                    path.display()
+                );
+                let kind = if findings == 0 {
+                    ToastKind::Success
+                } else {
+                    ToastKind::Info
+                };
+                self.toast(kind, fact_check_line(findings, claims), window, cx);
+            }
         }
     }
 
@@ -342,8 +367,11 @@ impl Shell {
         match event {
             PreviewEvent::JumpToSource(location) => {
                 self.reveal_source(window, cx);
+                // From a branch's pages, to the paper's own file.
+                let mut location = location.clone();
+                location.file = self.paper_path(&location.file);
                 self.editor
-                    .update(cx, |editor, cx| editor.goto(location, window, cx));
+                    .update(cx, |editor, cx| editor.goto(&location, window, cx));
             }
             PreviewEvent::ShowProblems => self.show_panel(super::PanelKind::Problems, window, cx),
             PreviewEvent::ZoomChanged(mode) => {
@@ -744,31 +772,76 @@ impl Shell {
         }
     }
 
-    /// Whether the window may close now; asks first while the agent works.
+    /// Whether the window may close now (closing it quits Oyl); asks first
+    /// while agents run.
     pub(crate) fn should_close(&mut self, window: &mut Window, cx: &mut Context<Self>) -> bool {
-        if self.chat.read(cx).is_running() {
-            let answer = window.prompt(
-                gpui_kit::PromptLevel::Warning,
-                "The agent is still working on this paper.",
-                Some("Stop its turn and close the window? What it changed so far stays in the folder and in history."),
-                &["Stop and Close", "Cancel"],
-                cx,
-            );
-            cx.spawn_in(window, async move |this, cx| {
-                if answer.await == Ok(0) {
-                    let _ = this.update_in(cx, |this, window, cx| {
-                        this.chat.update(cx, |chat, cx| chat.stop(cx));
-                        this.agent.running = false;
-                        if this.save_everything(window, cx) {
-                            window.remove_window();
-                        }
-                    });
+        if self.confirm_stopping_agents(
+            "Quit anyway?",
+            "Stop & Quit",
+            |this, window, cx| {
+                if this.save_everything(window, cx) {
+                    window.remove_window();
                 }
-            })
-            .detach();
+            },
+            window,
+            cx,
+        ) {
             return false;
         }
         self.save_everything(window, cx)
+    }
+
+    /// ⌘Q: quits, asking first while agents run.
+    pub(crate) fn on_quit(&mut self, _: &Quit, window: &mut Window, cx: &mut Context<Self>) {
+        if self.confirm_stopping_agents(
+            "Quit anyway?",
+            "Stop & Quit",
+            |this, window, cx| {
+                if this.save_everything(window, cx) {
+                    cx.quit();
+                }
+            },
+            window,
+            cx,
+        ) {
+            return;
+        }
+        cx.quit();
+    }
+
+    /// While agents run, asks "2 agents are still running. <question>" and,
+    /// on `confirm`, stops them all and runs `then`. Returns whether it
+    /// asked (the caller then waits for the answer).
+    pub(crate) fn confirm_stopping_agents(
+        &mut self,
+        question: &str,
+        confirm: &'static str,
+        then: impl FnOnce(&mut Self, &mut Window, &mut Context<Self>) + 'static,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> bool {
+        let running = self.chat.read(cx).running_count();
+        if running == 0 {
+            return false;
+        }
+        let answer = window.prompt(
+            gpui_kit::PromptLevel::Warning,
+            &format!("{} {question}", agents_still_running(running)),
+            Some("Their turns stop. What they changed so far stays in the folder and in history."),
+            &[confirm, "Cancel"],
+            cx,
+        );
+        cx.spawn_in(window, async move |this, cx| {
+            if answer.await == Ok(0) {
+                let _ = this.update_in(cx, |this, window, cx| {
+                    this.chat.update(cx, |chat, cx| chat.stop_all(cx));
+                    this.agent.running = false;
+                    then(this, window, cx);
+                });
+            }
+        })
+        .detach();
+        true
     }
 
     // -- Actions --------------------------------------------------------------
@@ -1077,6 +1150,58 @@ impl Shell {
         self.toggle_panel(super::PanelKind::Figures, window, cx);
     }
 
+    pub(crate) fn on_polish_selection(
+        &mut self,
+        _: &PolishSelection,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.run_in_editor(Box::new(oyl_editor::Polish), window, cx);
+    }
+
+    pub(crate) fn on_fact_check_selection(
+        &mut self,
+        _: &FactCheckSelection,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.run_in_editor(Box::new(oyl_editor::FactCheck), window, cx);
+    }
+
+    pub(crate) fn on_ask_ai_about_selection(
+        &mut self,
+        _: &AskAiAboutSelection,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.run_in_editor(Box::new(oyl_editor::CustomPrompt), window, cx);
+    }
+
+    /// Runs one of the editor's own actions (polish, fact check, ask) from
+    /// the palette or the menu, with the caret in the source. When the
+    /// source was not on screen it comes first, and the action follows once
+    /// it is drawn.
+    fn run_in_editor(
+        &mut self,
+        action: Box<dyn gpui_kit::Action>,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if self.paper.is_none() {
+            return;
+        }
+        if crate::layout::shows_source(self.mode) {
+            let focus = self.editor.focus_handle(cx);
+            focus.focus(window, cx);
+            focus.dispatch_action(&*action, window, cx);
+            return;
+        }
+        self.reveal_source(window, cx);
+        self.editor.focus_handle(cx).focus(window, cx);
+        window.on_next_frame(move |window, cx| window.dispatch_action(action, cx));
+        window.refresh();
+    }
+
     pub(crate) fn on_show_problems(
         &mut self,
         _: &ShowProblems,
@@ -1136,6 +1261,29 @@ impl Shell {
     }
 }
 
+/// "Fact check: 2 problems · 7 claims".
+pub(crate) fn fact_check_line(findings: usize, claims: usize) -> String {
+    let problems = match findings {
+        0 => "no problems".to_string(),
+        1 => "1 problem".to_string(),
+        n => format!("{n} problems"),
+    };
+    let claims = match claims {
+        1 => "1 claim".to_string(),
+        n => format!("{n} claims"),
+    };
+    format!("Fact check: {problems} · {claims}")
+}
+
+/// "1 agent is still running." / "2 agents are still running."
+pub(crate) fn agents_still_running(count: usize) -> String {
+    if count == 1 {
+        "1 agent is still running.".to_string()
+    } else {
+        format!("{count} agents are still running.")
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -1156,6 +1304,19 @@ mod tests {
         assert_eq!(zoom_setting(ZoomMode::Custom(1.5)), Some(1.5));
         assert_eq!(zoom_setting(ZoomMode::FitWidth), None);
         assert_eq!(zoom_setting(ZoomMode::FitPage), None);
+    }
+
+    #[test]
+    fn fact_check_lines_count_problems_and_claims() {
+        assert_eq!(fact_check_line(2, 7), "Fact check: 2 problems · 7 claims");
+        assert_eq!(fact_check_line(1, 1), "Fact check: 1 problem · 1 claim");
+        assert_eq!(fact_check_line(0, 4), "Fact check: no problems · 4 claims");
+    }
+
+    #[test]
+    fn the_quit_question_counts_the_agents() {
+        assert_eq!(agents_still_running(1), "1 agent is still running.");
+        assert_eq!(agents_still_running(2), "2 agents are still running.");
     }
 
     #[test]

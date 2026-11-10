@@ -69,6 +69,10 @@ fn is_image(path: &std::path::Path) -> bool {
 }
 
 /// The `codex` arguments for one turn (the prompt goes to stdin, `-`).
+/// The reasoning efforts Codex documents for `model_reasoning_effort`,
+/// lowest first (`xhigh` only on the models that have it).
+pub const CODEX_EFFORTS: [&str; 5] = ["minimal", "low", "medium", "high", "xhigh"];
+
 pub(crate) fn command_args(request: &TurnRequest) -> Vec<OsString> {
     let mut args: Vec<OsString> = [
         "exec",
@@ -90,6 +94,14 @@ pub(crate) fn command_args(request: &TurnRequest) -> Vec<OsString> {
     {
         args.push("--model".into());
         args.push(model.into());
+    }
+    if let Some(effort) = request
+        .effort
+        .as_deref()
+        .filter(|e| CODEX_EFFORTS.contains(e))
+    {
+        args.push("-c".into());
+        args.push(format!("model_reasoning_effort=\"{effort}\"").into());
     }
     let session = request.session.as_deref().filter(|s| !s.is_empty());
     if let Some(session) = session {
@@ -128,6 +140,10 @@ impl Harness for CodexHarness {
             status,
             models: Self::models(),
             default_model: Some(DEFAULT_MODEL.into()),
+            efforts: CODEX_EFFORTS.iter().map(|e| (*e).to_owned()).collect(),
+            // None: whatever the user's Codex config says.
+            default_effort: None,
+            capabilities: Vec::new(),
         }
     }
 
@@ -144,6 +160,13 @@ impl Harness for CodexHarness {
                     request.project_root.display()
                 ));
                 return;
+            }
+            if let Some(effort) = request.effort.as_deref()
+                && !CODEX_EFFORTS.contains(&effort)
+            {
+                turn.status(format!(
+                    "Codex has no \"{effort}\" effort; it runs at its configured one."
+                ));
             }
             let spawn = Spawn {
                 program: codex.path,
@@ -686,6 +709,31 @@ mod tests {
             AgentEvent::Status {
                 message: "command timed out".into()
             }
+        );
+    }
+
+    #[test]
+    fn efforts_become_a_config_override() {
+        let request = TurnRequest {
+            effort: Some("xhigh".into()),
+            ..TurnRequest::default()
+        };
+        let args: Vec<String> = command_args(&request)
+            .into_iter()
+            .map(|a| a.to_string_lossy().into_owned())
+            .collect();
+        assert!(
+            args.windows(2)
+                .any(|w| w[0] == "-c" && w[1] == "model_reasoning_effort=\"xhigh\"")
+        );
+        let unknown = TurnRequest {
+            effort: Some("max".into()),
+            ..TurnRequest::default()
+        };
+        assert!(
+            !command_args(&unknown)
+                .iter()
+                .any(|a| a.to_string_lossy().starts_with("model_reasoning_effort"))
         );
     }
 

@@ -3,3 +3,4 @@ target/
 *.log
 # Local build settings (e.g. a target-dir outside the tree)
 .cargo/
+.worktrees/

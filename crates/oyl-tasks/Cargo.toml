@@ -1,0 +1,30 @@
+[package]
+name = "oyl-tasks"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+gpui-kit.workspace = true
+oyl-ui = { path = "../oyl-ui" }
+oyl-model = { path = "../oyl-model" }
+anyhow.workspace = true
+log.workspace = true
+serde.workspace = true
+notify.workspace = true
+async-channel.workspace = true
+smol.workspace = true
+
+[dev-dependencies]
+# GPUI's headless test platform, for the UI tests (src/ui_tests.rs).
+# Enabled on the GPUI package gpui-kit itself uses (`gpui_kit::*` then
+# re-exports the test types); gpui-kit's own `test-support` feature makes
+# Cargo resolve its optional gpui-fast backend, whose taffy pin conflicts
+# with the workspace's lock.
+gpui = { package = "gpui-pre", version = "=0.3.12", features = ["test-support"] }
+serde_json.workspace = true
+
+[[example]]
+name = "tasks"
+path = "examples/tasks.rs"

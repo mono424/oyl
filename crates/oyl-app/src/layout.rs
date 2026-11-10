@@ -7,7 +7,6 @@ use std::time::Duration;
 
 use oyl_core::LayoutMode;
 
-
 // -- Window -----------------------------------------------------------------
 
 /// The window never gets smaller than this (points).
@@ -250,7 +249,10 @@ mod tests {
         let split = LayoutMode::Split;
         assert!((split_from_drag(split, 700., 0., 1400.) - 0.5).abs() < 1e-6);
         assert!((split_from_drag(split, 560., 0., 1400.) - 0.4).abs() < 1e-6);
-        assert_eq!(split_from_drag(split, 10., 0., 1400.), clamp_split(0.0, 1400.));
+        assert_eq!(
+            split_from_drag(split, 10., 0., 1400.),
+            clamp_split(0.0, 1400.)
+        );
         assert_eq!(split_from_drag(split, 10., 0., 0.), SPLIT_DEFAULT);
     }
 }

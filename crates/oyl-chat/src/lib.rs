@@ -27,9 +27,11 @@ mod view;
 
 pub use context::{EditorContext, PaperContext};
 pub use pane::{
-    BeforeTurnHook, ChatEvent, ChatPane, ClosePopover, ContextProvider, Leave, PopoverConfirm,
-    PopoverDown, PopoverUp, RunningThread, ThreadsOverview,
+    BeforeTurnHook, BranchView, ChatEvent, ChatPane, ClosePopover, ContextProvider, DISCOVER,
+    DISCOVERY_STARTER, FinishedThread, Leave, ModeEntry, NEEDS_REVIEW, PickerModel, PopoverConfirm,
+    PopoverDown, PopoverUp, REVIEW_INTRO, ReviewChoice, ReviewConflict, ReviewFile, ReviewLine,
+    ReviewLineKind, ReviewView, RunningThread, ThreadView, ThreadsOverview, applied_line,
 };
-pub use sidebar::ChatSidebar;
+pub use sidebar::{ChatSidebar, TrayItem};
 pub use store::{ThreadStore, ThreadSummary};
 pub use thread::{Thread, Turn, TurnStatus};

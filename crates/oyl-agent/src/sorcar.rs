@@ -20,21 +20,35 @@
 //! - When Oyl installed uv itself (into `<data_dir>/bin`), its cache and
 //!   Python downloads stay in `<data_dir>/uv/` too.
 //!
-//! Sorcar edits the paper folder in place: the bridge gives it no
-//! `create_worktree` / `commit_and_merge` tools (which also switches off its
-//! worktree write guard) and removes the worktree rules from its system
-//! prompt.
+//! Models: the newest Claude models through the subscription (`cc/…`), Codex
+//! models, then the API-key models present. An effort is Sorcar's level
+//! suffix on the catalog id (`cc/claude-opus-5-5-xhigh`). Claude Fable 5.2,
+//! newer than the pinned release, is registered in `KISS_HOME/MY_MODELS.json`.
+//!
+//! Capabilities run one of Sorcar's agents (SEAs) on the request instead of
+//! a plain turn: `discover` (the AI discovery loop, in the git repository of
+//! the user's experiments, with Progress read from its state files),
+//! `write_paper`, `review` (the report goes to `.oyl/reviews/`) and
+//! `revise_and_review` (rounds of writing and fresh reviews, run by the
+//! bridge, with Progress per draft).
+//!
+//! Plain turns and the paper capabilities edit the paper folder in place:
+//! the bridge gives them no `create_worktree` / `commit_and_merge` tools
+//! (which also switches off Sorcar's worktree write guard) and removes the
+//! worktree rules from the system prompt. A discovery run keeps Sorcar's
+//! worktrees and commits: they are how it keeps its frontier.
 
 use std::{
     collections::HashMap,
     ffi::OsString,
     path::{Path, PathBuf},
     sync::{Arc, LazyLock, mpsc},
-    time::Duration,
+    time::{Duration, Instant, SystemTime, UNIX_EPOCH},
 };
 
 use oyl_model::agent::{
-    AgentEvent, Harness, HarnessId, HarnessInfo, ModelChoice, Readiness, TurnHandle, TurnRequest,
+    AgentEvent, Capability, Harness, HarnessId, HarnessInfo, ModelChoice, Progress, Readiness,
+    TurnHandle, TurnRequest,
 };
 use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
@@ -42,6 +56,7 @@ use serde_json::Value;
 
 use crate::{
     detect::{Detection, Setup, is_executable},
+    discovery::{DiscoverWatcher, round_limit},
     process::{self, STOPPED_SUMMARY, Spawn, StreamParser, Turn},
     prompt, tools,
 };
@@ -267,10 +282,154 @@ pub(crate) fn setup_lock(data_dir: &Path) -> Arc<Mutex<()>> {
     Arc::clone(LOCKS.lock().entry(key).or_default())
 }
 
-/// The models Sorcar can use here and the one it uses by default:
-/// `cc/opus` through the Claude subscription when `claude` exists, else
-/// `codex/default` through Codex, else Sorcar's own default for the first
-/// provider API key present.
+/// The reasoning efforts Sorcar's Claude models come in, lowest first: its
+/// catalog lists each as an alias of the model (`cc/claude-opus-5-5-xhigh`).
+pub const SORCAR_EFFORTS: [&str; 5] = ["low", "medium", "high", "xhigh", "max"];
+/// The effort Sorcar's catalog runs a model at when no level is named.
+pub const SORCAR_DEFAULT_EFFORT: &str = "high";
+/// The model Sorcar uses when the user picked none, with `claude` installed.
+pub const SORCAR_DEFAULT_MODEL: &str = "cc/claude-opus-5-5";
+/// Claude Fable 5.2 through the Claude subscription. The pinned Sorcar
+/// release predates it, so Oyl registers it (and its effort levels) in
+/// Sorcar's model registry, `MY_MODELS.json` under `KISS_HOME`.
+pub const FABLE_5_2: &str = "cc/claude-fable-5-2";
+
+/// Short names Sorcar or older Oyl versions used, and the full ids they
+/// stand for now.
+const SORCAR_ALIASES: [(&str, &str); 4] = [
+    ("cc/opus", "cc/claude-opus-5-5"),
+    ("cc/sonnet", "cc/claude-sonnet-5-5"),
+    ("cc/haiku", "cc/claude-haiku-5-5"),
+    ("cc/fable", FABLE_5_2),
+];
+
+/// The effort levels a model has as catalog aliases (`<model>-<level>`).
+fn effort_levels(model: &str) -> &'static [&'static str] {
+    match model {
+        FABLE_5_2
+        | "cc/claude-fable-5-1"
+        | "cc/claude-fable-5"
+        | "cc/claude-opus-5-5"
+        | "cc/claude-sonnet-5-5"
+        | "cc/claude-haiku-5-5"
+        | "claude-opus-5-5"
+        | "claude-sonnet-5-5" => &SORCAR_EFFORTS,
+        "gpt-6.1-sol" => &["low", "medium", "high", "xhigh"],
+        "gemini-3.8-flash" => &["low", "medium", "high"],
+        _ => &[],
+    }
+}
+
+/// The model id a Sorcar run uses for a picked model and effort.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct ModelPick {
+    /// What the bridge runs.
+    pub id: String,
+    /// The model without the effort, run instead when `id` turns out not
+    /// to be in Sorcar's catalog.
+    pub fallback: Option<String>,
+    /// Why the effort could not be applied, for a status line.
+    pub note: Option<String>,
+}
+
+/// Map a model and effort to Sorcar's catalog id: aliases resolve to the
+/// current full id first (`cc/opus` → `cc/claude-opus-5-5`), an effort
+/// becomes the level suffix (`cc/claude-opus-5-5-xhigh`), replacing one the
+/// id already has; a model without that level keeps its default, with a
+/// note.
+pub(crate) fn resolve_model(model: &str, effort: Option<&str>) -> ModelPick {
+    let model = SORCAR_ALIASES
+        .iter()
+        .find(|(alias, _)| *alias == model)
+        .map_or(model, |(_, full)| full);
+    // An id that already carries a level: its base and that level.
+    let (base, given) = SORCAR_EFFORTS
+        .iter()
+        .find_map(|level| {
+            model
+                .strip_suffix(&format!("-{level}"))
+                .filter(|base| effort_levels(base).contains(level))
+                .map(|base| (base, Some(*level)))
+        })
+        .unwrap_or((model, None));
+    match effort.filter(|e| !e.is_empty()) {
+        None => ModelPick {
+            id: model.to_owned(),
+            fallback: given.map(|_| base.to_owned()),
+            note: None,
+        },
+        Some(effort) if effort_levels(base).contains(&effort) => ModelPick {
+            id: format!("{base}-{effort}"),
+            fallback: Some(base.to_owned()),
+            note: None,
+        },
+        Some(effort) => ModelPick {
+            id: model.to_owned(),
+            fallback: None,
+            note: Some(format!(
+                "{base} has no \"{effort}\" effort in Sorcar; it runs at its default."
+            )),
+        },
+    }
+}
+
+/// The catalog entries Oyl adds to Sorcar's model registry: Fable 5.2 and
+/// one alias per effort level, like the catalog's own Claude models.
+pub(crate) fn registered_models() -> serde_json::Map<String, Value> {
+    let entry = |thinking: &str, alias_of: Option<&str>| {
+        let mut entry = serde_json::json!({
+            "context_length": 500_000,
+            "input_price_per_1M": 0.0,
+            "output_price_per_1M": 0.0,
+            "fc": true,
+            "emb": false,
+            "gen": true,
+            "thinking": thinking,
+            "comment": "Added by Oyl: Claude Fable 5.2 through the Claude Code CLI",
+        });
+        if let (Some(base), Some(map)) = (alias_of, entry.as_object_mut()) {
+            map.insert("alias_of".into(), Value::String(base.into()));
+        }
+        entry
+    };
+    let mut models = serde_json::Map::new();
+    models.insert(FABLE_5_2.into(), entry(SORCAR_DEFAULT_EFFORT, None));
+    for level in SORCAR_EFFORTS {
+        models.insert(
+            format!("{FABLE_5_2}-{level}"),
+            entry(level, Some(FABLE_5_2)),
+        );
+    }
+    models
+}
+
+/// Merge [`registered_models`] into `<KISS_HOME>/MY_MODELS.json`, keeping
+/// every other entry; written only when something changes.
+pub(crate) fn register_models(layout: &Layout) -> std::io::Result<()> {
+    let path = layout.kiss_home().join("MY_MODELS.json");
+    let current: serde_json::Map<String, Value> = std::fs::read_to_string(&path)
+        .ok()
+        .and_then(|text| serde_json::from_str(&text).ok())
+        .unwrap_or_default();
+    let mut merged = current.clone();
+    for (name, entry) in registered_models() {
+        merged.insert(name, entry);
+    }
+    if merged == current && path.is_file() {
+        return Ok(());
+    }
+    std::fs::create_dir_all(layout.kiss_home())?;
+    let text =
+        serde_json::to_string_pretty(&Value::Object(merged)).map_err(std::io::Error::other)?;
+    let temp = path.with_extension(format!("json.{}", uuid::Uuid::new_v4().simple()));
+    std::fs::write(&temp, text + "\n")?;
+    std::fs::rename(&temp, &path)
+}
+
+/// The models Sorcar can use here, newest first, and the one it uses by
+/// default: Opus 5.5 through the Claude subscription when `claude` exists,
+/// else `codex/default` through Codex, else Sorcar's own default for the
+/// first provider API key present.
 pub fn sorcar_models(detection: &Detection) -> (Vec<ModelChoice>, Option<String>) {
     let mut models = Vec::new();
     let mut push = |id: &str, label: &str| {
@@ -279,34 +438,54 @@ pub fn sorcar_models(detection: &Detection) -> (Vec<ModelChoice>, Option<String>
             label: label.into(),
         })
     };
+    let mut default = None;
     if detection.claude.is_some() {
-        push("cc/opus", "Claude Opus (your Claude subscription)");
-        push("cc/sonnet", "Claude Sonnet (your Claude subscription)");
+        push(FABLE_5_2, "Fable 5.2 (your Claude subscription)");
+        push("cc/claude-opus-5-5", "Opus 5.5 (your Claude subscription)");
         push(
-            "cc/haiku",
-            "Claude Haiku (your Claude subscription, fastest)",
+            "cc/claude-sonnet-5-5",
+            "Sonnet 5.5 (your Claude subscription)",
         );
+        push(
+            "cc/claude-haiku-5-5",
+            "Haiku 5.5 (your Claude subscription, fastest)",
+        );
+        push(
+            "cc/claude-fable-5-1",
+            "Fable 5.1 (your Claude subscription)",
+        );
+        default = Some(SORCAR_DEFAULT_MODEL.to_owned());
     }
     if detection.codex.is_some() {
+        push("codex/default", "Codex default (your ChatGPT subscription)");
         push(
-            "codex/default",
-            "Codex default model (your ChatGPT subscription)",
+            "codex/gpt-6.1-sol",
+            "GPT-6.1 Sol (your ChatGPT subscription)",
         );
+        push(
+            "codex/gpt-6.1-terra",
+            "GPT-6.1 Terra (your ChatGPT subscription)",
+        );
+        push(
+            "codex/gpt-6-luna",
+            "GPT-6 Luna (your ChatGPT subscription, fastest)",
+        );
+        default = default.or_else(|| Some("codex/default".to_owned()));
     }
     const KEYED: &[(&str, &str, &str)] = &[
         (
             "ANTHROPIC_API_KEY",
             "claude-opus-5-5",
-            "Claude Opus 5.5 (Anthropic API key)",
+            "Opus 5.5 (Anthropic API key)",
         ),
         (
             "ANTHROPIC_API_KEY",
             "claude-sonnet-5-5",
-            "Claude Sonnet 5.5 (Anthropic API key)",
+            "Sonnet 5.5 (Anthropic API key)",
         ),
         (
             "OPENAI_API_KEY",
-            "gpt-6.1-sol-medium",
+            "gpt-6.1-sol",
             "GPT-6.1 Sol (OpenAI API key)",
         ),
         (
@@ -322,7 +501,7 @@ pub fn sorcar_models(detection: &Detection) -> (Vec<ModelChoice>, Option<String>
         (
             "OPENROUTER_API_KEY",
             "openrouter/anthropic/claude-opus-5.5",
-            "Claude Opus 5.5 (OpenRouter)",
+            "Opus 5.5 (OpenRouter)",
         ),
         (
             "TOGETHER_API_KEY",
@@ -335,11 +514,68 @@ pub fn sorcar_models(detection: &Detection) -> (Vec<ModelChoice>, Option<String>
     for (key, id, label) in KEYED {
         if detection.has_key(key) {
             push(id, label);
+            default = default.or_else(|| Some((*id).to_owned()));
         }
     }
-    let default = models.first().map(|model| model.id.clone());
     (models, default)
 }
+
+/// Sorcar's specialised agents, offered as modes besides a plain turn.
+pub fn sorcar_capabilities() -> Vec<Capability> {
+    let capability =
+        |id: &str, name: &str, description: &str, long_running: bool, placeholder: &str| {
+            Capability {
+                id: id.into(),
+                name: name.into(),
+                description: description.into(),
+                long_running,
+                placeholder: placeholder.into(),
+            }
+        };
+    vec![
+        capability(
+            CAPABILITY_DISCOVER,
+            "Discover",
+            "AI discovery on your experiments: a baseline, the state of the art, then one idea per round, \
+             each measured and committed, keeping a Pareto frontier of the winners",
+            true,
+            "What to improve, the metric and the goal, and the folder of your experiments…",
+        ),
+        capability(
+            CAPABILITY_WRITE,
+            "Write paper",
+            "Writes or revises the paper with Sorcar's paper-writing agent, checking structure, \
+             citations and AI-sounding prose",
+            false,
+            "What to write or revise, for which venue…",
+        ),
+        capability(
+            CAPABILITY_REVIEW,
+            "Review",
+            "Reviews the paper like a careful reviewer of the venue, with the related work, and \
+             writes the report to .oyl/reviews/",
+            false,
+            "The venue and anything the review should focus on…",
+        ),
+        capability(
+            CAPABILITY_REVISE,
+            "Revise & review",
+            "Writes, reviews with a fresh reviewer and revises in rounds until the review says strong \
+             accept or the paper stops improving",
+            true,
+            "Writing: what to write. Review: the venue and how to review…",
+        ),
+    ]
+}
+
+/// [`Capability::id`]s of [`sorcar_capabilities`].
+pub const CAPABILITY_DISCOVER: &str = "discover";
+/// See [`CAPABILITY_DISCOVER`].
+pub const CAPABILITY_WRITE: &str = "write_paper";
+/// See [`CAPABILITY_DISCOVER`].
+pub const CAPABILITY_REVIEW: &str = "review";
+/// See [`CAPABILITY_DISCOVER`].
+pub const CAPABILITY_REVISE: &str = "revise_and_review";
 
 impl Harness for SorcarHarness {
     fn info(&self) -> HarnessInfo {
@@ -376,6 +612,9 @@ impl Harness for SorcarHarness {
             status,
             models,
             default_model,
+            efforts: SORCAR_EFFORTS.iter().map(|e| (*e).to_owned()).collect(),
+            default_effort: Some(SORCAR_DEFAULT_EFFORT.into()),
+            capabilities: sorcar_capabilities(),
         }
     }
 
@@ -438,6 +677,9 @@ fn ensure_ready(
             layout.data_dir.display()
         )
     })?;
+    if let Err(err) = register_models(layout) {
+        log::warn!("could not register Fable 5.2 with Sorcar: {err}");
+    }
     if env_is_current(layout) {
         if !verify || check_env(turn, detection, layout).is_ok() {
             return Ok(layout.python());
@@ -638,29 +880,249 @@ impl SetupProgress {
 /// What the bridge reads on stdin.
 #[derive(Debug, Serialize)]
 pub(crate) struct BridgeRequest {
-    /// Paper context, writing rules and the message.
+    /// A plain turn: paper context, writing rules and the message. A
+    /// capability: the task for its agent.
     pub prompt: String,
     /// The message alone, as Sorcar's chat history records it.
     pub history_prompt: String,
     pub model: Option<String>,
+    /// Run instead of `model` when that is not in Sorcar's catalog.
+    pub model_fallback: Option<String>,
     pub work_dir: PathBuf,
     pub active_file: Option<PathBuf>,
+    pub main_file: Option<PathBuf>,
     pub session: Option<String>,
     pub attachments: Vec<PathBuf>,
+    /// A [`Capability::id`], or `None` for a plain turn.
+    pub capability: Option<String>,
+    /// Review: where the report goes.
+    pub review_output: Option<PathBuf>,
+    /// Revise & review: where each round's review goes.
+    pub reports_dir: Option<PathBuf>,
+    /// Revise & review: the round cap the task names.
+    pub max_rounds: Option<u32>,
 }
 
 impl BridgeRequest {
-    pub fn new(request: &TurnRequest, model: Option<String>) -> Self {
+    pub fn new(
+        request: &TurnRequest,
+        model: Option<ModelPick>,
+        plan: Option<&CapabilityPlan>,
+    ) -> Self {
+        let (model, model_fallback) = match model {
+            Some(pick) => (Some(pick.id), pick.fallback),
+            None => (None, None),
+        };
         BridgeRequest {
-            prompt: prompt::full_prompt(request),
+            prompt: plan.map_or_else(|| prompt::full_prompt(request), |plan| plan.task.clone()),
             history_prompt: request.prompt.trim().to_owned(),
             model,
-            work_dir: request.project_root.clone(),
+            model_fallback,
+            work_dir: plan.map_or_else(
+                || request.project_root.clone(),
+                |plan| plan.work_dir.clone(),
+            ),
             active_file: request.active_file.clone(),
+            main_file: request.main_file.clone(),
             session: request.session.clone().filter(|s| !s.is_empty()),
             attachments: request.attachments.clone(),
+            capability: plan.map(|plan| plan.capability.clone()),
+            review_output: plan.and_then(|plan| plan.review_output.clone()),
+            reports_dir: plan.and_then(|plan| plan.reports_dir.clone()),
+            max_rounds: plan.and_then(|plan| plan.max_rounds),
         }
     }
+}
+
+/// How a capability runs: where, on what task, and where its reports go.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub(crate) struct CapabilityPlan {
+    pub capability: String,
+    pub work_dir: PathBuf,
+    pub task: String,
+    pub review_output: Option<PathBuf>,
+    pub reports_dir: Option<PathBuf>,
+    pub max_rounds: Option<u32>,
+    /// Discover: the round limit, for Progress.
+    pub round_limit: Option<u32>,
+}
+
+/// Plan a capability run, or say why it cannot run.
+pub(crate) fn plan_capability(
+    request: &TurnRequest,
+    capability: &str,
+    now: SystemTime,
+) -> Result<CapabilityPlan, String> {
+    let root = &request.project_root;
+    let instructions = request.prompt.trim();
+    let main = request.main_file.clone().unwrap_or_else(|| {
+        root.join(
+            prompt::engine_of(request)
+                .unwrap_or(oyl_model::Engine::Typst)
+                .default_main(),
+        )
+    });
+    let stamp = utc_stamp(now);
+    let mut plan = CapabilityPlan {
+        capability: capability.to_owned(),
+        work_dir: root.clone(),
+        task: String::new(),
+        review_output: None,
+        reports_dir: None,
+        max_rounds: None,
+        round_limit: None,
+    };
+    match capability {
+        CAPABILITY_DISCOVER => {
+            let work_dir = discover_work_dir(request)?;
+            let place = if work_dir == *root {
+                format!("Work in {}, the folder of the paper.", work_dir.display())
+            } else {
+                format!(
+                    "Work in {}: the experiments behind the paper at {}.",
+                    work_dir.display(),
+                    root.display()
+                )
+            };
+            plan.round_limit = Some(round_limit(instructions));
+            plan.task = format!(
+                "{instructions}\n\n{place}\nThere is no browser in this run: search the state of the art with curl \
+                 on the arXiv API (http://export.arxiv.org/api/query), Semantic Scholar \
+                 (https://api.semanticscholar.org/graph/v1/paper/search) and GitHub search; this overrides the \
+                 note that web tools are off. Run unattended: nobody can answer questions."
+            );
+            plan.work_dir = work_dir;
+        }
+        CAPABILITY_WRITE => {
+            plan.task = format!(
+                "{}\n# What to do\n{instructions}\n\nThe paper is {}; edit its files in place in {}. Run unattended: \
+                 nobody can answer questions.",
+                prompt::paper_context(request),
+                main.display(),
+                root.display()
+            );
+        }
+        CAPABILITY_REVIEW => {
+            let output = root
+                .join(".oyl")
+                .join("reviews")
+                .join(format!("{stamp}.md"));
+            let focus = if instructions.is_empty() {
+                "No venue was named: review it for the venue it targets, else for a top venue of its field.".to_owned()
+            } else {
+                instructions.to_owned()
+            };
+            plan.task = format!(
+                "Review the paper at {} (its sources are in {}).\n{focus}\nWrite the review to {}. Run unattended: \
+                 when something is unclear, decide and say so in the review.",
+                main.display(),
+                root.display(),
+                output.display()
+            );
+            plan.review_output = Some(output);
+        }
+        CAPABILITY_REVISE => {
+            plan.reports_dir = Some(
+                root.join(".oyl")
+                    .join("reviews")
+                    .join(format!("revise-{stamp}")),
+            );
+            plan.max_rounds = crate::discovery::named_round_limit(instructions);
+            plan.task = format!(
+                "{instructions}\n\nThe paper is {} (its sources are in {}).",
+                main.display(),
+                root.display()
+            );
+        }
+        other => return Err(format!("Sorcar has no \"{other}\" mode.")),
+    }
+    Ok(plan)
+}
+
+/// The folder a discovery run works in: a folder outside the paper that
+/// the request names (`~/exp/fib`, `"../my experiments"`), else the paper
+/// folder. It must be in a git repository — the loop commits every idea.
+pub(crate) fn discover_work_dir(request: &TurnRequest) -> Result<PathBuf, String> {
+    let root = &request.project_root;
+    let named = path_candidates(&request.prompt)
+        .into_iter()
+        .filter_map(|candidate| {
+            let path = if let Some(rest) = candidate.strip_prefix("~/") {
+                dirs::home_dir()?.join(rest)
+            } else {
+                root.join(&candidate)
+            };
+            let path = std::fs::canonicalize(&path).ok()?;
+            path.is_dir().then_some(path)
+        })
+        .find(|path| {
+            let canonical_root = std::fs::canonicalize(root).unwrap_or_else(|_| root.clone());
+            !path.starts_with(&canonical_root)
+        });
+    let work_dir = named.unwrap_or_else(|| root.clone());
+    if !work_dir.ancestors().any(|dir| dir.join(".git").exists()) {
+        return Err(format!(
+            "Discover needs a git repository: it commits every idea it tries. {} is not in one; run `git init` \
+             there, or name the folder of your experiments in the request.",
+            work_dir.display()
+        ));
+    }
+    Ok(work_dir)
+}
+
+/// Path-looking words of a request: quoted or backticked text, and words
+/// starting with `/`, `~/`, `./` or `../`.
+fn path_candidates(text: &str) -> Vec<String> {
+    let mut candidates = Vec::new();
+    for quote in ['`', '"', '\''] {
+        let parts: Vec<&str> = text.split(quote).collect();
+        candidates.extend(
+            parts
+                .iter()
+                .skip(1)
+                .step_by(2)
+                .map(|part| part.trim().to_owned()),
+        );
+    }
+    candidates.extend(
+        text.split_whitespace()
+            .map(|word| {
+                word.trim_matches(|c: char| {
+                    matches!(c, '`' | '"' | '\'' | '(' | ')' | ',' | ';' | ':')
+                })
+            })
+            .map(|word| word.trim_end_matches('.'))
+            .filter(|word| {
+                ["/", "~/", "./", "../"]
+                    .iter()
+                    .any(|start| word.starts_with(start))
+            })
+            .map(str::to_owned),
+    );
+    candidates.retain(|c| !c.is_empty() && !c.contains('\n'));
+    candidates
+}
+
+/// `2026-11-09-171203`, in UTC.
+pub(crate) fn utc_stamp(now: SystemTime) -> String {
+    let secs = now.duration_since(UNIX_EPOCH).map_or(0, |d| d.as_secs());
+    let (days, rem) = ((secs / 86_400) as i64, secs % 86_400);
+    // Days to a civil date (Howard Hinnant's algorithm).
+    let z = days + 719_468;
+    let era = z.div_euclid(146_097);
+    let doe = z.rem_euclid(146_097);
+    let yoe = (doe - doe / 1460 + doe / 36_524 - doe / 146_096) / 365;
+    let doy = doe - (365 * yoe + yoe / 4 - yoe / 100);
+    let mp = (5 * doy + 2) / 153;
+    let day = doy - (153 * mp + 2) / 5 + 1;
+    let month = if mp < 10 { mp + 3 } else { mp - 9 };
+    let year = yoe + era * 400 + i64::from(month <= 2);
+    format!(
+        "{year:04}-{month:02}-{day:02}-{:02}{:02}{:02}",
+        rem / 3600,
+        rem % 3600 / 60,
+        rem % 60
+    )
 }
 
 fn run_sorcar_turn(
@@ -681,6 +1143,16 @@ fn run_sorcar_turn(
         ));
         return;
     }
+    let plan = match request.capability.as_deref().filter(|c| !c.is_empty()) {
+        Some(capability) => match plan_capability(&request, capability, SystemTime::now()) {
+            Ok(plan) => Some(plan),
+            Err(message) => {
+                turn.fail(message);
+                return;
+            }
+        },
+        None => None,
+    };
 
     // Setup happens once per data folder: wait for a `prepare` (or another
     // turn) that is setting Sorcar up instead of building it twice.
@@ -713,12 +1185,16 @@ fn run_sorcar_turn(
         }
     };
 
-    let model = request
+    let pick = request
         .model
         .clone()
         .filter(|m| !m.is_empty())
-        .or_else(|| info.default_model.clone());
-    let bridge_request = BridgeRequest::new(&request, model);
+        .or_else(|| info.default_model.clone())
+        .map(|model| resolve_model(&model, request.effort.as_deref()));
+    if let Some(note) = pick.as_ref().and_then(|pick| pick.note.clone()) {
+        turn.status(note);
+    }
+    let bridge_request = BridgeRequest::new(&request, pick, plan.as_ref());
     let stdin = match serde_json::to_vec(&bridge_request) {
         Ok(bytes) => bytes,
         Err(err) => {
@@ -726,14 +1202,19 @@ fn run_sorcar_turn(
             return;
         }
     };
+    let work_dir = bridge_request.work_dir.clone();
     let spawn = Spawn {
         program: python,
         args: python_args(&layout.bridge(), false),
-        cwd: request.project_root.clone(),
+        cwd: work_dir.clone(),
         env: sorcar_env(detection.child_env(), layout),
         stdin,
     };
-    let mut parser = SorcarParser::new(request.project_root.clone(), request.session.clone());
+    let watcher = plan
+        .as_ref()
+        .and_then(|plan| plan.round_limit)
+        .map(DiscoverWatcher::new);
+    let mut parser = SorcarParser::new(work_dir, request.session.clone()).with_watcher(watcher);
     turn.run_agent(&spawn, &mut parser, "Sorcar");
 }
 
@@ -816,6 +1297,14 @@ enum BridgeEvent {
         #[serde(default)]
         version: Option<String>,
     },
+    /// Where a discovery run keeps its state files now.
+    StateDir {
+        path: PathBuf,
+    },
+    /// Progress the bridge knows itself (the revise-and-review rounds).
+    Progress {
+        progress: Progress,
+    },
     Session {
         session: String,
     },
@@ -866,6 +1355,8 @@ pub(crate) struct SorcarParser {
     root: PathBuf,
     session: Option<String>,
     edits: HashMap<String, Vec<PathBuf>>,
+    /// A discovery run's state files, read for Progress.
+    watcher: Option<DiscoverWatcher>,
 }
 
 impl SorcarParser {
@@ -874,7 +1365,14 @@ impl SorcarParser {
             root,
             session: session.filter(|s| !s.is_empty()),
             edits: HashMap::new(),
+            watcher: None,
         }
+    }
+
+    /// Watch a discovery run's state files.
+    pub(crate) fn with_watcher(mut self, watcher: Option<DiscoverWatcher>) -> Self {
+        self.watcher = watcher;
+        self
     }
 }
 
@@ -888,6 +1386,12 @@ impl StreamParser for SorcarParser {
         };
         match event {
             BridgeEvent::Ready { .. } => {}
+            BridgeEvent::StateDir { path } => {
+                if let Some(watcher) = &mut self.watcher {
+                    watcher.set_state_dir(path);
+                }
+            }
+            BridgeEvent::Progress { progress } => out.push(AgentEvent::Progress(progress)),
             BridgeEvent::Session { session } => {
                 if !session.is_empty() {
                     self.session = Some(session);
@@ -898,6 +1402,9 @@ impl StreamParser for SorcarParser {
             BridgeEvent::ThinkingDelta { text } => out.push(AgentEvent::ThinkingDelta { text }),
             BridgeEvent::ToolStarted { id, name, input } => {
                 let view = tools::describe(&name, &input, &self.root);
+                if let Some(watcher) = &mut self.watcher {
+                    watcher.tool(&name, Some(&input.to_string()));
+                }
                 self.edits.insert(id.clone(), view.edits);
                 out.push(AgentEvent::ToolStarted {
                     id,
@@ -937,6 +1444,10 @@ impl StreamParser for SorcarParser {
                 summary,
                 session,
             } => {
+                // The last word on a discovery run's state, before it ends.
+                if let Some(progress) = self.watcher.as_mut().and_then(DiscoverWatcher::flush) {
+                    out.push(AgentEvent::Progress(progress));
+                }
                 if let Some(session) = session.filter(|s| !s.is_empty()) {
                     self.session = Some(session);
                 }
@@ -947,6 +1458,12 @@ impl StreamParser for SorcarParser {
                 });
             }
             BridgeEvent::Failed { message } => out.push(AgentEvent::Failed { message }),
+        }
+    }
+
+    fn tick(&mut self, out: &mut Vec<AgentEvent>) {
+        if let Some(progress) = self.watcher.as_mut().and_then(|w| w.tick(Instant::now())) {
+            out.push(AgentEvent::Progress(progress));
         }
     }
 
@@ -1081,9 +1598,20 @@ esac
             ..Detection::default()
         };
         let (models, default) = sorcar_models(&claude);
-        assert_eq!(default.as_deref(), Some("cc/opus"));
-        assert!(models.iter().any(|m| m.id == "cc/haiku"));
-        assert!(models.iter().any(|m| m.id == "codex/default"));
+        assert_eq!(default.as_deref(), Some(SORCAR_DEFAULT_MODEL));
+        let ids: Vec<&str> = models.iter().map(|m| m.id.as_str()).collect();
+        assert_eq!(
+            &ids[..5],
+            [
+                FABLE_5_2,
+                "cc/claude-opus-5-5",
+                "cc/claude-sonnet-5-5",
+                "cc/claude-haiku-5-5",
+                "cc/claude-fable-5-1"
+            ]
+        );
+        assert_eq!(models[0].label, "Fable 5.2 (your Claude subscription)");
+        assert!(ids.contains(&"codex/default"));
 
         let codex = Detection {
             codex: tool("/x/codex"),
@@ -1117,7 +1645,9 @@ esac
         )
         .info();
         assert_eq!(no_uv.readiness, Readiness::SetsUpOnFirstUse);
-        assert_eq!(no_uv.default_model.as_deref(), Some("cc/opus"));
+        assert_eq!(no_uv.default_model.as_deref(), Some(SORCAR_DEFAULT_MODEL));
+        assert_eq!(no_uv.default_effort.as_deref(), Some("high"));
+        assert_eq!(no_uv.efforts, ["low", "medium", "high", "xhigh", "max"]);
 
         let ready = harness(
             Detection {
@@ -1613,7 +2143,8 @@ esac
             session: Some(String::new()),
             ..TurnRequest::default()
         };
-        let bridge = BridgeRequest::new(&request, Some("cc/haiku".into()));
+        let bridge =
+            BridgeRequest::new(&request, Some(resolve_model("cc/haiku", Some("low"))), None);
         assert_eq!(bridge.history_prompt, "add owls");
         assert!(
             bridge.prompt.contains("# Oyl's rules")
@@ -1621,8 +2152,260 @@ esac
         );
         assert_eq!(bridge.session, None);
         let json = serde_json::to_value(&bridge).expect("json");
-        assert_eq!(json["model"], "cc/haiku");
+        assert_eq!(json["model"], "cc/claude-haiku-5-5-low");
+        assert_eq!(json["model_fallback"], "cc/claude-haiku-5-5");
         assert_eq!(json["work_dir"], "/papers/owls");
+        assert_eq!(json["capability"], Value::Null);
+    }
+
+    #[test]
+    fn models_and_efforts_resolve_to_catalog_ids() {
+        let pick = |model: &str, effort: Option<&str>| resolve_model(model, effort);
+        assert_eq!(
+            pick("cc/opus", None),
+            ModelPick {
+                id: "cc/claude-opus-5-5".into(),
+                fallback: None,
+                note: None
+            }
+        );
+        assert_eq!(
+            pick("cc/opus", Some("xhigh")).id,
+            "cc/claude-opus-5-5-xhigh"
+        );
+        assert_eq!(pick(FABLE_5_2, Some("low")).id, "cc/claude-fable-5-2-low");
+        assert_eq!(pick("cc/fable", Some("max")).id, "cc/claude-fable-5-2-max");
+        // An id that already has a level gets the new one instead.
+        let replaced = pick("cc/claude-sonnet-5-5-max", Some("medium"));
+        assert_eq!(replaced.id, "cc/claude-sonnet-5-5-medium");
+        assert_eq!(replaced.fallback.as_deref(), Some("cc/claude-sonnet-5-5"));
+        assert_eq!(
+            pick("cc/claude-sonnet-5-5-max", None).id,
+            "cc/claude-sonnet-5-5-max"
+        );
+        assert_eq!(pick("gpt-6.1-sol", Some("xhigh")).id, "gpt-6.1-sol-xhigh");
+        // No such level: the model at its default, with a note.
+        let codex = pick("codex/default", Some("high"));
+        assert_eq!(codex.id, "codex/default");
+        assert!(codex.note.is_some_and(|n| n.contains("no \"high\" effort")));
+        let gemini = pick("gemini-3.8-flash", Some("max"));
+        assert_eq!(
+            (gemini.id.as_str(), gemini.fallback),
+            ("gemini-3.8-flash", None)
+        );
+        // A real model whose name ends like a level is left alone.
+        assert_eq!(
+            pick("openrouter/openai/o3-mini-high", None).id,
+            "openrouter/openai/o3-mini-high"
+        );
+    }
+
+    #[test]
+    fn fable_5_2_is_registered_without_losing_other_entries() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let layout = Layout {
+            data_dir: temp.path().into(),
+        };
+        std::fs::create_dir_all(layout.kiss_home()).expect("kiss home");
+        let path = layout.kiss_home().join("MY_MODELS.json");
+        std::fs::write(&path, r#"{"_documentation": ["x"], "my/model": {"context_length": 1000, "input_price_per_1M": 0, "output_price_per_1M": 0}}"#)
+            .expect("seed");
+        register_models(&layout).expect("register");
+        let saved: Value =
+            serde_json::from_str(&std::fs::read_to_string(&path).expect("read")).expect("json");
+        assert!(saved.get("my/model").is_some() && saved.get("_documentation").is_some());
+        assert_eq!(saved[FABLE_5_2]["thinking"], "high");
+        assert_eq!(saved[FABLE_5_2]["context_length"], 500_000);
+        for level in SORCAR_EFFORTS {
+            let alias = &saved[format!("{FABLE_5_2}-{level}")];
+            assert_eq!(alias["thinking"], level);
+            assert_eq!(alias["alias_of"], FABLE_5_2);
+        }
+        let modified = std::fs::metadata(&path)
+            .and_then(|m| m.modified())
+            .expect("mtime");
+        register_models(&layout).expect("again");
+        assert_eq!(
+            std::fs::metadata(&path)
+                .and_then(|m| m.modified())
+                .expect("mtime"),
+            modified,
+            "unchanged"
+        );
+    }
+
+    #[test]
+    fn capabilities_are_listed() {
+        let caps = sorcar_capabilities();
+        let ids: Vec<(&str, bool)> = caps
+            .iter()
+            .map(|c| (c.id.as_str(), c.long_running))
+            .collect();
+        assert_eq!(
+            ids,
+            [
+                (CAPABILITY_DISCOVER, true),
+                (CAPABILITY_WRITE, false),
+                (CAPABILITY_REVIEW, false),
+                (CAPABILITY_REVISE, true)
+            ]
+        );
+        assert!(
+            caps.iter().all(|c| !c.name.is_empty()
+                && !c.description.is_empty()
+                && !c.placeholder.is_empty())
+        );
+        let temp = tempfile::tempdir().expect("tempdir");
+        let info = harness(
+            Detection {
+                claude: tool("/x/claude"),
+                ..Detection::default()
+            },
+            temp.path(),
+        )
+        .info();
+        assert_eq!(info.capabilities, caps);
+    }
+
+    #[test]
+    fn capabilities_are_planned() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let paper = temp.path().join("paper");
+        std::fs::create_dir_all(&paper).expect("paper");
+        let experiments = temp.path().join("my experiments");
+        std::fs::create_dir_all(experiments.join(".git")).expect("repo");
+        let not_git = temp.path().join("plain");
+        std::fs::create_dir_all(&not_git).expect("plain");
+        let request = |prompt: String| TurnRequest {
+            project_root: paper.clone(),
+            main_file: Some(paper.join("main.typ")),
+            prompt,
+            ..TurnRequest::default()
+        };
+        let now = UNIX_EPOCH + Duration::from_secs(1_794_244_323);
+
+        let discover = plan_capability(
+            &request(format!(
+                "Make fib faster in \"{}\", round limit 2",
+                experiments.display()
+            )),
+            CAPABILITY_DISCOVER,
+            now,
+        )
+        .expect("discover");
+        assert_eq!(
+            discover.work_dir,
+            std::fs::canonicalize(&experiments).expect("canonical")
+        );
+        assert_eq!(discover.round_limit, Some(2));
+        assert!(discover.task.contains("round limit 2") && discover.task.contains("curl"));
+        let err = plan_capability(
+            &request(format!("speed up {}", not_git.display())),
+            CAPABILITY_DISCOVER,
+            now,
+        )
+        .expect_err("not a repository");
+        assert!(err.contains("git init"), "{err}");
+        // Nothing named and the paper is no repository either.
+        assert!(plan_capability(&request("faster".into()), CAPABILITY_DISCOVER, now).is_err());
+
+        let review = plan_capability(&request("for CHI 2027".into()), CAPABILITY_REVIEW, now)
+            .expect("review");
+        let output = paper.join(".oyl/reviews/2026-11-09-171203.md");
+        assert_eq!(review.review_output.as_deref(), Some(output.as_path()));
+        assert!(
+            review.task.contains(&output.display().to_string())
+                && review.task.contains("for CHI 2027")
+        );
+        assert!(
+            review
+                .task
+                .contains(&paper.join("main.typ").display().to_string())
+        );
+
+        let write = plan_capability(
+            &request("Tighten the abstract".into()),
+            CAPABILITY_WRITE,
+            now,
+        )
+        .expect("write");
+        assert!(write.task.contains("# Paper") && write.task.contains("Tighten the abstract"));
+        assert_eq!(write.work_dir, paper);
+
+        let revise = plan_capability(
+            &request("Writing: tighten. Review: CHI. 3 rounds".into()),
+            CAPABILITY_REVISE,
+            now,
+        )
+        .expect("revise");
+        assert_eq!(revise.max_rounds, Some(3));
+        assert_eq!(
+            revise.reports_dir,
+            Some(paper.join(".oyl/reviews/revise-2026-11-09-171203"))
+        );
+
+        assert!(plan_capability(&request("x".into()), "teleport", now).is_err());
+    }
+
+    #[test]
+    fn stamps_are_utc() {
+        assert_eq!(utc_stamp(UNIX_EPOCH), "1970-01-01-000000");
+        assert_eq!(
+            utc_stamp(UNIX_EPOCH + Duration::from_secs(1_709_251_199)),
+            "2024-02-29-235959"
+        );
+    }
+
+    #[test]
+    fn discovery_runs_report_progress_from_their_state_files() {
+        let temp = tempfile::tempdir().expect("tempdir");
+        let state = temp.path().join("tmp").join("task-1");
+        std::fs::create_dir_all(&state).expect("state");
+        std::fs::write(state.join("split.md"), "eval: python bench.py\n").expect("split");
+        std::fs::write(
+            state.join("pareto.md"),
+            "| id | runtime_ms |\n|---|---|\n| B | 812 |\n| I1 | 3.1 |\n",
+        )
+        .expect("pareto");
+        std::fs::write(
+            state.join("explored-ideas.md"),
+            "| id | dev metrics | status |\n|---|---|---|\n| B | runtime_ms=812 | KEPT |\n| I1 | runtime_ms=3.1 | KEPT |\n",
+        )
+        .expect("explored");
+        let mut parser =
+            SorcarParser::new(temp.path().into(), None).with_watcher(Some(DiscoverWatcher::new(2)));
+        let mut out = Vec::new();
+        parser.tick(&mut out);
+        assert!(out.is_empty(), "no state dir yet");
+        parser.stdout_line(
+            &json!({"type": "state_dir", "path": state}).to_string(),
+            &mut out,
+        );
+        parser.stdout_line(
+            &json!({"type":"tool_started","id":"s1","name":"Bash","input":{"command":"python bench.py --dev","description":"eval"}}).to_string(),
+            &mut out,
+        );
+        parser.tick(&mut out);
+        let progress = match out.iter().find(|e| matches!(e, AgentEvent::Progress(_))) {
+            Some(AgentEvent::Progress(progress)) => progress.clone(),
+            _ => panic!("no progress in {out:?}"),
+        };
+        assert_eq!(progress.phase, "Evaluating");
+        assert_eq!((progress.step, progress.total), (Some(1), Some(2)));
+        assert_eq!(
+            progress.metrics[0],
+            ("runtime_ms".to_owned(), "3.1".to_owned())
+        );
+        assert_eq!(progress.state_dir.as_deref(), Some(state.as_path()));
+        // The bridge's own progress passes through.
+        let mut more = Vec::new();
+        parser.stdout_line(
+            &json!({"type":"progress","progress":{"phase":"Reviewing","phases":["Writing","Reviewing"],"step":2,"total":6,"fraction":0.33,"metrics":[["verdict","weak accept"]],"state_dir":null}}).to_string(),
+            &mut more,
+        );
+        assert!(
+            matches!(&more[..], [AgentEvent::Progress(p)] if p.phase == "Reviewing" && p.metrics[0].1 == "weak accept")
+        );
     }
 
     #[test]
@@ -1678,10 +2461,32 @@ esac
 
     #[test]
     fn bridge_source_disables_worktrees() {
-        assert!(BRIDGE_SOURCE.contains("ALLOWED_TOOLS"));
-        assert!(!BRIDGE_SOURCE.contains("\"create_worktree\","));
+        // A plain turn gets an allow-list without the worktree tools...
+        let allowed = BRIDGE_SOURCE
+            .split_once("ALLOWED_TOOLS = frozenset({")
+            .and_then(|(_, rest)| rest.split_once("})"))
+            .map(|(list, _)| list)
+            .expect("ALLOWED_TOOLS");
+        assert!(allowed.contains("\"Edit\"") && !allowed.contains("create_worktree"));
+        // ...and so do capabilities that edit the paper; discover keeps them.
+        assert!(BRIDGE_SOURCE.contains("WORKTREE_TOOLS if in_place"));
+        assert!(BRIDGE_SOURCE.contains("in_place=capability != \"discover\""));
         assert!(BRIDGE_SOURCE.contains("web_tools=False"));
         assert!(BRIDGE_SOURCE.contains("is_parallel=False"));
         assert!(BRIDGE_SOURCE.contains("system_prompt_hook=_strip_worktree_rules"));
+    }
+
+    #[test]
+    fn bridge_source_stops_turns_stuck_on_broken_tool_calls() {
+        // Haiku 5.5 at low effort can loop on native call tags the CLI
+        // replaces with a placeholder; the bridge ends such a turn.
+        assert!(BRIDGE_SOURCE.contains("BROKEN_CALL_MARK = \"<invoke_tool_placeholder>\""));
+        assert!(BRIDGE_SOURCE.contains("token = self._count_broken_calls(token)"));
+        let guard = BRIDGE_SOURCE
+            .split_once("def _count_broken_calls")
+            .and_then(|(_, rest)| rest.split_once("def token_callback"))
+            .map(|(body, _)| body)
+            .expect("guard");
+        assert!(guard.contains("\"failed\"") && guard.contains("_exit(1)"));
     }
 }

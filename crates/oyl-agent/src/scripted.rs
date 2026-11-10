@@ -57,6 +57,9 @@ impl ScriptedHarness {
                 label: "Script".into(),
             }],
             default_model: Some("script".into()),
+            efforts: Vec::new(),
+            default_effort: None,
+            capabilities: Vec::new(),
         };
         let steps = events
             .into_iter()

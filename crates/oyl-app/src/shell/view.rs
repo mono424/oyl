@@ -8,16 +8,14 @@ use gpui_kit::component::tooltip::Tooltip;
 use gpui_kit::component::{IconName, Sizable as _, StyledExt as _};
 use gpui_kit::prelude::*;
 use gpui_kit::{
-    AnimationExt as _, AnyElement, Context, DispatchPhase, MouseButton, MouseDownEvent,
-    MouseMoveEvent, MouseUpEvent, Pixels, Point, Render, SharedString, Window, canvas,
-    div, px, relative,
+    AnyElement, App, Context, DispatchPhase, MouseButton, MouseDownEvent, MouseMoveEvent,
+    MouseUpEvent, Pixels, Point, Render, SharedString, Window, canvas, div, px, relative,
 };
 use oyl_core::LayoutMode;
 use oyl_ui::prelude::*;
 
 use super::{Drag, Shell};
 use crate::actions::*;
-use crate::fade::pulse;
 use crate::layout::{self, MODES};
 use crate::status::Tone;
 
@@ -209,15 +207,8 @@ impl Shell {
                     let active = self.mode == mode;
                     let (accent, accent_soft, soft) = (k.accent, k.accent_soft, k.text_soft);
                     // A turn running anywhere shows on the Agent tab.
-                    let dot = (mode == LayoutMode::Agent && running).then(|| {
-                        oyl_ui::dot(accent)
-                            .with_animation(
-                                "agent-pulse",
-                                gpui_kit::Animation::new(Duration::from_millis(1400)).repeat(),
-                                |dot, delta| dot.opacity(pulse(delta)),
-                            )
-                            .into_any_element()
-                    });
+                    let dot = (mode == LayoutMode::Agent && running)
+                        .then(|| oyl_tasks::PulseDot::new("agent-pulse").into_any_element());
                     div()
                         .id(SharedString::from(format!(
                             "mode-{}",
@@ -310,7 +301,11 @@ impl Shell {
                 Button::new("header-theme")
                     .ghost()
                     .xsmall()
-                    .icon(if k.dark { IconName::Sun } else { IconName::Moon })
+                    .icon(if k.dark {
+                        IconName::Sun
+                    } else {
+                        IconName::Moon
+                    })
                     .tooltip(if k.dark { "Light" } else { "Dark" })
                     .on_click(cx.listener(|this, _, window, cx| {
                         this.on_toggle_appearance(&ToggleAppearance, window, cx)
@@ -396,7 +391,12 @@ impl Shell {
 
     /// A card on the left of the window (the source's, or the agent's in
     /// the Agent tab); its bounds are kept for the self-test.
-    fn left_card(&self, id: &'static str, content: AnyElement, cx: &mut Context<Self>) -> AnyElement {
+    fn left_card(
+        &self,
+        id: &'static str,
+        content: AnyElement,
+        cx: &mut Context<Self>,
+    ) -> AnyElement {
         let bounds = self.card_bounds.clone();
         oyl_ui::card(cx)
             .id(id)
@@ -425,9 +425,32 @@ impl Shell {
         self.left_card("oyl-agent", chat.into_any_element(), cx)
     }
 
-    /// The preview, filling exactly the box it is given.
-    fn render_preview(&self) -> AnyElement {
+    /// The preview, filling exactly the box it is given; above it, a quiet
+    /// chip when it shows a thread's branch instead of the paper.
+    fn render_preview(&self, cx: &App) -> AnyElement {
         let preview_bounds = self.handle.preview_bounds.clone();
+        let k = cx.tokens();
+        let chip = self.preview_branch(cx).map(|(_, title)| {
+            div()
+                .absolute()
+                .top(px(10.))
+                .left_0()
+                .right_0()
+                .flex()
+                .justify_center()
+                .child(
+                    oyl_ui::raised(cx)
+                        .id("oyl-branch-chip")
+                        .rounded(k.radius_m)
+                        .px(px(10.))
+                        .py(px(4.))
+                        .text_xs()
+                        .text_color(k.text_soft)
+                        .max_w(px(360.))
+                        .truncate()
+                        .child(branch_chip_label(&title)),
+                )
+        });
         div()
             .relative()
             .size_full()
@@ -440,6 +463,7 @@ impl Shell {
                 .size_full(),
             )
             .child(self.preview.clone())
+            .children(chip)
             .into_any_element()
     }
 
@@ -506,12 +530,12 @@ impl Shell {
                             .h_full()
                             .flex_1()
                             .min_w_0()
-                            .child(self.render_preview())
+                            .child(self.render_preview(cx))
                             .child(handle),
                     )
                     .into_any_element()
             }
-            LayoutMode::Read => self.render_preview(),
+            LayoutMode::Read => self.render_preview(cx),
         };
         div()
             .relative()
@@ -611,6 +635,7 @@ impl Render for Shell {
             .id("oyl-shell")
             .key_context(SHELL_CONTEXT)
             .track_focus(&self.focus_handle)
+            .on_action(cx.listener(Self::on_quit))
             .on_action(cx.listener(Self::on_command_palette))
             .on_action(cx.listener(Self::on_open_library))
             .on_action(cx.listener(Self::on_new_paper))
@@ -639,6 +664,9 @@ impl Render for Shell {
             .on_action(cx.listener(Self::on_show_outline))
             .on_action(cx.listener(Self::on_show_figures))
             .on_action(cx.listener(Self::on_show_problems))
+            .on_action(cx.listener(Self::on_polish_selection))
+            .on_action(cx.listener(Self::on_fact_check_selection))
+            .on_action(cx.listener(Self::on_ask_ai_about_selection))
             .on_action(cx.listener(Self::on_close_window))
             .on_action(cx.listener(Self::on_minimize))
             .on_action(cx.listener(Self::on_zoom_window))
@@ -658,4 +686,12 @@ impl Render for Shell {
             .child(div().relative().flex_1().min_h_0().w_full().child(content))
             .child(self.overlays.clone())
     }
+}
+
+/// "Showing “Tighten the abstract”'s branch".
+pub(crate) fn branch_chip_label(title: &str) -> String {
+    format!(
+        "Showing “{}”'s branch",
+        oyl_chat::thread::ellipsize(title, 40)
+    )
 }

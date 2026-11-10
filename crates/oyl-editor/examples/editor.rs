@@ -7,18 +7,32 @@
 //! Without files, a small sample paper is written to a temporary folder (a
 //! Typst file, a LaTeX file with a second chapter file, and a bibliography)
 //! and opened. Keys: ⌘1 zen, ⌘2 light/dark, ⌘3 next file; inside the editor
-//! ⌘S saves, ⌘/ comments, ⌘F searches. Citations of keys that are not in the
-//! sample bibliography are flagged inline, live.
+//! ⌘S saves, ⌘/ comments, ⌘F searches, ⌘B polishes the selection (or the
+//! sentence at the cursor), ⇧⌘B opens a box to say what to do with it, ⌘I
+//! checks its facts (or the paragraph's); Esc closes the box or calls off
+//! what runs.
+//! Citations of keys that are not in the sample bibliography are flagged
+//! inline, live.
+//!
+//! The AI is a deterministic stand-in: after a short pause the polish fixes
+//! "teh" and doubled spaces; ⇧⌘B understands "uppercase" (and gives the text
+//! back unchanged for anything else); the fact check flags "1998" as
+//! incorrect (suggesting 2014) and "spread quickly" as questionable. A
+//! card's Rewrite takes the year from the remark ("use 2015"). The sample
+//! paper's last paragraph has all of it.
 //!
 //! With `OYL_SMOKE=1` the window is not activated, the sample paper (never
 //! files given on the command line) is opened and the pane is exercised
 //! (typing with completion, autosave, outside edits with and without a merge,
-//! comments, diagnostics, go-to) and the example quits after about three
-//! seconds, exiting non-zero if any check failed.
+//! comments, diagnostics, go-to, ⌘B and its undo, ⇧⌘B with an instruction,
+//! ⌘I and its findings) and the example quits after about six seconds,
+//! exiting non-zero if any check failed.
 
 use std::cell::RefCell;
 use std::path::{Path, PathBuf};
 use std::rc::Rc;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::Duration;
 
 use gpui_kit::prelude::*;
@@ -27,7 +41,11 @@ use gpui_kit::{
     Subscription, TitlebarOptions, Window, WindowBackgroundAppearance, WindowOptions, div, point,
     px,
 };
-use oyl_editor::{EditorEvent, EditorPane, ToggleLineComment};
+use oyl_editor::{CustomPrompt, EditorEvent, EditorPane, FactCheck, Polish, ToggleLineComment};
+use oyl_model::agent::{
+    AgentEvent, FactCheckEvent, FactCheckHandle, FactCheckRequest, FactChecker, FactFinding,
+    FindingLevel, RewriteKind, RewriteRequest, Rewriter, TurnHandle,
+};
 use oyl_model::{CiteCandidate, Diagnostic, SourceLocation};
 use oyl_ui::prelude::*;
 
@@ -85,8 +103,11 @@ fn main() {
                 focus: !smoke,
                 ..Default::default()
             };
+            // The stand-in AI answers quickly in the smoke run, at a pace
+            // that shows the working state otherwise.
+            let pause = Duration::from_millis(if smoke { 250 } else { 1200 });
             let opened = gpui_kit::open_window(options, cx, |window, cx| {
-                cx.new(|cx| Demo::new(files.clone(), window, cx))
+                cx.new(|cx| Demo::new(files.clone(), pause, window, cx))
             });
             let (handle, demo) = match opened {
                 Ok(opened) => opened,
@@ -139,10 +160,27 @@ struct Demo {
 }
 
 impl Demo {
-    fn new(files: Vec<PathBuf>, window: &mut Window, cx: &mut Context<Self>) -> Self {
+    fn new(
+        files: Vec<PathBuf>,
+        pause: Duration,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) -> Self {
         let pane = cx.new(|cx| EditorPane::new(window, cx));
+        let bibliography = files
+            .iter()
+            .find(|file| file.extension().is_some_and(|e| e == "bib"))
+            .cloned();
         pane.update(cx, |pane, cx| {
             pane.set_citations(sample_citations(), cx);
+            pane.set_rewriter(Some(Arc::new(SampleRewriter { pause })), cx);
+            pane.set_fact_checker(Some(Arc::new(SampleChecker { pause })), cx);
+            pane.set_bibliography_provider(Rc::new(move |_| {
+                bibliography
+                    .as_deref()
+                    .and_then(|path| std::fs::read_to_string(path).ok())
+                    .unwrap_or_default()
+            }));
             for file in files.iter().rev() {
                 if let Err(error) = pane.open(file, window, cx) {
                     eprintln!("cannot open {}: {error:#}", file.display());
@@ -176,6 +214,9 @@ impl Demo {
             }
             EditorEvent::DroppedFiles { paths } => eprintln!("dropped {paths:?}"),
             EditorEvent::SaveFailed { message, .. } => eprintln!("save failed: {message}"),
+            EditorEvent::FactCheckFinished {
+                findings, claims, ..
+            } => eprintln!("fact check: {findings} of {claims} claims flagged"),
             _ => {}
         }
     }
@@ -246,7 +287,10 @@ impl Render for Demo {
                     .font_family(tokens.ui_font.clone())
                     .text_xs()
                     .text_color(tokens.text_faint)
-                    .child("⌘1 Zen   ⌘2 Light/Dark   ⌘3 Next file"),
+                    .child(
+                        "⌘1 Zen   ⌘2 Light/Dark   ⌘3 Next file   \
+                         ⌘B Polish   ⇧⌘B Ask AI   ⌘I Fact check",
+                    ),
             )
     }
 }
@@ -273,7 +317,12 @@ $ "Attention"(Q, K, V) = "softmax"((Q K^T) / sqrt(d_k)) V $
 
 // This key is not in refs.bib, so it is flagged.
 Some claims still need a source @missing2024.
+
+Attention was first proposed in 1998, and teh idea  spread quickly.
 "#;
+
+/// The line of the sample Typst file with work for ⌘B, ⇧⌘B and ⌘I.
+const AI_LINE: u32 = 22;
 
 const SAMPLE_LATEX: &str = r#"\documentclass{article}
 \usepackage{graphicx}
@@ -434,6 +483,149 @@ fn unknown_citations(path: &Path, text: &str, keys: &[String]) -> Vec<Diagnostic
             diagnostic
         })
         .collect()
+}
+
+// -- The stand-in AI -----------------------------------------------------------
+
+/// A deterministic rewriter: a polish fixes "teh" and doubled spaces; a
+/// custom rewrite upper-cases the text when asked to ("uppercase") and
+/// gives it back as it is otherwise; a fact fix puts in the year of the
+/// remark (or 2014) for 1998, and a firmer phrase for "spread quickly".
+/// Answers after `pause`, in two pieces.
+struct SampleRewriter {
+    pause: Duration,
+}
+
+impl Rewriter for SampleRewriter {
+    fn name(&self) -> String {
+        "Sample rewriter".into()
+    }
+
+    fn rewrite(&self, request: RewriteRequest) -> anyhow::Result<TurnHandle> {
+        let answer = match request.kind {
+            RewriteKind::Polish => {
+                let mut text = request.text.replace("teh", "the").replace("Teh", "The");
+                while text.contains("  ") {
+                    text = text.replace("  ", " ");
+                }
+                text
+            }
+            RewriteKind::Custom => {
+                if request.guidance.to_lowercase().contains("uppercase") {
+                    request.text.to_uppercase()
+                } else {
+                    request.text.clone()
+                }
+            }
+            RewriteKind::FactFix => {
+                let year = request
+                    .guidance
+                    .lines()
+                    .find_map(|line| line.strip_prefix("Remarks: "))
+                    .and_then(|remark| {
+                        remark
+                            .split(|c: char| !c.is_ascii_digit())
+                            .find(|word| word.len() == 4)
+                    })
+                    .unwrap_or("2014");
+                request
+                    .text
+                    .replace("1998", year)
+                    .replace("spread quickly", "caught on within a few years")
+            }
+        };
+        let (sender, events) = async_channel::unbounded();
+        let stopped = Arc::new(AtomicBool::new(false));
+        let stop = stopped.clone();
+        let pause = self.pause;
+        std::thread::spawn(move || {
+            std::thread::sleep(pause);
+            if stopped.load(Ordering::SeqCst) {
+                let _ = sender.send_blocking(AgentEvent::Failed {
+                    message: "Stopped".into(),
+                });
+                return;
+            }
+            let half = answer
+                .char_indices()
+                .nth(answer.chars().count() / 2)
+                .map_or(answer.len(), |(index, _)| index);
+            for piece in [&answer[..half], &answer[half..]] {
+                let _ = sender.send_blocking(AgentEvent::TextDelta { text: piece.into() });
+            }
+            let _ = sender.send_blocking(AgentEvent::Completed {
+                success: true,
+                summary: answer,
+                session: None,
+            });
+        });
+        Ok(TurnHandle::new(events, move || {
+            stop.store(true, Ordering::SeqCst)
+        }))
+    }
+}
+
+/// A deterministic fact checker: "1998" is incorrect, "spread quickly"
+/// questionable. Answers after `pause`.
+struct SampleChecker {
+    pause: Duration,
+}
+
+impl FactChecker for SampleChecker {
+    fn name(&self) -> String {
+        "Sample fact checker".into()
+    }
+
+    fn check(&self, request: FactCheckRequest) -> anyhow::Result<FactCheckHandle> {
+        let (sender, events) = async_channel::unbounded();
+        let stopped = Arc::new(AtomicBool::new(false));
+        let stop = stopped.clone();
+        let pause = self.pause;
+        std::thread::spawn(move || {
+            let _ = sender.send_blocking(FactCheckEvent::Status {
+                message: "Searching: history of attention mechanisms".into(),
+            });
+            std::thread::sleep(pause);
+            if stopped.load(Ordering::SeqCst) {
+                let _ = sender.send_blocking(FactCheckEvent::Failed {
+                    message: "Stopped".into(),
+                });
+                return;
+            }
+            let mut claims = 1;
+            if request.text.contains("1998") {
+                claims += 1;
+                let _ = sender.send_blocking(FactCheckEvent::Finding(FactFinding {
+                    quote: "1998".into(),
+                    level: FindingLevel::Incorrect,
+                    problem: "Attention in neural networks was introduced in 2014 \
+                              (Bahdanau, Cho and Bengio), not in 1998."
+                        .into(),
+                    suggestion: Some("2014".into()),
+                    sources: vec![
+                        "https://arxiv.org/abs/1409.0473".into(),
+                        "vaswani2017".into(),
+                    ],
+                }));
+            }
+            if request.text.contains("spread quickly") {
+                claims += 1;
+                let _ = sender.send_blocking(FactCheckEvent::Finding(FactFinding {
+                    quote: "spread quickly".into(),
+                    level: FindingLevel::Questionable,
+                    problem: "“Quickly” is vague; the Transformer (2017) is what made it \
+                              the default."
+                        .into(),
+                    suggestion: Some("became the default with the Transformer".into()),
+                    sources: vec!["vaswani2017".into()],
+                }));
+            }
+            let _ = sender.send_blocking(FactCheckEvent::Done { claims });
+        });
+        Ok(FactCheckHandle::new(events, move || {
+            stop.store(true, Ordering::SeqCst)
+        }))
+    }
 }
 
 // -- Smoke run ----------------------------------------------------------------
@@ -686,7 +878,98 @@ async fn run_smoke(
         "CursorMoved is reported",
     );
 
-    // 11. Closing saves and empties the pane.
+    // 11. ⌘B polishes the sentence at the cursor, as one undoable edit.
+    let ai_text = |cx: &mut AsyncApp| {
+        cx.update(|cx| pane.read(cx).text(&typst, cx))
+            .unwrap_or_default()
+            .lines()
+            .nth(AI_LINE as usize - 1)
+            .unwrap_or_default()
+            .to_string()
+    };
+    let _ = handle.update(cx, |_, window, cx| {
+        pane.update(cx, |pane, cx| {
+            pane.goto(&SourceLocation::new(typst.clone(), AI_LINE, 12), window, cx);
+        });
+        window.dispatch_action(Box::new(Polish), cx);
+    });
+    wait(cx, 700).await;
+    let polished = ai_text(cx);
+    checks.check(
+        polished == "Attention was first proposed in 1998, and the idea spread quickly.",
+        format!("⌘B polishes the sentence, got {polished:?}"),
+    );
+    let _ = handle.update(cx, |_, window, cx| {
+        window.dispatch_action(Box::new(gpui_kit::base::input::Undo), cx)
+    });
+    let undone = ai_text(cx);
+    checks.check(
+        undone == "Attention was first proposed in 1998, and teh idea  spread quickly.",
+        format!("⌘Z restores the original, got {undone:?}"),
+    );
+
+    // 12. ⇧⌘B opens the prompt box; the instruction typed in it is carried
+    //     out on the sentence, and undone like any edit.
+    let _ = handle.update(cx, |_, window, cx| {
+        window.dispatch_action(Box::new(CustomPrompt), cx);
+    });
+    wait(cx, 100).await;
+    let _ = handle.update(cx, |_, window, cx| {
+        // Like a real key press, the typing lands in what is on screen: the
+        // box drawn, its field taking keys.
+        window.draw(cx).clear(cx);
+        type_text("uppercase", window, cx);
+    });
+    wait(cx, 100).await;
+    let _ = handle.update(cx, |_, window, cx| press_enter(window, cx));
+    wait(cx, 700).await;
+    let shouted = ai_text(cx);
+    checks.check(
+        shouted == "ATTENTION WAS FIRST PROPOSED IN 1998, AND TEH IDEA  SPREAD QUICKLY.",
+        format!("⇧⌘B rewrites as instructed, got {shouted:?}"),
+    );
+    let _ = handle.update(cx, |_, window, cx| {
+        window.dispatch_action(Box::new(gpui_kit::base::input::Undo), cx)
+    });
+    checks.check(
+        ai_text(cx) == undone,
+        format!("⌘Z undoes the rewrite, got {:?}", ai_text(cx)),
+    );
+
+    // 13. ⌘I underlines two findings; editing one's text removes it.
+    let _ = handle.update(cx, |_, window, cx| {
+        window.dispatch_action(Box::new(FactCheck), cx)
+    });
+    wait(cx, 700).await;
+    let findings = cx.update(|cx| pane.read(cx).findings_count());
+    checks.check(findings == 2, format!("two findings, got {findings}"));
+    checks.check(
+        log.borrow().iter().any(|event| {
+            matches!(
+                event,
+                EditorEvent::FactCheckFinished {
+                    findings: 2,
+                    claims: 3,
+                    ..
+                }
+            )
+        }),
+        "FactCheckFinished reports two findings of three claims",
+    );
+    let _ = handle.update(cx, |_, window, cx| {
+        pane.update(cx, |pane, cx| {
+            // Inside "1998".
+            pane.goto(&SourceLocation::new(typst.clone(), AI_LINE, 35), window, cx);
+            pane.insert_at_cursor("9", window, cx);
+        });
+    });
+    let findings = cx.update(|cx| pane.read(cx).findings_count());
+    checks.check(
+        findings == 1,
+        format!("an edited finding goes, got {findings}"),
+    );
+
+    // 14. Closing saves and empties the pane.
     let closed = handle
         .update(cx, |_, window, cx| {
             pane.update(cx, |pane, cx| pane.close_all(window, cx))

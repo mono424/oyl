@@ -413,3 +413,131 @@ fn sorcar_prepare_then_turn() {
     let text = std::fs::read_to_string(folder.path().join("main.typ")).expect("read");
     assert!(text.to_lowercase().contains("owl"), "{text}");
 }
+
+#[test]
+#[ignore = "spends the Claude subscription: one Fable 5.2 turn through Sorcar at low effort"]
+fn sorcar_fable_5_2_low_effort_turn() {
+    let (_data, registry) = registry();
+    let harness = registry.get(&HarnessId::sorcar()).expect("sorcar harness");
+    let info = harness.info();
+    assert_eq!(info.models[0].id, oyl_agent::FABLE_5_2);
+    let folder = paper(false);
+    let mut turn = request(folder.path(), EDIT_PROMPT, oyl_agent::FABLE_5_2, None);
+    turn.effort = Some("low".into());
+    let events = collect(
+        &harness.start(turn).expect("start"),
+        Duration::from_secs(900),
+    );
+    assert_well_formed(&events);
+    assert!(
+        !events.iter().any(|e| matches!(e, AgentEvent::Status { message } if message.contains("not in Sorcar's catalog"))),
+        "Fable 5.2 low is registered"
+    );
+    let (success, summary, _) = completed(&events);
+    assert!(success, "{summary}");
+    let text = std::fs::read_to_string(folder.path().join("main.typ")).expect("read");
+    assert!(text.to_lowercase().contains("owl"), "{text}");
+}
+
+#[test]
+#[ignore = "spends the Claude subscription: one review_paper run (Sonnet 5.5, low effort)"]
+fn sorcar_review_paper() {
+    let (_data, registry) = registry();
+    let harness = registry.get(&HarnessId::sorcar()).expect("sorcar harness");
+    let folder = paper(false);
+    let mut turn = request(
+        folder.path(),
+        "For a student workshop on bird behaviour; at most 250 words; skip the related-work search.",
+        // Haiku 5.5 at low effort loops on broken tool calls under this SEA.
+        "cc/claude-sonnet-5-5",
+        None,
+    );
+    turn.effort = Some("low".into());
+    turn.capability = Some("review".into());
+    let events = collect(
+        &harness.start(turn).expect("start"),
+        Duration::from_secs(1800),
+    );
+    assert_well_formed(&events);
+    let (success, summary, _) = completed(&events);
+    let reviews: Vec<PathBuf> = std::fs::read_dir(folder.path().join(".oyl/reviews"))
+        .map(|dir| dir.filter_map(Result::ok).map(|e| e.path()).collect())
+        .unwrap_or_default();
+    eprintln!("reviews: {reviews:?}");
+    assert!(success, "{summary}");
+    assert_eq!(reviews.len(), 1, "one report in .oyl/reviews");
+    let review = std::fs::read_to_string(&reviews[0]).expect("review");
+    assert_eq!(summary.trim(), review.trim(), "the report is the reply");
+}
+
+#[test]
+#[ignore = "spends the Claude subscription: a discovery smoke run (Sonnet 5.5, low effort, 1 round)"]
+fn sorcar_discover_smoke() {
+    let (_data, registry) = registry();
+    let harness = registry.get(&HarnessId::sorcar()).expect("sorcar harness");
+    let folder = paper(false);
+    let lab = tempfile::tempdir().expect("lab");
+    std::fs::write(
+        lab.path().join("fib.py"),
+        "def fib(n):\n    return n if n < 2 else fib(n - 1) + fib(n - 2)\n",
+    )
+    .expect("fib");
+    std::fs::write(
+        lab.path().join("bench.py"),
+        "import time\nfrom fib import fib\n\nstart = time.perf_counter()\nvalues = [fib(n) for n in range(20, 26)]\n\
+         elapsed = (time.perf_counter() - start) * 1000\nassert values == [6765, 10946, 17711, 28657, 46368, 75025]\n\
+         print(f\"runtime_ms={elapsed:.2f}\")\n",
+    )
+    .expect("bench");
+    for args in [
+        &["init", "-q"][..],
+        &["add", "."],
+        &[
+            "-c",
+            "user.name=Oyl Test",
+            "-c",
+            "user.email=test@example.invalid",
+            "commit",
+            "-q",
+            "-m",
+            "fib",
+        ],
+    ] {
+        assert!(
+            Command::new("git")
+                .args(args)
+                .current_dir(lab.path())
+                .status()
+                .expect("git")
+                .success()
+        );
+    }
+    let prompt = format!(
+        "Make fib() in {} faster. Metric: runtime_ms printed by `python3 bench.py` (lower is better); \
+         bench.py's assert must keep passing. Goal: runtime_ms under 1. Round limit 1. Skip the web search; \
+         there is no held-out data, so hold out nothing and use bench.py for both.",
+        lab.path().display()
+    );
+    let mut turn = request(folder.path(), &prompt, "cc/claude-sonnet-5-5", None);
+    turn.effort = Some("low".into());
+    turn.capability = Some("discover".into());
+    let events = collect(
+        &harness.start(turn).expect("start"),
+        Duration::from_secs(2400),
+    );
+    assert_well_formed(&events);
+    let progress: Vec<_> = events
+        .iter()
+        .filter_map(|e| match e {
+            AgentEvent::Progress(p) => Some(p),
+            _ => None,
+        })
+        .collect();
+    eprintln!("{} Progress events", progress.len());
+    for p in &progress {
+        eprintln!("  {} {:?}/{:?} {:?}", p.phase, p.step, p.total, p.metrics);
+    }
+    assert!(!progress.is_empty(), "the run reported progress");
+    let (_success, summary, _) = completed(&events);
+    eprintln!("summary: {summary}");
+}

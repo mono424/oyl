@@ -1,18 +1,21 @@
 //! The agent: finding and setting up harnesses, the context a turn is sent
 //! with, history around every turn, and undoing a turn.
 
+use std::collections::HashMap;
 use std::rc::Rc;
 use std::sync::Arc;
 
 use gpui_kit::prelude::*;
 use gpui_kit::{App, Context, Entity, Focusable as _, Window};
-use oyl_chat::{BeforeTurnHook, ChatEvent, ChatPane, ContextProvider, EditorContext};
+use oyl_chat::{
+    BeforeTurnHook, ChatEvent, ChatPane, ContextProvider, EditorContext, FinishedThread,
+};
 use oyl_history::VersionId;
 use oyl_model::Author;
 use oyl_model::agent::HarnessId;
 
 use super::{Shell, ToastKind};
-use crate::gate::GatedHarness;
+use crate::gate::{GatedHarness, Redirect};
 use crate::status::{AgentRoute, agent_label, setup_line};
 
 /// What the history calls the version taken before a turn.
@@ -48,43 +51,84 @@ impl Shell {
         })
     }
 
-    /// Before a turn: save every buffer, then record the user's version on
-    /// the background executor; the harness waits for it (see
-    /// [`crate::gate`]).
+    /// Before a turn: save every buffer, then make the turn its branch on
+    /// the background executor; the harness waits for it and runs in the
+    /// branch's working copy (see [`crate::gate`]). When no branch can be
+    /// made, the user's version is recorded instead and the agent works on
+    /// the paper itself.
     pub(crate) fn before_turn_hook(&self, cx: &mut Context<Self>) -> BeforeTurnHook {
         let gate = self.gate.clone();
         let editor = self.editor.downgrade();
         let hook = self.hook.clone();
         let shell = cx.weak_entity();
-        Rc::new(move |_turn: &str, _prompt: &str, cx: &mut App| {
-            let opener = gate.arm();
-            let saved = editor
-                .upgrade()
-                .map(|editor| editor.update(cx, |editor, cx| editor.save_all(cx)));
-            let save_error = match saved {
-                Some(Err(err)) => Some(format!(
-                    "A file could not be saved before the agent started: {err:#}"
-                )),
-                _ => None,
-            };
-            let history = hook.borrow().history.clone();
-            let snapshot = cx.background_spawn(async move {
-                let result =
-                    history.map(|history| history.snapshot(Author::You, Some(BEFORE_TURN)));
-                opener.open();
-                result
-            });
-            let shell = shell.clone();
-            cx.spawn(async move |cx| {
-                let mut problems: Vec<String> = save_error.into_iter().collect();
-                match snapshot.await {
-                    Some(Err(err)) => problems.push(format!(
-                        "Your version before this turn could not be recorded, so it cannot be undone: {err}"
+        Rc::new(
+            move |thread: &str, turn: &str, prompt: &str, cx: &mut App| {
+                let opener = gate.arm();
+                let saved = editor
+                    .upgrade()
+                    .map(|editor| editor.update(cx, |editor, cx| editor.save_all(cx)));
+                let save_error = match saved {
+                    Some(Err(err)) => Some(format!(
+                        "A file could not be saved before the agent started: {err:#}"
                     )),
-                    Some(Ok(Some(_))) => {
-                        let _ = shell.update(cx, |this, cx| this.history_changed(cx));
+                    _ => None,
+                };
+                let history = hook.borrow().history.clone();
+                if history.is_some() {
+                    hook.borrow_mut().pending.insert(turn.to_string(), false);
+                }
+                let label = turn_label(prompt);
+                let made = cx.background_spawn(async move {
+                    let Some(history) = history else {
+                        opener.open();
+                        return Made::NoHistory;
+                    };
+                    match history.create_branch(&label) {
+                        Ok(branch) => {
+                            opener.open_in(Some(Redirect {
+                                from: history.root().to_path_buf(),
+                                to: branch.path().to_path_buf(),
+                            }));
+                            Made::Branch(branch)
+                        }
+                        Err(err) => {
+                            let snapshot = history.snapshot(Author::You, Some(BEFORE_TURN));
+                            opener.open();
+                            Made::Snapshot(
+                                err.to_string(),
+                                snapshot.err().map(|err| err.to_string()),
+                            )
+                        }
                     }
-                    Some(Ok(None)) | None => {}
+                });
+                let shell = shell.clone();
+                let (thread, turn) = (thread.to_string(), turn.to_string());
+                cx.spawn(async move |cx| {
+                let mut problems: Vec<String> = save_error.into_iter().collect();
+                match made.await {
+                    Made::Branch(branch) => {
+                        let _ = shell.update_in(cx, |this, window, cx| {
+                            this.branch_created(thread, turn, branch, window, cx)
+                        });
+                    }
+                    Made::Snapshot(branch_error, snapshot_error) => {
+                        problems.push(format!(
+                            "The agent works on the paper itself this time: its own copy could not be made ({branch_error})."
+                        ));
+                        if let Some(err) = snapshot_error {
+                            problems.push(format!(
+                                "Your version before this turn could not be recorded, so it cannot be undone: {err}"
+                            ));
+                        }
+                        let _ = shell.update_in(cx, |this, window, cx| {
+                            this.history_changed(cx);
+                            let ended = this.hook.borrow_mut().pending.remove(&turn) == Some(true);
+                            if ended {
+                                this.record_agent_version(turn.clone(), window, cx);
+                            }
+                        });
+                    }
+                    Made::NoHistory => {}
                 }
                 for problem in problems {
                     let _ = shell.update_in(cx, |this, window, cx| {
@@ -93,7 +137,8 @@ impl Shell {
                 }
             })
             .detach();
-        })
+            },
+        )
     }
 
     /// Finds the installed agents off the main thread, offers them in the
@@ -119,10 +164,13 @@ impl Shell {
             .map(HarnessId::new)
             .unwrap_or_else(|| registry.default_id());
         let model = self.settings.model_for(wanted.as_str()).map(str::to_owned);
+        let efforts = saved_efforts(&self.settings.models);
         self.chat.update(cx, |chat, cx| {
             chat.set_harnesses(harnesses, cx);
+            chat.set_efforts(efforts, cx);
             chat.select(&wanted, model, cx);
         });
+        self.set_editor_assist(registry.rewriter(), registry.fact_checker(), cx);
         self.agent.registry = Some(registry);
         if let Some((id, _)) = self.chat.read(cx).selection() {
             self.prepare_harness(id, cx);
@@ -224,6 +272,49 @@ impl Shell {
         setup_line(&self.latex, &agent_label(info, route, progress))
     }
 
+    /// What the editor polishes (⌘B, ⇧⌘B) and fact-checks (⌘I) with.
+    pub(crate) fn set_editor_assist(
+        &mut self,
+        rewriter: Option<Arc<dyn oyl_model::agent::Rewriter>>,
+        checker: Option<Arc<dyn oyl_model::agent::FactChecker>>,
+        cx: &mut Context<Self>,
+    ) {
+        self.editor.update(cx, |editor, cx| {
+            editor.set_rewriter(rewriter, cx);
+            editor.set_fact_checker(checker, cx);
+        });
+    }
+
+    /// A turn ended in a thread not on screen: a toast that opens it.
+    fn finished_off_screen(
+        &mut self,
+        finished: FinishedThread,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        let (kind, message) = finished_toast(&finished);
+        let id = finished.id;
+        self.toast_with_action(
+            kind,
+            message,
+            "Open",
+            Rc::new(
+                move |shell: &mut Shell, window: &mut Window, cx: &mut Context<Shell>| {
+                    shell.open_thread(&id, window, cx)
+                },
+            ),
+            window,
+            cx,
+        );
+    }
+
+    /// Shows thread `id` in the Agent tab.
+    pub(crate) fn open_thread(&mut self, id: &str, window: &mut Window, cx: &mut Context<Self>) {
+        self.enter_agent(window, cx);
+        self.chat
+            .update(cx, |chat, cx| chat.show_thread(id, window, cx));
+    }
+
     /// What the chat pane reports.
     pub(crate) fn on_chat_event(
         &mut self,
@@ -237,23 +328,70 @@ impl Shell {
                 self.agent.running = true;
                 cx.notify();
             }
-            ChatEvent::FileChanged { .. } => {
-                // The folder watcher brings the change in, like any other.
+            ChatEvent::FileChanged { path } => {
+                // A change of the paper itself comes in through the folder
+                // watcher; one in the branch the preview shows recompiles.
+                let shown = self
+                    .preview_branch(cx)
+                    .is_some_and(|(work, _)| path.starts_with(work));
+                if shown {
+                    self.request_compile(window, cx);
+                }
             }
-            ChatEvent::TurnFinished { turn, .. } => self.turn_finished(turn.clone(), window, cx),
+            ChatEvent::TurnFinished { thread, turn, .. } => {
+                self.turn_finished(thread.clone(), turn.clone(), window, cx)
+            }
+            ChatEvent::FinishedOffScreen(finished) => {
+                if !self.defer_finished_toast(&finished.id) {
+                    self.finished_off_screen(finished.clone(), window, cx)
+                }
+            }
+            ChatEvent::ThreadShown { .. } => {
+                if self.mode == oyl_core::LayoutMode::Agent {
+                    self.request_compile(window, cx);
+                }
+            }
+            ChatEvent::ApplyReview { thread, choices } => {
+                self.apply_branch_review(thread, choices, window, cx)
+            }
+            ChatEvent::DiscardBranch { thread } => self.discard_thread_branch(thread, window, cx),
+            ChatEvent::FinishBranch { thread } => self.finish_branch(thread, window, cx),
+            ChatEvent::StartedInBackground { thread, title } => {
+                let id = thread.clone();
+                self.toast_with_action(
+                    ToastKind::Info,
+                    format!("“{title}” runs in the background"),
+                    "Open",
+                    Rc::new(
+                        move |shell: &mut Shell, window: &mut Window, cx: &mut Context<Shell>| {
+                            shell.open_thread(&id, window, cx)
+                        },
+                    ),
+                    window,
+                    cx,
+                );
+            }
             ChatEvent::UndoTurn { turn } => self.undo_turn(turn.clone(), window, cx),
-            ChatEvent::HarnessSelected { harness, model } => {
+            ChatEvent::HarnessSelected {
+                harness,
+                model,
+                effort,
+            } => {
                 self.settings.harness = Some(harness.to_string());
                 self.settings.set_model(harness.as_str(), model.as_deref());
+                self.settings
+                    .set_model(&effort_key(harness.as_str()), effort.as_deref());
                 self.save_settings(cx);
                 self.prepare_harness(harness.clone(), cx);
                 self.sync_library(cx);
             }
             ChatEvent::OpenFile { path } => {
                 self.reveal_source(window, cx);
+                // A file the agent changed in its branch opens as the paper's.
+                let path = self.paper_path(path);
                 let opened = self
                     .editor
-                    .update(cx, |editor, cx| editor.open(path, window, cx));
+                    .update(cx, |editor, cx| editor.open(&path, window, cx));
                 if let Err(err) = opened {
                     self.toast(
                         ToastKind::Error,
@@ -272,10 +410,33 @@ impl Shell {
             || self.chat.focus_handle(cx).is_focused(window)
     }
 
-    /// A turn ended: record the agent's version, labelled with the prompt.
-    fn turn_finished(&mut self, turn: String, window: &mut Window, cx: &mut Context<Self>) {
+    /// A turn ended: bring its branch back; a turn that worked on the paper
+    /// itself (no branch could be made) gets its version recorded.
+    fn turn_finished(
+        &mut self,
+        thread: String,
+        turn: String,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
         // Other threads may still be running.
         self.agent.running = self.chat.read(cx).is_running();
+        if let Some(ended) = self.hook.borrow_mut().pending.get_mut(&turn) {
+            // Its branch is still being made: finished once it is.
+            *ended = true;
+            cx.notify();
+            return;
+        }
+        if self.turn_ended_on_branch(&thread, &turn, window, cx) {
+            cx.notify();
+            return;
+        }
+        self.record_agent_version(turn, window, cx);
+    }
+
+    /// Records the agent's version after a turn on the paper itself,
+    /// labelled with the prompt.
+    fn record_agent_version(&mut self, turn: String, window: &mut Window, cx: &mut Context<Self>) {
         let Some(paper) = self.paper.as_ref() else {
             cx.notify();
             return;
@@ -418,6 +579,66 @@ impl Shell {
     }
 }
 
+/// Where a harness's effort is kept in the settings: in the `models` map,
+/// beside its model, under "<harness>@effort".
+pub(crate) fn effort_key(harness: &str) -> String {
+    format!("{harness}{EFFORT_SUFFIX}")
+}
+
+/// The suffix of [`effort_key`].
+const EFFORT_SUFFIX: &str = "@effort";
+
+/// The efforts saved per harness (see [`effort_key`]).
+pub(crate) fn saved_efforts(
+    models: &std::collections::BTreeMap<String, String>,
+) -> HashMap<HarnessId, String> {
+    models
+        .iter()
+        .filter_map(|(key, effort)| {
+            let harness = key.strip_suffix(EFFORT_SUFFIX)?;
+            (!harness.is_empty() && !effort.trim().is_empty())
+                .then(|| (HarnessId::new(harness), effort.clone()))
+        })
+        .collect()
+}
+
+/// What making a turn's branch came to.
+enum Made {
+    /// The turn runs in this branch.
+    Branch(oyl_history::Branch),
+    /// No branch (why); the user's version was recorded instead (or why
+    /// not).
+    Snapshot(String, Option<String>),
+    /// The paper has no history: the agent works on it as it is.
+    NoHistory,
+}
+
+/// The toast for a turn that ended off screen: "“Title” finished · 3 files
+/// changed", or "“Title” failed · why".
+pub(crate) fn finished_toast(finished: &FinishedThread) -> (ToastKind, String) {
+    let title = &finished.title;
+    if finished.success {
+        let message = match finished.files_changed {
+            0 => format!("“{title}” finished"),
+            1 => format!("“{title}” finished · 1 file changed"),
+            n => format!("“{title}” finished · {n} files changed"),
+        };
+        (ToastKind::Success, message)
+    } else {
+        let reason = finished
+            .error
+            .as_deref()
+            .and_then(|error| error.lines().next())
+            .map(str::trim)
+            .filter(|reason| !reason.is_empty());
+        let message = match reason {
+            Some(reason) => format!("“{title}” failed · {reason}"),
+            None => format!("“{title}” failed"),
+        };
+        (ToastKind::Error, message)
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -432,5 +653,54 @@ mod tests {
         assert_eq!(turn_label(""), "Agent turn");
         let long = "word ".repeat(40);
         assert!(turn_label(&long).chars().count() <= 81);
+    }
+
+    #[test]
+    fn efforts_are_kept_beside_the_models() {
+        let mut models = std::collections::BTreeMap::new();
+        models.insert("sorcar".to_string(), "cc/opus".to_string());
+        models.insert(effort_key("sorcar"), "high".to_string());
+        models.insert(effort_key("claude-code"), " ".to_string());
+        let efforts = saved_efforts(&models);
+        assert_eq!(efforts.len(), 1);
+        assert_eq!(
+            efforts.get(&HarnessId::new("sorcar")).map(String::as_str),
+            Some("high")
+        );
+    }
+
+    #[test]
+    fn toasts_for_turns_that_ended_off_screen() {
+        let mut finished = FinishedThread {
+            id: "t".into(),
+            title: "Tighten the abstract".into(),
+            success: true,
+            files_changed: 3,
+            error: None,
+            outcome: "Done · 3 files changed".into(),
+            started_at: chrono::Utc::now(),
+            finished_at: chrono::Utc::now(),
+        };
+        assert_eq!(
+            finished_toast(&finished),
+            (
+                ToastKind::Success,
+                "“Tighten the abstract” finished · 3 files changed".into()
+            )
+        );
+        finished.files_changed = 0;
+        assert_eq!(
+            finished_toast(&finished).1,
+            "“Tighten the abstract” finished"
+        );
+        finished.success = false;
+        finished.error = Some("The agent crashed\nstack…".into());
+        assert_eq!(
+            finished_toast(&finished),
+            (
+                ToastKind::Error,
+                "“Tighten the abstract” failed · The agent crashed".into()
+            )
+        );
     }
 }

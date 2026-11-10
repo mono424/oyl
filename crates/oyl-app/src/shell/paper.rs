@@ -7,18 +7,18 @@ use std::sync::Arc;
 use std::time::{Duration, Instant};
 
 use gpui_kit::prelude::*;
-use gpui_kit::{Context, PromptLevel, Task, Window};
-use parking_lot::Mutex;
+use gpui_kit::{Context, Task, Window};
 use oyl_chat::PaperContext;
 use oyl_core::{LayoutMode, Project, Watcher};
 use oyl_history::History;
 use oyl_model::{Author, CiteCandidate, Engine, OutlineItem};
 use oyl_preview::PreviewPane;
 use oyl_sources::Bibliography;
+use parking_lot::Mutex;
 
 use super::{Shell, ToastKind};
 use crate::coalesce::{Coalescer, Next};
-use crate::persist::TurnVersions;
+use crate::persist::{BranchThreads, TurnVersions};
 
 /// How long a save of our own may take to come back through the watcher
 /// and still be recognized as an echo.
@@ -38,6 +38,10 @@ pub(crate) struct Paper {
     pub(crate) outline: Vec<OutlineItem>,
     /// Which version each agent turn made.
     pub(crate) turns: TurnVersions,
+    /// The branches of agent turns, by thread.
+    pub(crate) branches: HashMap<String, super::branches::ThreadBranch>,
+    /// Which thread each branch belongs to (kept on disk).
+    pub(crate) branch_threads: BranchThreads,
     /// Identifies this opening of the paper.
     pub(crate) epoch: u64,
     /// When we saved each file last, to tell our own saves coming back
@@ -72,6 +76,7 @@ struct Loaded {
     files: Vec<PathBuf>,
     outline: Vec<OutlineItem>,
     turns: TurnVersions,
+    branch_threads: BranchThreads,
     watcher: Result<(Watcher, async_channel::Receiver<Vec<PathBuf>>), String>,
 }
 
@@ -96,6 +101,7 @@ fn load(path: &Path) -> Result<Loaded, String> {
     let files = project.source_files();
     let outline = oyl_core::project_outline(&project);
     let turns = TurnVersions::load(&root);
+    let branch_threads = BranchThreads::load(&root);
     let watcher = Watcher::start(&root).map_err(|err| {
         format!("Changes made outside Oyl will not show up until the paper is reopened: {err}")
     });
@@ -106,13 +112,14 @@ fn load(path: &Path) -> Result<Loaded, String> {
         files,
         outline,
         turns,
+        branch_threads,
         watcher,
     })
 }
 
 impl Shell {
     /// Opens the paper in `folder`. A paper already open is saved and
-    /// closed first; a running agent turn is stopped after asking.
+    /// closed first; running agents are stopped after asking.
     pub(crate) fn open_paper(
         &mut self,
         folder: PathBuf,
@@ -128,24 +135,14 @@ impl Shell {
                 .update(cx, |host, cx| host.dismiss_if("library", window, cx));
             return;
         }
-        if self.agent.running || self.chat.read(cx).is_running() {
-            let answer = window.prompt(
-                PromptLevel::Warning,
-                "The agent is still working on this paper.",
-                Some("Stop its turn and switch papers? What it changed so far stays in the folder and in history."),
-                &["Stop and Switch", "Cancel"],
-                cx,
-            );
-            cx.spawn_in(window, async move |this, cx| {
-                if answer.await == Ok(0) {
-                    let _ = this.update_in(cx, |this, window, cx| {
-                        this.chat.update(cx, |chat, cx| chat.stop(cx));
-                        this.agent.running = false;
-                        this.switch_to(folder, window, cx);
-                    });
-                }
-            })
-            .detach();
+        let pending = folder.clone();
+        if self.confirm_stopping_agents(
+            "Switch papers anyway?",
+            "Stop & Switch",
+            move |this, window, cx| this.switch_to(pending, window, cx),
+            window,
+            cx,
+        ) {
             return;
         }
         self.switch_to(folder, window, cx);
@@ -208,8 +205,21 @@ impl Shell {
             hook.errors.clear();
         }
         self.chat.update(cx, |chat, cx| chat.set_paper(None, cx));
+        self.bib_text.borrow_mut().clear();
         cx.notify();
         true
+    }
+
+    /// Keeps the text the editor's fact checks get as the bibliography in
+    /// step with the paper's.
+    fn sync_bib_text(&self) {
+        let text = self
+            .paper
+            .as_ref()
+            .and_then(|paper| paper.bibliography.as_ref())
+            .map(|bib| bib.lock().render())
+            .unwrap_or_default();
+        *self.bib_text.borrow_mut() = text;
     }
 
     /// Everything that happens once a paper's files are loaded.
@@ -224,6 +234,7 @@ impl Shell {
             files,
             outline,
             turns,
+            branch_threads,
             watcher,
         } = loaded;
 
@@ -282,6 +293,8 @@ impl Shell {
             files,
             outline,
             turns,
+            branches: HashMap::new(),
+            branch_threads,
             epoch,
             saved_at: HashMap::new(),
             typing: Coalescer::new(),
@@ -292,6 +305,8 @@ impl Shell {
             _watching: watching,
         });
         self.create_panels(window, cx);
+        self.sync_bib_text();
+        self.restore_branches(window, cx);
 
         let zen = self.mode == LayoutMode::Write;
         let opened = self.editor.update(cx, |editor, cx| {
@@ -464,6 +479,7 @@ impl Shell {
         if let Some(paper) = self.paper.as_mut() {
             paper.citations = candidates.clone();
         }
+        self.sync_bib_text();
         self.editor
             .update(cx, |editor, cx| editor.set_citations(candidates, cx));
         cx.notify();
@@ -479,10 +495,7 @@ impl Shell {
         paper.index_task = Some(cx.spawn(async move |this, cx| {
             let (files, outline) = cx
                 .background_spawn(async move {
-                    (
-                        project.source_files(),
-                        oyl_core::project_outline(&project),
-                    )
+                    (project.source_files(), oyl_core::project_outline(&project))
                 })
                 .await;
             let _ = this.update(cx, |this, cx| {

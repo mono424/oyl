@@ -26,6 +26,7 @@ pub use oyl_model::agent::*;
 mod claude;
 mod codex;
 mod detect;
+mod discovery;
 mod factcheck;
 mod guard;
 mod process;
@@ -36,16 +37,20 @@ mod scripted;
 mod sorcar;
 mod tools;
 
-pub use claude::{ALLOWED_TOOLS as CLAUDE_ALLOWED_TOOLS, ClaudeCodeHarness};
-pub use codex::CodexHarness;
+pub use claude::{ALLOWED_TOOLS as CLAUDE_ALLOWED_TOOLS, CLAUDE_EFFORTS, ClaudeCodeHarness};
+pub use codex::{CODEX_EFFORTS, CodexHarness};
 pub use detect::{Detection, FoundTool, FoundVia, PROVIDER_API_KEYS, Setup};
 pub use factcheck::{
     CLAUDE_FACT_CHECK_MODEL, ClaudeFactChecker, CodexFactChecker, FACT_CHECK_TIMEOUT,
 };
 pub use registry::Registry;
-pub use rewrite::{CLAUDE_REWRITE_MODEL, ClaudeRewriter, CodexRewriter};
+pub use rewrite::{CLAUDE_FACT_FIX_MODEL, CLAUDE_REWRITE_MODEL, ClaudeRewriter, CodexRewriter};
 pub use scripted::{ScriptStep, ScriptedHarness};
-pub use sorcar::{BRIDGE_SOURCE, PYTHON_VERSION, SORCAR_PACKAGE, SorcarHarness, sorcar_models};
+pub use sorcar::{
+    BRIDGE_SOURCE, CAPABILITY_DISCOVER, CAPABILITY_REVIEW, CAPABILITY_REVISE, CAPABILITY_WRITE,
+    FABLE_5_2, PYTHON_VERSION, SORCAR_DEFAULT_EFFORT, SORCAR_DEFAULT_MODEL, SORCAR_EFFORTS,
+    SORCAR_PACKAGE, SorcarHarness, sorcar_capabilities, sorcar_models,
+};
 
 /// The `model` value meaning "the harness's own configured default" for
 /// Claude Code and Codex.

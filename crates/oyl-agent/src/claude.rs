@@ -80,14 +80,15 @@ impl ClaudeCodeHarness {
         Self { setup }
     }
 
-    /// The models offered in the picker.
+    /// The models offered in the picker, newest first. Claude Code's own
+    /// aliases, so they follow its updates (`fable` is Fable 5.2).
     pub fn models() -> Vec<ModelChoice> {
         [
+            ("fable", "Fable 5.2"),
+            ("opus", "Opus"),
+            ("sonnet", "Sonnet"),
+            ("haiku", "Haiku (fastest)"),
             (DEFAULT_MODEL, "Default (Claude Code's own choice)"),
-            ("opus", "Claude Opus"),
-            ("sonnet", "Claude Sonnet"),
-            ("haiku", "Claude Haiku (fastest)"),
-            ("fable", "Claude Fable"),
         ]
         .into_iter()
         .map(|(id, label)| ModelChoice {
@@ -96,6 +97,17 @@ impl ClaudeCodeHarness {
         })
         .collect()
     }
+}
+
+/// The reasoning efforts `claude --effort` takes, lowest first.
+pub const CLAUDE_EFFORTS: [&str; 5] = ["low", "medium", "high", "xhigh", "max"];
+
+/// The effort of a request when Claude Code knows it.
+pub(crate) fn effort_of(request: &TurnRequest) -> Option<&str> {
+    request
+        .effort
+        .as_deref()
+        .filter(|effort| CLAUDE_EFFORTS.contains(effort))
 }
 
 /// The `claude` arguments for one turn (the message goes to stdin).
@@ -130,6 +142,10 @@ pub(crate) fn command_args(request: &TurnRequest) -> Vec<OsString> {
     {
         args.push("--model".into());
         args.push(model.into());
+    }
+    if let Some(effort) = effort_of(request) {
+        args.push("--effort".into());
+        args.push(effort.into());
     }
     if let Some(session) = request.session.as_deref().filter(|s| !s.is_empty()) {
         args.push("--resume".into());
@@ -171,6 +187,10 @@ impl Harness for ClaudeCodeHarness {
             status,
             models: Self::models(),
             default_model: Some(DEFAULT_MODEL.into()),
+            efforts: CLAUDE_EFFORTS.iter().map(|e| (*e).to_owned()).collect(),
+            // None: the CLI's own default for the model.
+            default_effort: None,
+            capabilities: Vec::new(),
         }
     }
 
@@ -187,6 +207,13 @@ impl Harness for ClaudeCodeHarness {
                     request.project_root.display()
                 ));
                 return;
+            }
+            if let Some(effort) = request.effort.as_deref()
+                && effort_of(&request).is_none()
+            {
+                turn.status(format!(
+                    "Claude Code has no \"{effort}\" effort; it runs at its default."
+                ));
             }
             let spawn = Spawn {
                 program: claude.path,
@@ -710,5 +737,32 @@ mod tests {
             ..TurnRequest::default()
         };
         assert!(!command_args(&default).iter().any(|a| a == "--model"));
+        assert!(!command_args(&default).iter().any(|a| a == "--effort"));
+    }
+
+    #[test]
+    fn efforts_map_to_the_effort_flag() {
+        let with = |effort: &str| {
+            let request = TurnRequest {
+                effort: Some(effort.into()),
+                ..TurnRequest::default()
+            };
+            let args: Vec<String> = command_args(&request)
+                .into_iter()
+                .map(|a| a.to_string_lossy().into_owned())
+                .collect();
+            args.iter()
+                .position(|a| a == "--effort")
+                .map(|i| args[i + 1].clone())
+        };
+        for effort in CLAUDE_EFFORTS {
+            assert_eq!(with(effort).as_deref(), Some(effort));
+        }
+        assert_eq!(with("ultra"), None, "unknown efforts are left out");
+        let models: Vec<String> = ClaudeCodeHarness::models()
+            .into_iter()
+            .map(|m| m.id)
+            .collect();
+        assert_eq!(models, ["fable", "opus", "sonnet", "haiku", DEFAULT_MODEL]);
     }
 }

@@ -71,6 +71,9 @@ impl Harness for ScriptedHarness {
                 },
             ],
             default_model: Some("cc/opus".into()),
+            efforts: Vec::new(),
+            default_effort: None,
+            capabilities: Vec::new(),
         }
     }
 
@@ -288,6 +291,9 @@ impl Harness for MissingHarness {
             status: "Install Codex to use it: npm i -g @openai/codex".into(),
             models: Vec::new(),
             default_model: None,
+            efforts: Vec::new(),
+            default_effort: None,
+            capabilities: Vec::new(),
         }
     }
 
@@ -364,13 +370,7 @@ impl Render for Demo {
                             .child(self.source.clone()),
                     )
                     .child(oyl_ui::hairline(cx))
-                    .child(
-                        div()
-                            .flex_1()
-                            .min_h_0()
-                            .w_full()
-                            .child(self.pane.clone()),
-                    ),
+                    .child(div().flex_1().min_h_0().w_full().child(self.pane.clone())),
             )
     }
 }
@@ -388,9 +388,7 @@ fn write_paper(root: &Path) -> anyhow::Result<PaperContext> {
 
 fn main() -> anyhow::Result<()> {
     let smoke = std::env::var_os("OYL_SMOKE").is_some_and(|value| value != "0");
-    let paper_dir = tempfile::Builder::new()
-        .prefix("oyl-chat-demo")
-        .tempdir()?;
+    let paper_dir = tempfile::Builder::new().prefix("oyl-chat-demo").tempdir()?;
     let paper = write_paper(paper_dir.path())?;
     let root = paper.root.clone();
     let step = if smoke { 0.06 } else { 0.45 };
@@ -461,7 +459,7 @@ fn main() -> anyhow::Result<()> {
                         ],
                     }));
                     if smoke {
-                        pane.set_before_turn(Rc::new(|turn, prompt, _| {
+                        pane.set_before_turn(Rc::new(|_thread, turn, prompt, _| {
                             println!("chat smoke: before turn {turn}: {prompt}");
                         }));
                     }

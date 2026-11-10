@@ -80,6 +80,13 @@ gpui_kit::actions!(
         ShowFigures,
         /// The compiler's errors and warnings (⇧⌘M).
         ShowProblems,
+        /// Polishes the editor's selection (⌘B, bound in the editor only).
+        PolishSelection,
+        /// Fact-checks the editor's selection (⌘I, bound in the editor only).
+        FactCheckSelection,
+        /// Asks the AI to do something with the editor's selection (⇧⌘B,
+        /// bound in the editor only).
+        AskAiAboutSelection,
     ]
 );
 
@@ -90,9 +97,11 @@ pub const OVERLAY_CONTEXT: &str = "OylOverlay";
 /// The key context of the Agent tab's sidebar and card.
 pub const AGENT_CONTEXT: &str = "OylAgentTab";
 
-/// Binds the shell's keys. Global keys have no context, so they work from
-/// the editor, the preview, the composer and the palette alike; the panes'
-/// own bindings (⌘S, ⌘/, the preview's zoom keys) win inside them.
+/// Binds the shell's keys. A global key (no context) counts as bound at the
+/// focused element itself, so it wins over any pane's binding of the same
+/// key: the shell binds globally only keys no pane uses (⌘B and ⇧⌘B are
+/// the editor's). Keys a deeper context must be able to take (⌘N) are bound
+/// in the shell's own context instead.
 pub fn bind_keys(cx: &mut App) {
     cx.bind_keys([
         KeyBinding::new("cmd-k", CommandPalette, None),
@@ -162,6 +171,10 @@ pub fn menus() -> Vec<Menu> {
             MenuItem::separator(),
             MenuItem::action("Find…", Search),
             MenuItem::action("Toggle Comment", oyl_editor::ToggleLineComment),
+            MenuItem::separator(),
+            MenuItem::action("Polish Selection", PolishSelection),
+            MenuItem::action("Fact-Check Selection", FactCheckSelection),
+            MenuItem::action("Ask AI About Selection…", AskAiAboutSelection),
         ]),
         Menu::new("View").items([
             MenuItem::action("Write", WriteMode),

@@ -22,3 +22,12 @@ similar = "2.7"
 
 [dev-dependencies]
 tempfile.workspace = true
+# The fake rewriter and fact checker of the tests and the example answer
+# through the same channels as the real ones.
+async-channel.workspace = true
+# GPUI's headless test platform, for the pane's UI tests (src/pane/ui_tests.rs).
+# Enabled on the GPUI package gpui-kit itself uses (`gpui_kit::*` then
+# re-exports the test types): gpui-kit's own `test-support` feature also
+# makes Cargo resolve its optional gpui-fast backend, whose `taffy =0.15.0`
+# pin conflicts with the workspace's locked taffy 0.15.1.
+gpui = { package = "gpui-pre", version = "=0.3.12", features = ["test-support"] }

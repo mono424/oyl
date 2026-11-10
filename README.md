@@ -40,7 +40,9 @@ Claude Code or Codex login already on your machine — no API keys needed.
   works. Several tasks can run at once.
 - **⌘B — polish:** select text and have spelling, grammar and flow fixed in
   place, one undo away.
-- **⇧⌘B — fact check:** claims in the selection are verified (web search and
+- **⇧⌘B — ask AI:** tell the AI what to do with the selection ("make it more
+  formal", "turn into a list") and it is rewritten in place.
+- **⌘I — fact check:** claims in the selection are verified (web search and
   your bibliography); wrong or doubtful ones are underlined with what is wrong
   and a suggested rewrite, which you can refine with your own remark.
 - Every agent turn is versioned before and after, and can be undone.
@@ -87,7 +89,7 @@ background (a one-time download of a few hundred MB through
 | ⌘O / ⌘N | Library / new paper |
 | ⌘1 ⌘2 ⌘3 ⌘4 | Write · Split · Read · Agent |
 | ⌘L | Jump to the agent and back |
-| ⌘B / ⇧⌘B | Polish / fact-check the selection |
+| ⌘B · ⇧⌘B · ⌘I | Polish · ask AI · fact-check the selection |
 | ⇧⌘R ⇧⌘H ⇧⌘O ⇧⌘F ⇧⌘M | Sources · History · Outline · Figures · Problems |
 | ⇧⌘J | Show the cursor's position in the paper |
 | ⇧⌘E | Export PDF |

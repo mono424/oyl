@@ -105,6 +105,109 @@ pub(crate) fn cited_keys(text: &str, engine: Option<Engine>) -> Vec<String> {
     keys
 }
 
+/// What a protected token is, for deciding whether an instruction asks to
+/// change it.
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub(crate) enum TokenKind {
+    Citation,
+    Reference,
+    Label,
+    Math,
+    Link,
+}
+
+/// The kind of a token [`protected_tokens`] returned.
+pub(crate) fn token_kind(token: &str) -> TokenKind {
+    if token.starts_with('$') || token.starts_with("\\(") || token.starts_with("\\[") {
+        return TokenKind::Math;
+    }
+    if let Some(key) = token.strip_prefix('@') {
+        // Typst: `@key` cites, `@fig:x` / `@sec:x` / `@eq:x` refer.
+        return if key.contains(':') {
+            TokenKind::Reference
+        } else {
+            TokenKind::Citation
+        };
+    }
+    if token.starts_with('<') {
+        return TokenKind::Label;
+    }
+    let name: String = token
+        .trim_start_matches('\\')
+        .chars()
+        .take_while(char::is_ascii_alphabetic)
+        .collect();
+    match name.as_str() {
+        "label" => TokenKind::Label,
+        "url" | "href" => TokenKind::Link,
+        n if n.to_ascii_lowercase().contains("cite") => TokenKind::Citation,
+        _ => TokenKind::Reference,
+    }
+}
+
+/// Whether an author's own instruction ("remove the citation", "drop the
+/// equation", "cite smith2020 instead") explicitly asks to change `token`:
+/// it quotes the token, names one of its keys, or names its kind. A token an
+/// instruction does not mention must come back unchanged.
+pub(crate) fn instruction_allows(token: &str, instruction: &str, engine: Option<Engine>) -> bool {
+    let instruction = instruction.to_lowercase();
+    if instruction.is_empty() {
+        return false;
+    }
+    if instruction.contains(&token.to_lowercase()) {
+        return true;
+    }
+    let names_key = |key: &str| !key.is_empty() && instruction.contains(&key.to_lowercase());
+    let words: &[&str] = match token_kind(token) {
+        TokenKind::Citation => {
+            if cited_keys(token, engine).iter().any(|key| names_key(key)) {
+                return true;
+            }
+            &["cite", "citation", "reference", "source", "bibliograph"]
+        }
+        TokenKind::Reference => {
+            let target = token
+                .rsplit(['{', '@'])
+                .next()
+                .unwrap_or_default()
+                .trim_end_matches('}');
+            if names_key(target) {
+                return true;
+            }
+            &[
+                "ref",
+                "cross-ref",
+                "figure",
+                "table",
+                "section",
+                "appendix",
+                "equation",
+                "listing",
+            ]
+        }
+        TokenKind::Label => &["label", "anchor"],
+        TokenKind::Math => {
+            let inner = token
+                .trim_matches(|c| matches!(c, '$' | '\\' | '(' | ')' | '[' | ']'))
+                .trim();
+            if inner.chars().count() >= 3 && instruction.contains(&inner.to_lowercase()) {
+                return true;
+            }
+            &[
+                "math",
+                "equation",
+                "formula",
+                "expression",
+                "symbol",
+                "notation",
+                "variable",
+            ]
+        }
+        TokenKind::Link => &["link", "url", "href", "address"],
+    };
+    words.iter().any(|word| instruction.contains(word))
+}
+
 fn is_key_char(c: char) -> bool {
     c.is_alphanumeric() || matches!(c, '_' | '-' | ':' | '.' | '/')
 }
@@ -251,6 +354,43 @@ mod tests {
             cited_keys(text, Some(Engine::Typst)),
             vec!["konishi1973", "fig:owl"]
         );
+    }
+
+    #[test]
+    fn instructions_allow_only_what_they_name() {
+        let latex = Some(Engine::Latex);
+        let cite = r"\citep{smith2020,doe21}";
+        assert_eq!(token_kind(cite), TokenKind::Citation);
+        assert!(instruction_allows(cite, "Remove the citation", latex));
+        assert!(instruction_allows(cite, "cite only doe21", latex));
+        assert!(!instruction_allows(cite, "Make it more formal", latex));
+        assert!(!instruction_allows(cite, "", latex));
+        let math = "$E = mc^2$";
+        assert_eq!(token_kind(math), TokenKind::Math);
+        assert!(instruction_allows(math, "drop the equation", latex));
+        assert!(instruction_allows(math, "write E = mc^2 in words", latex));
+        assert!(!instruction_allows(math, "shorten to one sentence", latex));
+        assert_eq!(token_kind(r"\cref{fig:a}"), TokenKind::Reference);
+        assert!(instruction_allows(
+            r"\cref{fig:a}",
+            "don't point to the figure",
+            latex
+        ));
+        assert_eq!(token_kind(r"\label{sec:x}"), TokenKind::Label);
+        assert!(!instruction_allows(
+            r"\label{sec:x}",
+            "turn into a list",
+            latex
+        ));
+        let typst = Some(Engine::Typst);
+        assert_eq!(token_kind("@konishi1973"), TokenKind::Citation);
+        assert_eq!(token_kind("@fig:owl"), TokenKind::Reference);
+        assert_eq!(token_kind("<eq:f>"), TokenKind::Label);
+        assert!(instruction_allows(
+            "@konishi1973",
+            "replace konishi1973 by a newer source",
+            typst
+        ));
     }
 
     #[test]

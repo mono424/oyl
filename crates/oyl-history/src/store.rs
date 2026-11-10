@@ -30,10 +30,29 @@ const TMP_PREFIX: &str = ".tmp-";
 
 /// The hex SHA-256 of a text: the name of its blob.
 pub(crate) fn hash_text(text: &str) -> String {
+    to_hex(&Sha256::digest(text.as_bytes()))
+}
+
+/// The hex SHA-256 of everything `reader` yields, read in chunks; equal to
+/// [`hash_text`] of the same bytes.
+pub(crate) fn hash_reader(mut reader: impl io::Read) -> io::Result<String> {
+    let mut hasher = Sha256::new();
+    let mut buf = vec![0u8; 256 * 1024];
+    loop {
+        match reader.read(&mut buf) {
+            Ok(0) => break,
+            Ok(n) => hasher.update(&buf[..n]),
+            Err(err) if err.kind() == io::ErrorKind::Interrupted => {}
+            Err(err) => return Err(err),
+        }
+    }
+    Ok(to_hex(&hasher.finalize()))
+}
+
+fn to_hex(digest: &[u8]) -> String {
     const HEX: &[u8; 16] = b"0123456789abcdef";
-    let digest = Sha256::digest(text.as_bytes());
-    let mut hex = String::with_capacity(64);
-    for byte in digest {
+    let mut hex = String::with_capacity(digest.len() * 2);
+    for &byte in digest {
         hex.push(char::from(HEX[usize::from(byte >> 4)]));
         hex.push(char::from(HEX[usize::from(byte & 0x0f)]));
     }
@@ -243,7 +262,7 @@ impl Store {
 
 /// Writes `bytes` to `dir/name` through a flushed temporary file and a
 /// rename.
-fn write_atomic(dir: &Path, name: &str, bytes: &[u8]) -> Result<()> {
+pub(crate) fn write_atomic(dir: &Path, name: &str, bytes: &[u8]) -> Result<()> {
     let tmp = dir.join(format!("{TMP_PREFIX}{}", Uuid::new_v4().simple()));
     let dest = dir.join(name);
     let written = (|| -> io::Result<()> {
@@ -287,6 +306,9 @@ mod tests {
             hash_text(""),
             "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
         );
+        let long = "abc".repeat(200_000);
+        assert_eq!(hash_reader(long.as_bytes()).unwrap(), hash_text(&long));
+        assert_eq!(hash_reader(&b""[..]).unwrap(), hash_text(""));
         assert!(is_hash(&hash_text("hello")));
         assert!(!is_hash("../../etc/passwd"));
         assert!(!is_hash(&"A".repeat(64)));

@@ -195,6 +195,8 @@ pub fn build_request(
         session,
         attachments,
         diagnostics: editor.diagnostics.clone(),
+        effort: None,
+        capability: None,
     }
 }
 

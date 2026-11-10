@@ -251,7 +251,7 @@ mod tests {
         });
         assert_eq!(
             claude.rewriter().map(|r| r.name()).as_deref(),
-            Some("Claude Code (Sonnet)")
+            Some("Claude Code (Haiku)")
         );
         assert_eq!(
             claude.fact_checker().map(|c| c.name()).as_deref(),
@@ -259,7 +259,7 @@ mod tests {
         );
         assert_eq!(
             claude.rewriter_status(),
-            "Polishes text with Claude Code (Sonnet)"
+            "Polishes text with Claude Code (Haiku)"
         );
         let (_t, codex) = registry(Detection {
             codex: tool("/x/codex"),
