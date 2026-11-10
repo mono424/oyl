@@ -117,11 +117,21 @@ pub enum CommandId {
     FactCheck,
     /// ⇧⌘B in the editor.
     AskAi,
+    /// Sign in to Oyl Cloud.
+    SignInToCloud,
+    /// Sign out of Oyl Cloud.
+    SignOutOfCloud,
+    /// "Sync to Oyl Cloud" for the open paper (checked while on).
+    CloudSync,
+    /// Pull and push now.
+    SyncNow,
+    /// The account's papers, in the library.
+    OpenFromCloud,
 }
 
 impl CommandId {
     /// Every command, in palette order.
-    pub const ALL: [CommandId; 28] = [
+    pub const ALL: [CommandId; 33] = [
         CommandId::Library,
         CommandId::NewPaper,
         CommandId::OpenFolder,
@@ -143,6 +153,11 @@ impl CommandId {
         CommandId::ExportSource,
         CommandId::ExportBibliography,
         CommandId::RevealInFinder,
+        CommandId::CloudSync,
+        CommandId::SyncNow,
+        CommandId::OpenFromCloud,
+        CommandId::SignInToCloud,
+        CommandId::SignOutOfCloud,
         CommandId::ZoomIn,
         CommandId::ZoomOut,
         CommandId::ZoomToFit,
@@ -183,6 +198,11 @@ impl CommandId {
             CommandId::Polish => "Polish selection",
             CommandId::FactCheck => "Fact-check selection",
             CommandId::AskAi => "Ask AI about selection…",
+            CommandId::SignInToCloud => "Sign in to Oyl Cloud…",
+            CommandId::SignOutOfCloud => "Sign out of Oyl Cloud",
+            CommandId::CloudSync => "Sync to Oyl Cloud",
+            CommandId::SyncNow => "Sync now",
+            CommandId::OpenFromCloud => "Open from Oyl Cloud…",
         }
     }
 
@@ -213,6 +233,11 @@ impl CommandId {
             CommandId::Polish => &["grammar", "spelling", "rewrite", "ai", "cmd-b"],
             CommandId::FactCheck => &["facts", "verify", "claims", "ai", "cmd-i"],
             CommandId::AskAi => &["rewrite", "instruction", "prompt", "ai"],
+            CommandId::SignInToCloud => &["cloud", "account", "login", "web"],
+            CommandId::SignOutOfCloud => &["cloud", "account", "logout"],
+            CommandId::CloudSync => &["cloud", "backup", "web", "upload"],
+            CommandId::SyncNow => &["cloud", "pull", "push", "upload"],
+            CommandId::OpenFromCloud => &["cloud", "download", "web"],
         }
     }
 
@@ -247,6 +272,11 @@ impl CommandId {
             CommandId::Polish => Box::new(actions::PolishSelection),
             CommandId::FactCheck => Box::new(actions::FactCheckSelection),
             CommandId::AskAi => Box::new(actions::AskAiAboutSelection),
+            CommandId::SignInToCloud => Box::new(actions::SignInToCloud),
+            CommandId::SignOutOfCloud => Box::new(actions::SignOutOfCloud),
+            CommandId::CloudSync => Box::new(actions::ToggleCloudSync),
+            CommandId::SyncNow => Box::new(actions::SyncNow),
+            CommandId::OpenFromCloud => Box::new(actions::OpenFromCloud),
         }
     }
 
@@ -273,6 +303,10 @@ impl CommandId {
                 paper
             }
             CommandId::ZoomIn | CommandId::ZoomOut | CommandId::ZoomToFit => paper,
+            CommandId::SignInToCloud => !context.cloud_signed_in,
+            CommandId::SignOutOfCloud | CommandId::OpenFromCloud => context.cloud_signed_in,
+            CommandId::CloudSync => paper,
+            CommandId::SyncNow => context.cloud_signed_in && context.cloud_sync == Some(true),
         }
     }
 
@@ -284,6 +318,7 @@ impl CommandId {
             CommandId::Light => context.appearance == oyl_ui::Appearance::Light,
             CommandId::Dark => context.appearance == oyl_ui::Appearance::Dark,
             CommandId::System => context.appearance == oyl_ui::Appearance::System,
+            CommandId::CloudSync => context.cloud_sync == Some(true),
             _ => false,
         }
     }
@@ -366,6 +401,10 @@ pub struct Sources<'a> {
     pub harnesses: &'a [HarnessInfo],
     /// The harness and model in use.
     pub selected: Option<&'a (HarnessId, Option<String>)>,
+    /// An Oyl Cloud account is signed in.
+    pub cloud_signed_in: bool,
+    /// Whether the open paper syncs to Oyl Cloud (`None`: no paper).
+    pub cloud_sync: Option<bool>,
 }
 
 /// "Cite Vaswani et al. 2017".
@@ -825,6 +864,8 @@ mod tests {
             citations: &f.citations,
             harnesses: &f.harnesses,
             selected: Some(&f.selected),
+            cloud_signed_in: false,
+            cloud_sync: Some(false),
         }
     }
 
@@ -833,6 +874,58 @@ mod tests {
             .iter()
             .flat_map(|g| g.items.iter().map(|&i| entries[i].label.clone()))
             .collect()
+    }
+
+    #[test]
+    fn cloud_commands_follow_the_account_and_the_paper() {
+        let f = fixture();
+        let labels = |context: &Sources<'_>| -> Vec<(String, bool)> {
+            build(context)
+                .into_iter()
+                .filter(|e| e.label.contains("Oyl Cloud") || e.label == "Sync now")
+                .map(|e| (e.label, e.checked))
+                .collect()
+        };
+        let out = labels(&sources(&f));
+        assert_eq!(
+            out,
+            [
+                ("Sync to Oyl Cloud".to_string(), false),
+                ("Sign in to Oyl Cloud…".to_string(), false)
+            ]
+        );
+        let syncing = Sources {
+            cloud_signed_in: true,
+            cloud_sync: Some(true),
+            ..sources(&f)
+        };
+        let names: Vec<(String, bool)> = labels(&syncing);
+        assert!(names.contains(&("Sync to Oyl Cloud".to_string(), true)));
+        assert!(names.iter().any(|(label, _)| label == "Sync now"));
+        assert!(
+            names
+                .iter()
+                .any(|(label, _)| label == "Open from Oyl Cloud…")
+        );
+        assert!(
+            names
+                .iter()
+                .any(|(label, _)| label == "Sign out of Oyl Cloud")
+        );
+        assert!(
+            !names
+                .iter()
+                .any(|(label, _)| label == "Sign in to Oyl Cloud…")
+        );
+        let no_paper = Sources {
+            root: None,
+            cloud_sync: None,
+            ..sources(&f)
+        };
+        assert_eq!(
+            labels(&no_paper),
+            [("Sign in to Oyl Cloud…".to_string(), false)]
+        );
     }
 
     #[test]

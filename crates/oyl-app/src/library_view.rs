@@ -1,9 +1,11 @@
 //! The library card: the welcome screen when nothing is open, and ⌘O.
 //!
 //! Recent papers (missing folders greyed, with "Forget"), a filter, the
-//! new-paper form (name, engine, template, folder) and "Open folder…", and
-//! one quiet line of setup truth at the bottom. The card only shows and
-//! asks; the shell does the work ([`LibraryEvent`]).
+//! new-paper form (name, engine, template, folder) and "Open folder…", the
+//! signed-in account's papers in Oyl Cloud that are not on this Mac (with
+//! "Open"), and one quiet line of setup truth at the bottom with "Sign in
+//! to Oyl Cloud". The card only shows and asks; the shell does the work
+//! ([`LibraryEvent`]).
 
 use std::path::{Path, PathBuf};
 
@@ -54,6 +56,50 @@ pub enum LibraryEvent {
     ChooseFolder,
     /// Download tectonic.
     InstallLatex,
+    /// Sign this Mac in to Oyl Cloud.
+    SignInToCloud,
+    /// Download this cloud paper (its id) into a folder and open it.
+    OpenFromCloud(String),
+}
+
+/// A paper in Oyl Cloud that is not on this Mac.
+#[derive(Clone, Debug, PartialEq)]
+pub struct CloudPaper {
+    /// Its cloud id.
+    pub id: String,
+    /// Its name.
+    pub name: String,
+    /// Typst or LaTeX.
+    pub engine: Engine,
+    /// When it last changed.
+    pub updated: Option<chrono::DateTime<Utc>>,
+    /// Where it last changed ("MacBook Pro", "the web").
+    pub from: Option<String>,
+}
+
+/// What the card shows of Oyl Cloud.
+#[derive(Clone, Debug, Default, PartialEq)]
+pub struct CloudData {
+    /// The signed-in account ("Ada"), if any.
+    pub account: Option<String>,
+    /// Its papers that are not on this Mac.
+    pub papers: Vec<CloudPaper>,
+    /// The paper being downloaded.
+    pub downloading: Option<String>,
+}
+
+/// "Changed 3 hours ago on MacBook Pro".
+pub fn cloud_line(paper: &CloudPaper, now: chrono::DateTime<Utc>) -> String {
+    let when = paper
+        .updated
+        .map(|then| oyl_chat::thread::relative_time(then, now))
+        .unwrap_or_default();
+    match (when.is_empty(), &paper.from) {
+        (false, Some(from)) => format!("Changed {when} on {from}"),
+        (false, None) => format!("Changed {when}"),
+        (true, Some(from)) => format!("Changed on {from}"),
+        (true, None) => "In Oyl Cloud".to_string(),
+    }
 }
 
 /// What the shell shows in the card.
@@ -73,6 +119,8 @@ pub struct LibraryData {
     pub installing_latex: bool,
     /// A paper is being created.
     pub creating: bool,
+    /// Oyl Cloud: the account and its papers not on this Mac.
+    pub cloud: CloudData,
 }
 
 /// The library card.
@@ -547,7 +595,84 @@ impl LibraryView {
             .into_any_element()
     }
 
+    /// The account's papers in Oyl Cloud that are not on this Mac.
+    fn render_cloud(&self, k: &Tokens, cx: &mut Context<Self>) -> Option<AnyElement> {
+        let cloud = &self.data.cloud;
+        if cloud.account.is_none() || cloud.papers.is_empty() {
+            return None;
+        }
+        let now = Utc::now();
+        let hover = k.surface_hover;
+        let rows = cloud.papers.iter().enumerate().map(|(index, paper)| {
+            let id = paper.id.clone();
+            let downloading = cloud.downloading.as_deref() == Some(paper.id.as_str());
+            div()
+                .id(("library-cloud-paper", index))
+                .h_flex()
+                .gap(px(10.))
+                .px(px(10.))
+                .py(px(6.))
+                .rounded(k.radius_m)
+                .hover(move |style| style.bg(hover))
+                .child(
+                    div()
+                        .v_flex()
+                        .flex_1()
+                        .min_w_0()
+                        .gap(px(1.))
+                        .child(
+                            div()
+                                .truncate()
+                                .text_sm()
+                                .text_color(k.text)
+                                .child(paper.name.clone()),
+                        )
+                        .child(
+                            div()
+                                .truncate()
+                                .text_xs()
+                                .text_color(k.text_faint)
+                                .child(cloud_line(paper, now)),
+                        ),
+                )
+                .child(oyl_ui::chip(paper.engine.label(), cx))
+                .child(
+                    Button::new(("library-cloud-open", index))
+                        .ghost()
+                        .xsmall()
+                        .label(if downloading {
+                            "Downloading…"
+                        } else {
+                            "Open"
+                        })
+                        .loading(downloading)
+                        .disabled(cloud.downloading.is_some())
+                        .tooltip("Download it into a folder you pick, and open it")
+                        .on_click(cx.listener(move |_, _, _, cx| {
+                            cx.emit(LibraryEvent::OpenFromCloud(id.clone()))
+                        })),
+                )
+        });
+        Some(
+            div()
+                .v_flex()
+                .gap(px(4.))
+                .child(oyl_ui::eyebrow("Oyl Cloud", cx))
+                .child(
+                    div()
+                        .id("library-cloud")
+                        .v_flex()
+                        .gap(px(1.))
+                        .max_h(px(180.))
+                        .overflow_y_scroll()
+                        .children(rows),
+                )
+                .into_any_element(),
+        )
+    }
+
     fn render_setup(&self, k: &Tokens, cx: &mut Context<Self>) -> AnyElement {
+        let account = self.data.cloud.account.clone();
         div()
             .h_flex()
             .gap(px(8.))
@@ -557,6 +682,23 @@ impl LibraryView {
             .text_xs()
             .text_color(k.text_faint)
             .child(div().flex_1().min_w_0().child(self.data.setup.clone()))
+            .map(|this| match account {
+                Some(name) => this.child(
+                    div()
+                        .flex_none()
+                        .max_w(px(220.))
+                        .truncate()
+                        .child(format!("Oyl Cloud: {name}")),
+                ),
+                None => this.child(
+                    Button::new("library-cloud-sign-in")
+                        .ghost()
+                        .xsmall()
+                        .label("Sign in to Oyl Cloud")
+                        .tooltip("Back up papers and open them on your other Macs and the web")
+                        .on_click(cx.listener(|_, _, _, cx| cx.emit(LibraryEvent::SignInToCloud))),
+                ),
+            })
             .when(self.data.can_install_latex, |this| {
                 this.child(
                     Button::new("library-install-latex")
@@ -588,6 +730,7 @@ impl Render for LibraryView {
         let actions = self.render_actions(cx);
         let form = self.form_open.then(|| self.render_form(&k, cx));
         let entries = self.render_entries(&k, cx);
+        let cloud = self.render_cloud(&k, cx);
         let setup = self.render_setup(&k, cx);
         div()
             .id("oyl-library")
@@ -602,6 +745,7 @@ impl Render for LibraryView {
             .child(actions)
             .children(form)
             .child(entries)
+            .children(cloud)
             .child(setup)
     }
 }
@@ -637,6 +781,23 @@ mod tests {
         assert_eq!(names("owl"), vec!["Owls at night"]);
         assert_eq!(names("phd"), vec!["Thesis"]);
         assert!(names("zzz").is_empty());
+    }
+
+    #[test]
+    fn cloud_papers_say_when_and_where_they_changed() {
+        let now = Utc::now();
+        let mut paper = CloudPaper {
+            id: "paper_sync:k1".into(),
+            name: "Owls".into(),
+            engine: Engine::Typst,
+            updated: Some(now - chrono::TimeDelta::seconds(5)),
+            from: Some("MacBook Pro".into()),
+        };
+        assert_eq!(cloud_line(&paper, now), "Changed just now on MacBook Pro");
+        paper.from = None;
+        assert_eq!(cloud_line(&paper, now), "Changed just now");
+        paper.updated = None;
+        assert_eq!(cloud_line(&paper, now), "In Oyl Cloud");
     }
 
     #[test]

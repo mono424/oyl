@@ -12,6 +12,8 @@
 //! more than warnings.
 
 mod actions;
+mod assets;
+mod cloud_view;
 mod coalesce;
 mod fade;
 mod fuzzy;
@@ -195,7 +197,7 @@ fn frame_is_visible(frame: &WindowFrame, cx: &App) -> bool {
 /// Opens Oyl's window and runs until it is closed.
 fn run(paths: AppPaths, launch: Launch) {
     gpui_kit::application()
-        .with_assets(gpui_kit::assets::Assets)
+        .with_assets(assets::OylAssets)
         .run(move |cx| {
             init_app(cx);
             let frame = WindowFrame::load(&paths);
@@ -207,6 +209,7 @@ fn run(paths: AppPaths, launch: Launch) {
                             paths: paths.clone(),
                             launch: launch.clone(),
                             agents: Agents::Detect,
+                            cloud: Default::default(),
                         },
                         window,
                         cx,

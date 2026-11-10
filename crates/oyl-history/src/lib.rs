@@ -126,3 +126,4 @@ pub use merge::{
     ChangedFile, Choice, Conflict, ConflictId, ConflictKind, LineSpan, Resolution, Review,
 };
 pub use tracking::{MAX_FILE_BYTES, is_tracked_path};
+pub use tree::{hash_bytes, hash_file, is_paper_file, paper_files};

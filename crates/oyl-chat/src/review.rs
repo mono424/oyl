@@ -21,6 +21,28 @@ const MAX_SIDE_LINES: usize = 12;
 /// What the review card says first.
 pub const REVIEW_INTRO: &str =
     "The paper changed while this ran. Your changes were merged into the agent's work.";
+/// The key the review of changes from Oyl Cloud is kept under in the
+/// pane's records (never a thread id). [`ChatEvent::ApplyReview`] and
+/// [`ChatEvent::DiscardBranch`] carry it as their thread.
+pub const CLOUD_REVIEW: &str = "oyl-cloud";
+/// The title of the card of changes from Oyl Cloud.
+pub const CLOUD_REVIEW_TITLE: &str = "Changes from Oyl Cloud";
+/// What that card says first.
+pub const CLOUD_REVIEW_INTRO: &str =
+    "These lines changed here too since the last sync. Pick what to keep, then apply.";
+
+/// The words of a review card: an agent's, or the cloud's.
+struct ReviewWords {
+    /// Element ids start with this.
+    prefix: &'static str,
+    /// Above the intro, if any.
+    title: Option<&'static str>,
+    /// Where the changes come from ("From MacBook Pro").
+    source: Option<String>,
+    intro: &'static str,
+    /// The other side of a conflict.
+    theirs: &'static str,
+}
 
 /// What became of a thread's branch, as the app tells the pane.
 #[derive(Clone, Debug, PartialEq, Eq)]
@@ -127,6 +149,8 @@ pub(super) struct BranchViews {
     /// Threads whose Apply, Discard or Finish was asked for and not
     /// answered yet.
     pub(super) busy: HashSet<String>,
+    /// Where the cloud's review comes from ("From MacBook Pro").
+    pub(super) cloud_source: Option<String>,
 }
 
 impl ChatPane {
@@ -160,6 +184,75 @@ impl ChatPane {
     /// What the thread's branch footer shows.
     pub fn branch_view(&self, thread: &str) -> Option<&BranchView> {
         self.branches.views.get(thread)
+    }
+
+    /// Shows changes from Oyl Cloud that wait for a review (`None` hides
+    /// the card), whichever thread is on screen, under the title "Changes
+    /// from Oyl Cloud". `source` says where they come from ("From MacBook
+    /// Pro"). Choices made for conflicts it still has are kept. Its Apply
+    /// and Discard are [`ChatEvent::ApplyReview`] and
+    /// [`ChatEvent::DiscardBranch`] with [`CLOUD_REVIEW`] as the thread.
+    pub fn set_cloud_review(
+        &mut self,
+        review: Option<ReviewView>,
+        source: Option<String>,
+        cx: &mut Context<Self>,
+    ) {
+        self.branches.busy.remove(CLOUD_REVIEW);
+        match review {
+            Some(review) => {
+                self.branches
+                    .views
+                    .insert(CLOUD_REVIEW.to_string(), BranchView::Review(review));
+                self.branches.cloud_source = source;
+            }
+            None => {
+                self.branches.views.remove(CLOUD_REVIEW);
+                self.branches.choices.remove(CLOUD_REVIEW);
+                self.branches.open_files.remove(CLOUD_REVIEW);
+                self.branches.cloud_source = None;
+            }
+        }
+        cx.notify();
+    }
+
+    /// The review of changes from Oyl Cloud on screen, if any.
+    pub fn cloud_review(&self) -> Option<&ReviewView> {
+        match self.branches.views.get(CLOUD_REVIEW) {
+            Some(BranchView::Review(review)) => Some(review),
+            _ => None,
+        }
+    }
+
+    /// Above the composer, whatever thread is on screen: changes from Oyl
+    /// Cloud waiting for a review.
+    pub(super) fn render_cloud_review(
+        &self,
+        k: &Tokens,
+        cx: &mut Context<Self>,
+    ) -> Option<AnyElement> {
+        let review = self.cloud_review()?;
+        let busy = self.branches.busy.contains(CLOUD_REVIEW);
+        let card = oyl_ui::surface(cx)
+            .id("cloud-review")
+            .flex_shrink_0()
+            .max_h(px(360.))
+            .overflow_y_scroll()
+            .mx(px(14.))
+            .mb(px(6.))
+            .p(px(10.))
+            .v_flex()
+            .gap(px(8.))
+            .text_xs()
+            .text_color(k.text_soft);
+        let words = ReviewWords {
+            prefix: "cloud-review",
+            title: Some(CLOUD_REVIEW_TITLE),
+            source: self.branches.cloud_source.clone(),
+            intro: CLOUD_REVIEW_INTRO,
+            theirs: "Cloud",
+        };
+        Some(self.render_review(CLOUD_REVIEW, review, busy, card, &words, k, cx))
     }
 
     /// Settles conflict `conflict` of thread `thread`'s review.
@@ -334,20 +427,32 @@ impl ChatPane {
                 )
                 .into_any_element()
             }
-            BranchView::Review(review) => self.render_review(&thread, review, busy, card, k, cx),
+            BranchView::Review(review) => {
+                let words = ReviewWords {
+                    prefix: "chat-review",
+                    title: None,
+                    source: None,
+                    intro: REVIEW_INTRO,
+                    theirs: "Agent's",
+                };
+                self.render_review(&thread, review, busy, card, &words, k, cx)
+            }
         };
         Some(element)
     }
 
-    fn render_review(
+    #[allow(clippy::too_many_arguments)]
+    fn render_review<C: ParentElement + IntoElement>(
         &self,
         thread: &str,
         review: &ReviewView,
         busy: bool,
-        card: gpui_kit::Div,
+        card: C,
+        words: &ReviewWords,
         k: &Tokens,
         cx: &mut Context<Self>,
     ) -> AnyElement {
+        let prefix = words.prefix;
         let open = self.branches.open_files.get(thread);
         let choices: HashMap<String, ReviewChoice> =
             self.review_choices(thread).into_iter().collect();
@@ -359,7 +464,7 @@ impl ChatPane {
                 .v_flex()
                 .child(
                     div()
-                        .id(("chat-review-file", index))
+                        .id(SharedString::from(format!("{prefix}-file-{index}")))
                         .h_flex()
                         .h(px(24.))
                         .px(px(6.))
@@ -408,7 +513,7 @@ impl ChatPane {
                 let current = choices.get(&conflict.id).copied().unwrap_or_default();
                 let mut options = vec![
                     (ReviewChoice::Yours, "Yours"),
-                    (ReviewChoice::Agents, "Agent's"),
+                    (ReviewChoice::Agents, words.theirs),
                 ];
                 if conflict.lines {
                     options.push((ReviewChoice::Both, "Both"));
@@ -420,7 +525,7 @@ impl ChatPane {
                         (k.accent, k.accent_soft, k.text_faint, k.text_soft);
                     div()
                         .id(SharedString::from(format!(
-                            "chat-review-choice-{index}-{label}"
+                            "{prefix}-choice-{index}-{label}"
                         )))
                         .h(px(20.))
                         .px(px(8.))
@@ -466,47 +571,61 @@ impl ChatPane {
                             .child(div().h_flex().gap(px(2.)).children(pills)),
                     )
                     .child(render_side("Yours", &conflict.main, k))
-                    .child(render_side("Agent's", &conflict.agent, k))
+                    .child(render_side(words.theirs, &conflict.agent, k))
             });
         let (apply, discard) = (thread.to_string(), thread.to_string());
-        card.child(div().text_color(k.text).child(REVIEW_INTRO))
-            .children(
-                review
-                    .note
-                    .clone()
-                    .map(|note| div().text_color(k.warning).child(note)),
-            )
-            .child(div().v_flex().children(files))
-            .children(conflicts)
-            .child(
-                div()
-                    .h_flex()
-                    .gap(px(6.))
-                    .child(div().flex_1())
-                    .child(
-                        Button::new("chat-review-discard")
-                            .ghost()
-                            .xsmall()
-                            .label("Discard")
-                            .disabled(busy)
-                            .on_click(
-                                cx.listener(move |this, _, _, cx| {
-                                    this.discard_branch(&discard, cx)
-                                }),
-                            ),
-                    )
-                    .child(
-                        Button::new("chat-review-apply")
-                            .custom(accent_variant(k, cx))
-                            .xsmall()
-                            .label("Apply")
-                            .loading(busy)
-                            .on_click(
-                                cx.listener(move |this, _, _, cx| this.apply_review(&apply, cx)),
-                            ),
-                    ),
-            )
-            .into_any_element()
+        card.children(words.title.map(|title| {
+            div()
+                .h_flex()
+                .gap(px(6.))
+                .child(
+                    div()
+                        .text_sm()
+                        .font_weight(gpui_kit::FontWeight::MEDIUM)
+                        .text_color(k.text)
+                        .child(title),
+                )
+                .children(
+                    words
+                        .source
+                        .clone()
+                        .map(|source| div().text_color(k.text_faint).child(source)),
+                )
+        }))
+        .child(div().text_color(k.text).child(words.intro))
+        .children(
+            review
+                .note
+                .clone()
+                .map(|note| div().text_color(k.warning).child(note)),
+        )
+        .child(div().v_flex().children(files))
+        .children(conflicts)
+        .child(
+            div()
+                .h_flex()
+                .gap(px(6.))
+                .child(div().flex_1())
+                .child(
+                    Button::new(SharedString::from(format!("{prefix}-discard")))
+                        .ghost()
+                        .xsmall()
+                        .label("Discard")
+                        .disabled(busy)
+                        .on_click(
+                            cx.listener(move |this, _, _, cx| this.discard_branch(&discard, cx)),
+                        ),
+                )
+                .child(
+                    Button::new(SharedString::from(format!("{prefix}-apply")))
+                        .custom(accent_variant(k, cx))
+                        .xsmall()
+                        .label("Apply")
+                        .loading(busy)
+                        .on_click(cx.listener(move |this, _, _, cx| this.apply_review(&apply, cx))),
+                ),
+        )
+        .into_any_element()
     }
 }
 

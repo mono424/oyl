@@ -52,6 +52,8 @@ pub(crate) struct Paper {
     pub(crate) typing_task: Option<Task<()>>,
     pub(crate) index_task: Option<Task<()>>,
     pub(crate) bib_task: Option<Task<()>>,
+    /// Its Oyl Cloud sync, while it syncs and an account is signed in.
+    pub(crate) cloud: Option<super::cloud::PaperCloud>,
     _watcher: Option<Watcher>,
     _watching: Option<Task<()>>,
 }
@@ -204,7 +206,10 @@ impl Shell {
             hook.history = None;
             hook.errors.clear();
         }
-        self.chat.update(cx, |chat, cx| chat.set_paper(None, cx));
+        self.chat.update(cx, |chat, cx| {
+            chat.set_cloud_review(None, None, cx);
+            chat.set_paper(None, cx)
+        });
         self.bib_text.borrow_mut().clear();
         cx.notify();
         true
@@ -301,12 +306,14 @@ impl Shell {
             typing_task: None,
             index_task: None,
             bib_task: None,
+            cloud: None,
             _watcher: watcher,
             _watching: watching,
         });
         self.create_panels(window, cx);
         self.sync_bib_text();
         self.restore_branches(window, cx);
+        self.start_paper_sync(window, cx);
 
         let opened = self.editor.update(cx, |editor, cx| {
             editor.set_citations(citations, cx);
@@ -423,6 +430,7 @@ impl Shell {
             self.schedule_words(cx);
         }
         self.refresh_index(cx);
+        self.cloud_saved();
     }
 
     /// Re-reads `refs.bib` and hands the editor the new citations.

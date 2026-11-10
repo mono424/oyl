@@ -802,6 +802,12 @@ fn author_element(author: Author, quiet: bool, k: &Tokens) -> AnyElement {
             .text_color(k.text_faint)
             .child("Oyl")
             .into_any_element(),
+        Author::Cloud => div()
+            .flex_none()
+            .text_size(px(size))
+            .text_color(if quiet { k.text_faint } else { k.text_soft })
+            .child("Cloud")
+            .into_any_element(),
     }
 }
 

@@ -23,6 +23,7 @@ oyl-preview = { path = "../oyl-preview" }
 oyl-chat = { path = "../oyl-chat" }
 oyl-tasks = { path = "../oyl-tasks" }
 oyl-panels = { path = "../oyl-panels" }
+oyl-sync = { path = "../oyl-sync" }
 anyhow.workspace = true
 log.workspace = true
 serde.workspace = true

@@ -2888,6 +2888,7 @@ impl Render for ChatPane {
             None => self.render_transcript(&k, cx),
         });
         column.extend(self.render_branch_footer(&k, cx));
+        column.extend(self.render_cloud_review(&k, cx));
         column.extend(self.render_notice(&k, cx));
         column.extend(self.render_queued(&k, cx));
         column.push(self.render_composer(&editor, &k, window, cx));
@@ -3264,8 +3265,8 @@ mod review;
 #[path = "tasks.rs"]
 mod tasks;
 pub use review::{
-    BranchView, REVIEW_INTRO, ReviewChoice, ReviewConflict, ReviewFile, ReviewLine, ReviewLineKind,
-    ReviewView, applied_line,
+    BranchView, CLOUD_REVIEW, CLOUD_REVIEW_INTRO, CLOUD_REVIEW_TITLE, REVIEW_INTRO, ReviewChoice,
+    ReviewConflict, ReviewFile, ReviewLine, ReviewLineKind, ReviewView, applied_line,
 };
 pub use tasks::ThreadView;
 

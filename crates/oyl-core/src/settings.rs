@@ -45,6 +45,32 @@ pub enum LayoutMode {
     Agent,
 }
 
+/// The Oyl Cloud account signed in on this Mac. Its key is in the macOS
+/// Keychain, never here.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(default)]
+pub struct CloudAccount {
+    /// `user:...`.
+    pub id: String,
+    /// The person's name (may be empty).
+    pub name: String,
+    /// Their e-mail address (may be empty).
+    pub email: String,
+    /// The cloud it belongs to (its address).
+    pub url: String,
+}
+
+impl CloudAccount {
+    /// What the app calls the account: the name, else the e-mail.
+    pub fn display(&self) -> String {
+        [self.name.trim(), self.email.trim()]
+            .into_iter()
+            .find(|text| !text.is_empty())
+            .unwrap_or("your account")
+            .to_string()
+    }
+}
+
 /// Oyl's settings.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(default)]
@@ -71,6 +97,11 @@ pub struct Settings {
     pub preview_zoom: Option<f32>,
     /// The paper open when Oyl last quit.
     pub last_project: Option<PathBuf>,
+    /// Oyl Cloud's address; `None` is the default (`OYL_CLOUD_URL`
+    /// overrides both for development).
+    pub cloud_url: Option<String>,
+    /// The account signed in to Oyl Cloud, if any.
+    pub cloud_account: Option<CloudAccount>,
 }
 
 impl Default for Settings {
@@ -87,6 +118,8 @@ impl Default for Settings {
             editor_font_size: 14.0,
             preview_zoom: None,
             last_project: None,
+            cloud_url: None,
+            cloud_account: None,
         }
     }
 }

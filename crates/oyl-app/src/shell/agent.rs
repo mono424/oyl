@@ -351,6 +351,12 @@ impl Shell {
                     self.request_compile(window, cx);
                 }
             }
+            ChatEvent::ApplyReview { thread, choices } if thread == oyl_chat::CLOUD_REVIEW => {
+                self.apply_cloud_review(choices, cx)
+            }
+            ChatEvent::DiscardBranch { thread } if thread == oyl_chat::CLOUD_REVIEW => {
+                self.discard_cloud_review(cx)
+            }
             ChatEvent::ApplyReview { thread, choices } => {
                 self.apply_branch_review(thread, choices, window, cx)
             }

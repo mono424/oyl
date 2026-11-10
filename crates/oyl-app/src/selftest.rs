@@ -4,7 +4,9 @@
 //! Everything happens in a fresh temporary folder: the data folder (as
 //! `OYL_DATA_DIR` would set it) and the papers. The window opens without
 //! taking focus. The agent is a scripted harness that edits `main.typ` on
-//! disk in the middle of its turn, the way a real agent would.
+//! disk in the middle of its turn, the way a real agent would. Oyl Cloud is
+//! an in-process mock of its API (`oyl_sync::mock`), with the key kept in
+//! memory: the self-test never touches the network or the Keychain.
 
 use std::fmt::Display;
 use std::fs;
@@ -33,7 +35,7 @@ use oyl_model::{Author, Engine, SourceLocation};
 
 use crate::actions;
 use crate::persist::{AppPaths, WindowFrame};
-use crate::shell::{Agents, Launch, Shell, ShellOptions, ToastKind};
+use crate::shell::{Agents, CloudOptions, Launch, Shell, ShellOptions, ToastKind};
 
 /// What the scripted agent appends to `main.typ`.
 const AGENT_SENTENCE: &str = "Owls hunt by sound, the self-test agent says.";
@@ -57,14 +59,28 @@ pub fn run() {
     let paths = AppPaths::in_dir(base.join("data"));
     let papers = base.join("papers");
     println!("Oyl self-test in {}", base.display());
+    let mock = match oyl_sync::mock::MockCloud::start() {
+        Ok(mock) => Arc::new(mock),
+        Err(err) => {
+            eprintln!("self-test: no mock Oyl Cloud: {err}");
+            std::process::exit(1);
+        }
+    };
+    mock.set_poll_interval(1);
+    let tokens: Arc<oyl_sync::MemoryTokens> = Arc::default();
 
     gpui_kit::application()
-        .with_assets(gpui_kit::assets::Assets)
+        .with_assets(crate::assets::OylAssets)
         .run(move |cx| {
             crate::init_app(cx);
             let harness: Arc<dyn Harness> = Arc::new(EditingHarness::new());
             let quick: Arc<dyn Harness> = Arc::new(QuickHarness::new(base.join("discovery")));
-            let opened = open_shell(&paths, Agents::Given(vec![harness.clone(), quick]), cx);
+            let opened = open_shell(
+                &paths,
+                Agents::Given(vec![harness.clone(), quick]),
+                cloud_options(&mock, &tokens),
+                cx,
+            );
             let (window, shell) = match opened {
                 Ok(opened) => opened,
                 Err(err) => {
@@ -74,6 +90,7 @@ pub fn run() {
             };
             let paths = paths.clone();
             let papers = papers.clone();
+            let (mock, tokens) = (mock.clone(), tokens.clone());
             cx.spawn(async move |cx| {
                 let mut report = Report::new();
                 let test = SelfTest {
@@ -82,6 +99,8 @@ pub fn run() {
                     window,
                     shell,
                     previewed: std::cell::Cell::new(false),
+                    cloud: mock,
+                    tokens,
                 };
                 test.all(&mut report, harness, cx).await;
                 let failed = report.finish();
@@ -93,9 +112,27 @@ pub fn run() {
         });
 }
 
+/// Oyl Cloud for the self-test: the mock, keys in memory, quick timing.
+fn cloud_options(
+    mock: &oyl_sync::mock::MockCloud,
+    tokens: &Arc<oyl_sync::MemoryTokens>,
+) -> CloudOptions {
+    CloudOptions {
+        url: Some(mock.url()),
+        tokens: tokens.clone(),
+        timing: oyl_sync::Timing {
+            push_delay: Duration::from_millis(300),
+            pull_every: Duration::from_secs(1),
+            backoff_min: Duration::from_millis(200),
+            backoff_max: Duration::from_secs(2),
+        },
+    }
+}
+
 fn open_shell(
     paths: &AppPaths,
     agents: Agents,
+    cloud: CloudOptions,
     cx: &mut App,
 ) -> anyhow::Result<(AnyWindowHandle, Entity<Shell>)> {
     let options = crate::window_options(WindowFrame::load(paths), false, cx);
@@ -107,6 +144,7 @@ fn open_shell(
                     paths,
                     launch: Launch::Restore,
                     agents,
+                    cloud,
                 },
                 window,
                 cx,
@@ -167,6 +205,10 @@ struct SelfTest {
     shell: Entity<Shell>,
     /// Whether the last branch turn's preview showed its branch.
     previewed: std::cell::Cell<bool>,
+    /// The mock Oyl Cloud.
+    cloud: Arc<oyl_sync::mock::MockCloud>,
+    /// Where the app keeps its Oyl Cloud key in the self-test.
+    tokens: Arc<oyl_sync::MemoryTokens>,
 }
 
 /// What a check reads off the shell.
@@ -210,6 +252,7 @@ impl SelfTest {
         self.background_agents(report, cx).await;
         self.modes_of_turns(report, cx).await;
         self.editor_ai(report, &article, cx).await;
+        self.cloud_sync(report, &article, cx).await;
         let pending = self.branches(report, &article, cx).await;
         self.reopen(report, &article, pending, cx).await;
     }
@@ -2292,6 +2335,426 @@ impl SelfTest {
         Some(thread)
     }
 
+    // -- 8g. Oyl Cloud --------------------------------------------------------------
+
+    /// The header glyph's status, if the paper syncs.
+    fn cloud_status(&self, cx: &mut AsyncApp) -> Option<oyl_sync::Status> {
+        cx.update(|cx| {
+            self.shell
+                .read(cx)
+                .paper
+                .as_ref()
+                .and_then(|paper| paper.cloud.as_ref())
+                .and_then(|cloud| cloud.status.clone())
+        })
+    }
+
+    fn toasted(&self, text: &str, cx: &mut AsyncApp) -> bool {
+        cx.update(|cx| {
+            self.shell
+                .read(cx)
+                .toasts
+                .iter()
+                .any(|(_, message)| message.contains(text))
+        })
+    }
+
+    async fn cloud_sync(&self, report: &mut Report, article: &Path, cx: &mut AsyncApp) {
+        use oyl_sync::Status;
+        report.step(
+            "8g. Oyl Cloud: sign in, sync, changes from elsewhere, a review, open from the cloud",
+        );
+        let long = Duration::from_secs(30);
+        let labels = |this: &Self, cx: &mut AsyncApp| -> Vec<(String, bool)> {
+            cx.update(|cx| {
+                this.shell
+                    .read(cx)
+                    .palette_entries(cx)
+                    .into_iter()
+                    .map(|entry| (entry.label, entry.checked))
+                    .collect()
+            })
+        };
+        let has = |entries: &[(String, bool)], label: &str| entries.iter().any(|(l, _)| l == label);
+        let entries = labels(self, cx);
+        report.check(
+            has(&entries, "Sign in to Oyl Cloud…")
+                && !has(&entries, "Sign out of Oyl Cloud")
+                && has(&entries, "Sync to Oyl Cloud"),
+            "signed out, the palette offers “Sign in to Oyl Cloud…”",
+        );
+        report.check(
+            self.cloud_status(cx).is_none() && !oyl_sync::SyncState::is_enabled(article),
+            "sync is off: nothing leaves the Mac, and the header shows no cloud glyph",
+        );
+
+        // Signing in: the card shows a code, the browser approves it.
+        self.dispatch(Box::new(actions::SignInToCloud), cx);
+        let card = cx.update(|cx| self.shell.read(cx).cloud.card.clone());
+        let mut code = None;
+        let shown = self
+            .wait_app(cx, Duration::from_secs(10), |cx| {
+                match card.read(cx).stage() {
+                    crate::cloud_view::SignInStage::Waiting { code: shown, .. } => {
+                        code = Some(shown.clone());
+                        true
+                    }
+                    _ => false,
+                }
+            })
+            .await;
+        report.check(
+            shown && self.showing(crate::shell::cloud_sign_in_id(), cx),
+            format!(
+                "the sign-in card shows the code {}",
+                code.clone().unwrap_or_default()
+            ),
+        );
+        let account = oyl_sync::Account {
+            id: "user:selftest".into(),
+            name: "Self Test".into(),
+            email: "self.test@example.test".into(),
+        };
+        let approved = code
+            .as_deref()
+            .is_some_and(|code| self.cloud.approve(code, &account));
+        let shell = self.shell.clone();
+        let signed_in = self
+            .wait_app(cx, long, |cx| shell.read(cx).cloud_account().is_some())
+            .await;
+        report.check(
+            approved
+                && signed_in
+                && self.toasted("Signed in to Oyl Cloud as Self Test", cx)
+                && !self.showing(crate::shell::cloud_sign_in_id(), cx),
+            "approved in the browser: “Signed in to Oyl Cloud as Self Test”, the card closes",
+        );
+        use oyl_sync::TokenStore as _;
+        report.check(
+            self.tokens
+                .load(&oyl_sync::token_key(&self.cloud.url()))
+                .is_some_and(|token| token.starts_with("oyl_sync_")),
+            "the key is kept by the key store (the Keychain outside the self-test)",
+        );
+
+        // Sync on for the article: the cloud paper is made and filled.
+        self.dispatch(Box::new(actions::ToggleCloudSync), cx);
+        let mut synced = false;
+        let start = Instant::now();
+        while start.elapsed() < long {
+            self.frame(cx);
+            if self.cloud_status(cx) == Some(Status::Synced) {
+                synced = true;
+                break;
+            }
+            cx.background_executor()
+                .timer(Duration::from_millis(50))
+                .await;
+        }
+        let paper = oyl_sync::SyncState::load(article)
+            .paper_id
+            .unwrap_or_default();
+        let head = self.cloud.head_files(&paper);
+        report.check(
+            synced && head.contains_key("main.typ") && head.contains_key("refs.bib"),
+            format!(
+                "“Sync to Oyl Cloud” made the paper and sent its {} files",
+                head.len()
+            ),
+        );
+        let entries = labels(self, cx);
+        report.check(
+            entries.contains(&("Sync to Oyl Cloud".to_string(), true)) && has(&entries, "Sync now"),
+            "the palette shows “Sync to Oyl Cloud” checked, and “Sync now”",
+        );
+        let glyph = cx.update(|cx| self.shell.read(cx).cloud_glyph(cx).map(|g| g.tooltip));
+        report.check(
+            glyph.as_deref() == Some("Synced with Oyl Cloud"),
+            format!(
+                "the header's cloud glyph says “{}”",
+                glyph.unwrap_or_default()
+            ),
+        );
+
+        // Typing goes up a moment after the save.
+        self.dispatch(Box::new(actions::WriteMode), cx);
+        let main = article.join("main.typ");
+        let lines = self.editor_text(&main, cx).split('\n').count() as u32;
+        let location = SourceLocation::new(main.clone(), lines, 1);
+        self.with_shell(cx, move |shell, window, cx| {
+            shell
+                .editor
+                .update(cx, |editor, cx| editor.goto(&location, window, cx))
+        });
+        const SYNCED: &str = "Typed for the cloud";
+        self.type_text(SYNCED, cx);
+        let mut pushed = false;
+        let start = Instant::now();
+        while start.elapsed() < long {
+            self.frame(cx);
+            let head = self.cloud.head_files(&paper);
+            if head
+                .get("main.typ")
+                .is_some_and(|bytes| String::from_utf8_lossy(bytes).contains(SYNCED))
+            {
+                pushed = true;
+                break;
+            }
+            cx.background_executor()
+                .timer(Duration::from_millis(50))
+                .await;
+        }
+        report.check(
+            pushed,
+            "typing was saved and pushed: the cloud's main.typ has it",
+        );
+
+        // A change made on the web comes in by itself.
+        self.cloud.web_commit(
+            &paper,
+            &[("from-web.md", Some(b"Written on the web.\n".as_slice()))],
+        );
+        self.dispatch(Box::new(actions::SyncNow), cx);
+        let shell = self.shell.clone();
+        let toasted = self
+            .wait_app(cx, long, |cx| {
+                shell
+                    .read(cx)
+                    .toasts
+                    .iter()
+                    .any(|(_, message)| message == "From the web · 1 file updated")
+            })
+            .await;
+        let arrived = toasted && article.join("from-web.md").exists();
+        let history = cx.update(|cx| {
+            self.shell
+                .read(cx)
+                .paper
+                .as_ref()
+                .and_then(|paper| paper.history.clone())
+        });
+        let by_cloud = history
+            .and_then(|history| history.versions().ok())
+            .is_some_and(|versions| {
+                versions.iter().any(|v| {
+                    v.author == Author::Cloud && v.label.as_deref() == Some("From the web")
+                })
+            });
+        report.check(
+            arrived && by_cloud,
+            "a file added on the web arrived (“From the web · 1 file updated”, a history version by Cloud)",
+        );
+
+        // Overlapping edits wait for a review in the Agent tab.
+        let notes = article.join("cloud-notes.md");
+        let _ = fs::write(&notes, "Notes, first draft.\n");
+        let up = self
+            .wait(cx, long, |_| {
+                self.cloud.head_files(&paper).contains_key("cloud-notes.md")
+            })
+            .await;
+        report.check(up, "a file written by another tool went up too");
+        self.cloud.web_commit(
+            &paper,
+            &[(
+                "cloud-notes.md",
+                Some(b"Notes, as the web has them.\n".as_slice()),
+            )],
+        );
+        let _ = fs::write(&notes, "Notes, as this Mac has them.\n");
+        self.dispatch(Box::new(actions::SyncNow), cx);
+        let chat = cx.update(|cx| self.shell.read(cx).chat.clone());
+        let reviewed = self
+            .wait_app(cx, long, |cx| {
+                chat.read(cx)
+                    .cloud_review()
+                    .is_some_and(|review| review.conflicts.len() == 1)
+            })
+            .await;
+        report.check(
+            reviewed
+                && self.toasted("Changes from Oyl Cloud need review (From the web)", cx)
+                && self.cloud_status(cx) == Some(Status::NeedsReview),
+            "the same lines changed on both sides: “Changes from Oyl Cloud” waits in the Agent tab, the glyph says so",
+        );
+        report.check(
+            fs::read_to_string(&notes).is_ok_and(|text| text.contains("this Mac")),
+            "nothing was written before the review",
+        );
+        self.dispatch(Box::new(actions::AgentMode), cx);
+        self.settle(cx).await;
+        let id = cx.update(|cx| {
+            chat.read(cx)
+                .cloud_review()
+                .and_then(|review| review.conflicts.first().map(|c| c.id.clone()))
+        });
+        if let Some(id) = id {
+            let chat = chat.clone();
+            let _ = self.window.update(cx, move |_, _, cx| {
+                chat.update(cx, |chat, cx| {
+                    chat.set_review_choice(
+                        oyl_chat::CLOUD_REVIEW,
+                        &id,
+                        oyl_chat::ReviewChoice::Yours,
+                        cx,
+                    );
+                    chat.apply_review(oyl_chat::CLOUD_REVIEW, cx);
+                })
+            });
+        }
+        let settled = self
+            .wait_app(cx, long, |cx| chat.read(cx).cloud_review().is_none())
+            .await;
+        let mut kept = false;
+        let start = Instant::now();
+        while start.elapsed() < long {
+            self.frame(cx);
+            if self
+                .cloud
+                .head_files(&paper)
+                .get("cloud-notes.md")
+                .is_some_and(|bytes| bytes == b"Notes, as this Mac has them.\n")
+                && self.cloud_status(cx) == Some(Status::Synced)
+            {
+                kept = true;
+                break;
+            }
+            cx.background_executor()
+                .timer(Duration::from_millis(50))
+                .await;
+        }
+        report.check(
+            settled && kept,
+            "Apply with “Yours”: the review goes away and this Mac's notes become the cloud's",
+        );
+
+        // Open from Oyl Cloud: another paper of the account, downloaded.
+        let token = self
+            .tokens
+            .load(&oyl_sync::token_key(&self.cloud.url()))
+            .unwrap_or_default();
+        let client = oyl_sync::Client::new(&self.cloud.url(), Some(token));
+        let other = format!("paper_sync:k{}", "5e1f".repeat(8));
+        let made = client
+            .create_paper(&other, "Made on another Mac", "typst", "main.typ")
+            .and_then(|_| {
+                let text = b"= Made on another Mac\n\nHello from the cloud.\n";
+                let sha = oyl_history::hash_bytes(text);
+                client.put_blob(&sha, text)?;
+                let files = std::collections::BTreeMap::from([(
+                    "main.typ".to_string(),
+                    oyl_sync::FileEntry {
+                        sha256: sha,
+                        size: text.len() as u64,
+                    },
+                )]);
+                client.commit(&other, None, &files, None)
+            });
+        report.check(made.is_ok(), "the account has a second paper in the cloud");
+        self.dispatch(Box::new(actions::OpenFromCloud), cx);
+        let shell = self.shell.clone();
+        let listed = self
+            .wait_app(cx, long, |cx| {
+                shell
+                    .read(cx)
+                    .library_cloud_data()
+                    .papers
+                    .iter()
+                    .any(|p| p.name == "Made on another Mac")
+            })
+            .await;
+        let only_other = cx.update(|cx| {
+            self.shell
+                .read(cx)
+                .library_cloud_data()
+                .papers
+                .iter()
+                .all(|p| p.id != paper)
+        });
+        report.check(
+            listed && only_other && self.showing("library", cx),
+            "the library's “Oyl Cloud” section lists it (and not the paper already here)",
+        );
+        let parent = self.papers.join("from-cloud");
+        let _ = fs::create_dir_all(&parent);
+        let (id, into) = (other.clone(), parent.clone());
+        self.with_shell(cx, move |shell, window, cx| {
+            shell.download_cloud_paper(id, into, window, cx)
+        });
+        // An empty folder picked (as made with the picker's "New Folder")
+        // takes the paper itself.
+        let downloaded = parent.clone();
+        let opened = self
+            .wait(cx, Duration::from_secs(60), |s| {
+                s.root.as_ref().is_some_and(|root| {
+                    fs::canonicalize(root).ok() == fs::canonicalize(&downloaded).ok()
+                }) && s.compiles >= 1
+            })
+            .await;
+        report.check(
+            opened
+                && fs::read_to_string(downloaded.join("main.typ"))
+                    .is_ok_and(|t| t.contains("Hello from the cloud"))
+                && self.toasted("Downloaded “Made on another Mac” from Oyl Cloud", cx),
+            "“Open” downloaded it into the empty folder picked and opened it",
+        );
+        let synced = self
+            .wait(cx, long, |_| self.cloud.revision_count(&other) >= 2)
+            .await;
+        report.check(
+            synced,
+            "it syncs from the start (setting it up as a paper went up as revision 2)",
+        );
+
+        // Back to the article; sync off; sign out.
+        let root = article.to_path_buf();
+        self.with_shell(cx, move |shell, window, cx| {
+            shell.open_paper(root, window, cx)
+        });
+        let back = self
+            .wait(cx, Duration::from_secs(60), |s| {
+                s.root.as_deref() == Some(article) && s.compiles >= 1
+            })
+            .await;
+        report.check(back, "the article is open again (and syncs again)");
+        let resumed = {
+            let start = Instant::now();
+            let mut ok = false;
+            while start.elapsed() < long {
+                self.frame(cx);
+                if self.cloud_status(cx) == Some(Status::Synced) {
+                    ok = true;
+                    break;
+                }
+                cx.background_executor()
+                    .timer(Duration::from_millis(50))
+                    .await;
+            }
+            ok
+        };
+        report.check(resumed, "reopened, the paper pulls and is synced");
+        self.dispatch(Box::new(actions::ToggleCloudSync), cx);
+        self.frame(cx);
+        report.check(
+            self.cloud_status(cx).is_none() && !oyl_sync::SyncState::is_enabled(article),
+            "“Sync to Oyl Cloud” off: the glyph goes away",
+        );
+        self.dispatch(Box::new(actions::SignOutOfCloud), cx);
+        self.frame(cx);
+        let entries = labels(self, cx);
+        report.check(
+            cx.update(|cx| self.shell.read(cx).cloud_account().is_none())
+                && self
+                    .tokens
+                    .load(&oyl_sync::token_key(&self.cloud.url()))
+                    .is_none()
+                && has(&entries, "Sign in to Oyl Cloud…"),
+            "signed out: the key is forgotten, the palette offers to sign in again",
+        );
+        self.dispatch(Box::new(actions::WriteMode), cx);
+        self.settle(cx).await;
+    }
+
     async fn branches(
         &self,
         report: &mut Report,
@@ -2531,7 +2994,14 @@ impl SelfTest {
             .update(cx, |_, window, _| window.remove_window());
         self.wait(cx, Duration::from_millis(400), |_| false).await;
 
-        let opened = cx.update(|cx| open_shell(&self.paths, Agents::Given(Vec::new()), cx));
+        let opened = cx.update(|cx| {
+            open_shell(
+                &self.paths,
+                Agents::Given(Vec::new()),
+                cloud_options(&self.cloud, &self.tokens),
+                cx,
+            )
+        });
         let Ok((window, shell)) = opened else {
             report.check(false, "a second window opens");
             return;
@@ -2542,6 +3012,8 @@ impl SelfTest {
             window,
             shell,
             previewed: std::cell::Cell::new(false),
+            cloud: self.cloud.clone(),
+            tokens: self.tokens.clone(),
         };
         let back = second
             .wait(cx, Duration::from_secs(60), |s| {

@@ -854,3 +854,83 @@ fn timing_on_a_300_file_200_mb_paper() {
     let used: u64 = fs::read_dir(paper.branches_dir()).unwrap().count() as u64;
     assert_eq!(used, 1);
 }
+
+/// A copy of `paper`'s folder as it is now (what Oyl Cloud keeps as the
+/// state both sides last agreed on).
+fn snapshot_folder(paper: &Paper) -> tempfile::TempDir {
+    let base = tempfile::tempdir().unwrap();
+    for key in oyl_history::paper_files(paper.root()).unwrap() {
+        put(base.path(), &key, &fs::read(paper.root().join(&key)).unwrap());
+    }
+    base
+}
+
+#[test]
+fn a_branch_from_an_earlier_state_applies_what_only_the_other_side_changed() {
+    let paper = Paper::standard();
+    let base = snapshot_folder(&paper);
+    // Here, after the agreed state: the user edits the conclusion and the notes.
+    paper.write("main.typ", &MAIN.replace("Conclusion paragraph.", "Conclusion, mine."));
+    paper.write("notes.md", "todo: nothing\n");
+
+    let branch = paper
+        .history
+        .create_branch_from("From MacBook Pro", base.path(), Author::Cloud)
+        .unwrap();
+    assert_eq!(branch.info().unwrap().author, Author::Cloud);
+    // The working copy starts as the agreed state, not as the paper is now.
+    assert_eq!(agent_read(&branch, "main.typ").as_deref(), Some(MAIN));
+    assert_eq!(agent_read(&branch, "notes.md").as_deref(), Some(NOTES));
+    // Elsewhere: the intro, the bibliography and a new figure.
+    agent_write(&branch, "main.typ", &MAIN.replace("Intro paragraph.", "Intro, theirs."));
+    agent_write(&branch, "refs.bib", "@article{doe2021, title={B}}\n");
+    put(branch.path(), "figures/new.png", b"new figure");
+
+    let review = reviewed(branch.finish("From MacBook Pro").unwrap());
+    // main.typ changed on both sides, on different lines: merged, no conflict.
+    assert!(review.conflicts.is_empty(), "{:?}", review.conflicts);
+    let changed: Vec<&str> = review.files.iter().map(|f| f.diff.path.to_str().unwrap()).collect();
+    assert_eq!(changed, ["figures/new.png", "main.typ", "refs.bib"]);
+    let version = branch.apply(&Resolution::new()).unwrap().unwrap();
+    assert_eq!(version.author, Author::Cloud);
+    assert_eq!(version.label.as_deref(), Some("From MacBook Pro"));
+    let main = paper.read("main.typ").unwrap();
+    assert!(main.contains("Intro, theirs.") && main.contains("Conclusion, mine."), "{main}");
+    assert_eq!(paper.read("notes.md").as_deref(), Some("todo: nothing\n"));
+    assert_eq!(paper.read("refs.bib").as_deref(), Some("@article{doe2021, title={B}}\n"));
+    assert_eq!(paper.read_bytes("figures/new.png").as_deref(), Some(&b"new figure"[..]));
+}
+
+#[test]
+fn a_branch_from_an_earlier_state_applies_directly_and_conflicts_on_the_same_lines() {
+    let paper = Paper::standard();
+    let base = snapshot_folder(&paper);
+    paper.write("notes.md", "todo: mine\n");
+    let branch = paper
+        .history
+        .create_branch_from("From web", base.path(), Author::Cloud)
+        .unwrap();
+    agent_write(&branch, "main.typ", &MAIN.replace("Method paragraph.", "Method, theirs."));
+    agent_remove(&branch, "refs.bib");
+    let (version, files) = applied(branch.finish("From web").unwrap());
+    assert_eq!(files, ["main.typ", "refs.bib"]);
+    assert_eq!(version.unwrap().author, Author::Cloud);
+    assert!(paper.read("refs.bib").is_none());
+    assert_eq!(paper.read("notes.md").as_deref(), Some("todo: mine\n"));
+
+    let base = snapshot_folder(&paper);
+    paper.write("notes.md", "todo: mine, again\n");
+    let branch = paper
+        .history
+        .create_branch_from("From web", base.path(), Author::Cloud)
+        .unwrap();
+    agent_write(&branch, "notes.md", "todo: theirs\n");
+    let review = reviewed(branch.finish("From web").unwrap());
+    assert_eq!(review.conflicts.len(), 1);
+    assert_eq!(review.conflicts[0].main, "todo: mine, again\n");
+    assert_eq!(review.conflicts[0].agent, "todo: theirs\n");
+    let keep_mine = Resolution::new().with(review.conflicts[0].id.clone(), Choice::Main);
+    assert!(branch.apply(&keep_mine).unwrap().is_none());
+    assert_eq!(paper.read("notes.md").as_deref(), Some("todo: mine, again\n"));
+    assert!(paper.history.branches().unwrap().is_empty());
+}

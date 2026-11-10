@@ -230,6 +230,25 @@ impl Shell {
                 .tooltip(move |window, cx| Tooltip::new(full.clone()).build(window, cx))
                 .child("Setting up agent…")
         });
+        let cloud = self.cloud_glyph(cx).map(|glyph| {
+            let tooltip: SharedString = glyph.tooltip.into();
+            div()
+                .id("header-cloud")
+                .size(px(24.))
+                .flex()
+                .items_center()
+                .justify_center()
+                .rounded_full()
+                .cursor_pointer()
+                .hover(move |style| style.bg(hover))
+                .tooltip(move |window, cx| Tooltip::new(tooltip.clone()).build(window, cx))
+                .on_click(cx.listener(|this, _, window, cx| this.cloud_glyph_clicked(window, cx)))
+                .child(
+                    gpui_kit::component::Icon::new(glyph.icon)
+                        .xsmall()
+                        .text_color(glyph.color),
+                )
+        });
         let right = div()
             .id("header-right")
             .absolute()
@@ -240,6 +259,7 @@ impl Shell {
             .gap(px(4.))
             .occlude()
             .children(preparing)
+            .children(cloud)
             .children(status)
             .child(
                 Button::new("header-theme")
@@ -604,6 +624,11 @@ impl Render for Shell {
             .on_action(cx.listener(Self::on_zoom_window))
             .on_action(cx.listener(Self::on_escape))
             .on_action(cx.listener(Self::on_leave_chat))
+            .on_action(cx.listener(Self::on_sign_in_to_cloud))
+            .on_action(cx.listener(Self::on_sign_out_of_cloud))
+            .on_action(cx.listener(Self::on_toggle_cloud_sync))
+            .on_action(cx.listener(Self::on_sync_now))
+            .on_action(cx.listener(Self::on_open_from_cloud))
             .relative()
             .size_full()
             .flex()

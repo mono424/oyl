@@ -30,7 +30,7 @@ pub use export::{copy_bibliography, write_file_atomic, zip_sources};
 pub use library::{Library, LibraryEntry};
 pub use outline::{document_files, outline, project_outline};
 pub use project::{CiteStyle, Manifest, Project, is_paper_folder};
-pub use settings::{Appearance, LayoutMode, Settings};
+pub use settings::{Appearance, CloudAccount, LayoutMode, Settings};
 pub use stats::{Stats, project_stats, stats, word_count};
 pub use templates::{Template, TemplateVars, default_template, template, templates};
 pub use watch::Watcher;

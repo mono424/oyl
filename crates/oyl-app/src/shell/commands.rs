@@ -201,6 +201,8 @@ impl Shell {
             citations,
             harnesses: &harnesses,
             selected: selected.as_ref(),
+            cloud_signed_in: self.cloud_account().is_some(),
+            cloud_sync: self.paper_syncs(),
         };
         palette::build(&sources)
     }
@@ -209,6 +211,7 @@ impl Shell {
     /// content when nothing is open. `form` opens the new-paper form.
     pub(crate) fn show_library(&mut self, form: bool, window: &mut Window, cx: &mut Context<Self>) {
         self.refresh_library(cx);
+        self.refresh_cloud_papers(cx);
         self.library_view.update(cx, |view, cx| {
             view.reset(window, cx);
             if form {
@@ -298,6 +301,7 @@ impl Shell {
                     self.request_compile(window, cx);
                 }
                 self.record_typing(cx);
+                self.cloud_saved();
                 self.refresh_index(cx);
                 cx.notify();
             }
@@ -381,7 +385,10 @@ impl Shell {
         window: &mut Window,
         cx: &mut Context<Self>,
     ) {
-        let OverlayEvent::Dismissed(_) = event;
+        let OverlayEvent::Dismissed(id) = event;
+        if id.as_ref() == super::cloud::SIGN_IN {
+            self.cancel_sign_in();
+        }
         // Focus went back to where it was; if that was nothing, the content.
         if window.focused(cx).is_none() {
             self.focus_content(window, cx);
@@ -413,6 +420,8 @@ impl Shell {
             LibraryEvent::OpenFolder => self.pick_folder_to_open(window, cx),
             LibraryEvent::ChooseFolder => self.pick_papers_folder(window, cx),
             LibraryEvent::InstallLatex => self.install_latex(window, cx),
+            LibraryEvent::SignInToCloud => self.start_cloud_sign_in(window, cx),
+            LibraryEvent::OpenFromCloud(id) => self.open_from_cloud(id, window, cx),
         }
     }
 
@@ -1216,6 +1225,54 @@ impl Shell {
 }
 
 /// "Fact check: 2 problems · 7 claims".
+impl Shell {
+    pub(crate) fn on_sign_in_to_cloud(
+        &mut self,
+        _: &SignInToCloud,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.leave_palette(window, cx);
+        self.start_cloud_sign_in(window, cx);
+    }
+
+    pub(crate) fn on_sign_out_of_cloud(
+        &mut self,
+        _: &SignOutOfCloud,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.sign_out_of_cloud(window, cx);
+    }
+
+    pub(crate) fn on_toggle_cloud_sync(
+        &mut self,
+        _: &ToggleCloudSync,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        self.toggle_cloud_sync(window, cx);
+    }
+
+    pub(crate) fn on_sync_now(&mut self, _: &SyncNow, window: &mut Window, cx: &mut Context<Self>) {
+        self.sync_now(window, cx);
+    }
+
+    pub(crate) fn on_open_from_cloud(
+        &mut self,
+        _: &OpenFromCloud,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if self.cloud_account().is_none() {
+            self.leave_palette(window, cx);
+            self.start_cloud_sign_in(window, cx);
+            return;
+        }
+        self.show_library(false, window, cx);
+    }
+}
+
 pub(crate) fn fact_check_line(findings: usize, claims: usize) -> String {
     let problems = match findings {
         0 => "no problems".to_string(),

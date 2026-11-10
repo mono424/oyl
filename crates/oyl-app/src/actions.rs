@@ -83,6 +83,16 @@ gpui_kit::actions!(
         /// Asks the AI to do something with the editor's selection (⇧⌘B,
         /// bound in the editor only).
         AskAiAboutSelection,
+        /// Signs this Mac in to Oyl Cloud (the device flow).
+        SignInToCloud,
+        /// Signs out of Oyl Cloud (papers stay on the Mac).
+        SignOutOfCloud,
+        /// Turns "Sync to Oyl Cloud" on or off for the open paper.
+        ToggleCloudSync,
+        /// Pulls and pushes the open paper now.
+        SyncNow,
+        /// Lists the account's papers in the library, to download one.
+        OpenFromCloud,
     ]
 );
 
@@ -135,6 +145,9 @@ pub fn menus() -> Vec<Menu> {
         Menu::new("Oyl").items([
             MenuItem::action("Command Palette…", CommandPalette),
             MenuItem::separator(),
+            MenuItem::action("Sign In to Oyl Cloud…", SignInToCloud),
+            MenuItem::action("Sign Out of Oyl Cloud", SignOutOfCloud),
+            MenuItem::separator(),
             MenuItem::action("Hide Oyl", Hide),
             MenuItem::action("Hide Others", HideOthers),
             MenuItem::action("Show All", ShowAll),
@@ -145,6 +158,7 @@ pub fn menus() -> Vec<Menu> {
             MenuItem::action("New Paper…", NewPaper),
             MenuItem::action("Open Library…", OpenLibrary),
             MenuItem::action("Open Folder…", OpenFolder),
+            MenuItem::action("Open from Oyl Cloud…", OpenFromCloud),
             MenuItem::separator(),
             MenuItem::action("Save", oyl_editor::Save),
             MenuItem::separator(),
@@ -192,6 +206,9 @@ pub fn menus() -> Vec<Menu> {
             MenuItem::separator(),
             MenuItem::action("Reveal Cursor in Preview", RevealInPreview),
             MenuItem::action("Reveal in Finder", RevealInFinder),
+            MenuItem::separator(),
+            MenuItem::action("Sync to Oyl Cloud", ToggleCloudSync),
+            MenuItem::action("Sync Now", SyncNow),
         ]),
         Menu::new("Agent").items([
             MenuItem::action("Ask the Agent", FocusAgent),

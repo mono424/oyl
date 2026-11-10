@@ -77,6 +77,8 @@ pub const PALETTE_LIST_HEIGHT: f32 = 420.;
 /// The library card: width, and its distance from the window's top and
 /// bottom edges at most.
 pub const LIBRARY_WIDTH: f32 = 680.;
+/// The width of the Oyl Cloud sign-in card.
+pub const CLOUD_CARD_WIDTH: f32 = 400.;
 pub const LIBRARY_MARGIN: f32 = 56.;
 /// A right-side overlay panel: distance from the right and bottom edges, and
 /// from the top (just below the header).

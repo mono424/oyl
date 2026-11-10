@@ -5553,6 +5553,7 @@ dependencies = [
  "oyl-panels",
  "oyl-preview",
  "oyl-sources",
+ "oyl-sync",
  "oyl-tasks",
  "oyl-typeset",
  "oyl-ui",
@@ -5706,6 +5707,26 @@ dependencies = [
  "unicode-normalization",
  "ureq 3.5.1",
  "walkdir",
+]
+
+[[package]]
+name = "oyl-sync"
+version = "0.1.0"
+dependencies = [
+ "async-channel",
+ "log",
+ "oyl-history",
+ "oyl-model",
+ "percent-encoding",
+ "security-framework",
+ "serde",
+ "serde_json",
+ "sha2 0.10.9",
+ "tempfile",
+ "thiserror 2.0.21",
+ "unicode-normalization",
+ "ureq 3.5.1",
+ "uuid",
 ]
 
 [[package]]

@@ -1,0 +1,26 @@
+[package]
+name = "oyl-sync"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+oyl-model = { path = "../oyl-model" }
+oyl-history = { path = "../oyl-history" }
+thiserror.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+log.workspace = true
+uuid.workspace = true
+async-channel.workspace = true
+ureq = "3.4"
+unicode-normalization = "0.1"
+percent-encoding = "2"
+sha2 = "0.10.9"
+
+[target.'cfg(target_os = "macos")'.dependencies]
+security-framework = { version = "3", default-features = false }
+
+[dev-dependencies]
+tempfile.workspace = true

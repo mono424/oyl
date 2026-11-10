@@ -551,7 +551,7 @@ impl Shell {
     }
 
     /// The paper's files changed under the editor by an applied branch.
-    fn paper_changed_by_agent(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+    pub(crate) fn paper_changed_by_agent(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         self.reload_open_buffers(window, cx);
         self.history_changed(cx);
         self.refresh_index(cx);
@@ -596,7 +596,7 @@ impl Shell {
 }
 
 /// The resolution the user's choices make.
-fn resolution(choices: &[(String, ReviewChoice)]) -> Resolution {
+pub(crate) fn resolution(choices: &[(String, ReviewChoice)]) -> Resolution {
     let mut resolution = Resolution::new();
     for (id, choice) in choices {
         let Ok(id) = serde_json::from_value::<ConflictId>(serde_json::Value::String(id.clone()))

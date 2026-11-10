@@ -170,6 +170,8 @@ pub enum Author {
     You,
     Agent,
     System,
+    /// Changes pulled from Oyl Cloud: made on another Mac or on the web.
+    Cloud,
 }
 
 impl Author {
@@ -178,6 +180,7 @@ impl Author {
             Author::You => "You",
             Author::Agent => "Agent",
             Author::System => "Oyl",
+            Author::Cloud => "Cloud",
         }
     }
 }

@@ -129,6 +129,9 @@ pub struct BranchInfo {
     pub state: BranchState,
     /// Its working copy (see [`Branch::path`]).
     pub path: PathBuf,
+    /// Who the version applying it is by: [`Author::Agent`] for an agent's
+    /// task, [`Author::Cloud`] for changes from Oyl Cloud.
+    pub author: Author,
 }
 
 /// What [`Branch::finish`] did.
@@ -226,6 +229,10 @@ struct Meta {
     /// [`Branch::apply`] records.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     finished: Option<String>,
+    /// Who the version applying the branch is by: the agent unless the
+    /// branch was made for someone else (changes from Oyl Cloud).
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    author: Option<Author>,
 }
 
 /// `files.json`: every file copied, by key.
@@ -315,6 +322,48 @@ impl History {
         let paths = Paths::new(self.root(), id);
         fs::create_dir(&paths.dir).map_err(io_err("create", &paths.dir))?;
         match populate(&mut tx, self.root(), &paths, id, &label, created) {
+            Ok(meta) => Ok(Branch::new(self.clone(), &meta)),
+            Err(err) => {
+                if let Err(cleanup) = fs::remove_dir_all(&paths.dir) {
+                    log::warn!("history: could not remove {}: {cleanup}", paths.dir.display());
+                }
+                Err(err)
+            }
+        }
+    }
+
+    /// Makes a branch that starts from `base`, a folder holding the paper
+    /// as it was at some earlier point, instead of from the paper as it is
+    /// now: how changes made elsewhere since then come in (Oyl Cloud pulls
+    /// with `base` the state both sides last agreed on).
+    ///
+    /// The branch's base and working copy are clones of the files of `base`
+    /// (those [`paper_files`](crate::paper_files) would list). Write the
+    /// other side's result into [`Branch::path`], then
+    /// [`finish`](Branch::finish): files the paper did not change since
+    /// `base` are applied directly, files both changed are merged three-way
+    /// against `base` and reviewed, exactly as for an agent's branch. The
+    /// version applying it is by `author`.
+    ///
+    /// The paper as it is now is recorded first (by [`Author::System`],
+    /// labelled "Before: `label`", unless nothing changed since the latest
+    /// version), as for [`create_branch`](Self::create_branch).
+    pub fn create_branch_from(
+        self: &Arc<Self>,
+        label: &str,
+        base: &Path,
+        author: Author,
+    ) -> Result<Branch> {
+        let label = first_line(label);
+        let created = self.now();
+        let mut tx = self.begin(LockMode::Exclusive)?;
+        let branches = branches_dir(self.root());
+        fs::create_dir_all(&branches).map_err(io_err("create", &branches))?;
+        sweep_leftovers(&branches);
+        let id = BranchId::new();
+        let paths = Paths::new(self.root(), id);
+        fs::create_dir(&paths.dir).map_err(io_err("create", &paths.dir))?;
+        match populate_from(&mut tx, self.root(), base, &paths, id, &label, created, author) {
             Ok(meta) => Ok(Branch::new(self.clone(), &meta)),
             Err(err) => {
                 if let Err(cleanup) = fs::remove_dir_all(&paths.dir) {
@@ -425,6 +474,76 @@ fn populate(
         base,
         state: BranchState::Working,
         finished: None,
+        author: None,
+    };
+    write_json(&paths.dir, META, &meta)?;
+    Ok(meta)
+}
+
+/// [`populate`] for a branch whose base is the folder `source` rather than
+/// the paper: base and working copy are cloned from `source`, and a file
+/// of the paper counts as unchanged since the base only while it holds the
+/// base's bytes (its stamp is recorded then, else one that never matches).
+#[allow(clippy::too_many_arguments)]
+fn populate_from(
+    tx: &mut Tx<'_>,
+    root: &Path,
+    source: &Path,
+    paths: &Paths,
+    id: BranchId,
+    label: &str,
+    created: DateTime<Utc>,
+    author: Author,
+) -> Result<Meta> {
+    let mut found = tree::walk(source)?;
+    let stems = tree::source_stems(found.files.keys());
+    found.drop_build_pdfs(&stems);
+    for dir in [&paths.base, &paths.work] {
+        fs::create_dir(dir).map_err(io_err("create", dir))?;
+    }
+    let mut files = BTreeMap::new();
+    for key in found.files.keys() {
+        let rel = key_to_path(key);
+        let from = source.join(&rel);
+        let base = paths.base.join(&rel);
+        match tree::clone_file(&from, &base) {
+            Ok(()) => {}
+            Err(err) if err.kind() == io::ErrorKind::NotFound => continue,
+            Err(err) => return Err(io_err("copy", &from)(err)),
+        }
+        let work = paths.work.join(&rel);
+        tree::clone_file(&base, &work).map_err(io_err("copy", &base))?;
+        let work_stamp = Stamp::read(&work)
+            .map_err(io_err("inspect", &work))?
+            .ok_or_else(|| HistoryError::Corrupt(format!("the copy {} vanished", work.display())))?;
+        // Stamped before comparing: an edit after that shows as a change of
+        // the paper, and the content comparison settles it.
+        let in_paper = root.join(&rel);
+        let main = match Stamp::read(&in_paper).map_err(io_err("inspect", &in_paper))? {
+            Some(stamp) if same_files(&in_paper, &base)? => stamp,
+            _ => Stamp::never(),
+        };
+        files.insert(key.clone(), Copied { main, work: work_stamp });
+    }
+    let before = if label.is_empty() {
+        "Before changes from elsewhere".to_owned()
+    } else {
+        format!("Before: {label}")
+    };
+    let base = match tx.record_snapshot_of(root, Author::System, Some(before))? {
+        Some(version) => Some(version.id),
+        None => tx.latest_version(),
+    };
+    write_json(&paths.dir, FILES, &Copies { format: FORMAT, files })?;
+    let meta = Meta {
+        format: FORMAT,
+        id,
+        label: label.to_owned(),
+        created,
+        base,
+        state: BranchState::Working,
+        finished: None,
+        author: Some(author),
     };
     write_json(&paths.dir, META, &meta)?;
     Ok(meta)
@@ -563,7 +682,8 @@ impl Branch {
                 self.remove()?;
                 return Ok(FinishOutcome::NoChanges);
             }
-            let (version, files) = self.write_main(&mut tx, &agent.dir, &settled, &label)?;
+            let author = meta.author.unwrap_or(Author::Agent);
+            let (version, files) = self.write_main(&mut tx, &agent.dir, &settled, &label, author)?;
             self.remove()?;
             return Ok(FinishOutcome::Applied { version, files });
         }
@@ -644,7 +764,8 @@ impl Branch {
         let version = if todo.is_empty() {
             None
         } else {
-            self.write_main(&mut tx, &agent.dir, &todo, &label)?.0
+            let author = meta.author.unwrap_or(Author::Agent);
+            self.write_main(&mut tx, &agent.dir, &todo, &label, author)?.0
         };
         self.remove()?;
         Ok(version)
@@ -920,6 +1041,7 @@ impl Branch {
         agent_dir: &Path,
         settled: &[(String, Settled)],
         label: &str,
+        author: Author,
     ) -> Result<(Option<Version>, Vec<PathBuf>)> {
         let root = self.history.root();
         tx.record_pending_typing()?;
@@ -945,7 +1067,7 @@ impl Branch {
             None
         } else {
             let label = Some(label.to_owned()).filter(|label| !label.is_empty());
-            tx.record_snapshot_of(root, Author::Agent, label)?
+            tx.record_snapshot_of(root, author, label)?
         };
         Ok((version, written.iter().map(|key| key_to_path(key)).collect()))
     }
@@ -1090,6 +1212,7 @@ fn info_of(root: &Path, meta: &Meta) -> BranchInfo {
         base: meta.base,
         state: meta.state,
         path: Paths::new(root, meta.id).work,
+        author: meta.author.unwrap_or(Author::Agent),
     }
 }
 

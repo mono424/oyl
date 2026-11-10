@@ -8,10 +8,12 @@
 //! - [`commands`]: actions, the palette, exports, persistence.
 //! - [`panels`]: the five overlay panels and the source-PDF viewer.
 //! - [`view`]: the header, the modes, the split handle.
+//! - [`cloud`]: Oyl Cloud: signing in, the open paper's sync, its reviews.
 
 mod agent;
 mod agent_tab;
 mod branches;
+mod cloud;
 mod commands;
 mod compile;
 mod media;
@@ -49,6 +51,12 @@ use crate::persist::AppPaths;
 use crate::status::LatexSetup;
 
 pub(crate) use agent::effort_key;
+pub use cloud::CloudOptions;
+
+/// The overlay id of the Oyl Cloud sign-in card.
+pub(crate) fn cloud_sign_in_id() -> &'static str {
+    cloud::SIGN_IN
+}
 pub(crate) use branches::{REVIEW_UPDATED, Stage};
 pub(crate) use compile::CompileState;
 pub(crate) use panels::PanelKind;
@@ -79,6 +87,8 @@ pub struct ShellOptions {
     pub launch: Launch,
     /// Where the agents come from.
     pub agents: Agents,
+    /// Oyl Cloud's address override, key store and timing.
+    pub cloud: CloudOptions,
 }
 
 /// What a toast's button does (see [`Shell::toast_with_action`]).
@@ -185,6 +195,8 @@ pub struct Shell {
     pub(crate) sidebar: Entity<oyl_chat::ChatSidebar>,
 
     pub(crate) agent: AgentState,
+    /// Oyl Cloud: the account's key, a sign-in under way, its papers.
+    pub(crate) cloud: cloud::CloudState,
     pub(crate) latex: LatexSetup,
     /// Every toast shown, newest last (the self-test reads them).
     pub(crate) toasts: Vec<(ToastKind, String)>,
@@ -203,6 +215,7 @@ impl Shell {
             paths,
             launch,
             agents,
+            cloud,
         } = options;
         let settings = Settings::load_from(&paths.data_dir);
         let library = Library::load_from(&paths.data_dir, &paths.default_papers_dir);
@@ -230,6 +243,7 @@ impl Shell {
         let overlays = cx.new(OverlayHost::new);
         let library_view = cx.new(|cx| LibraryView::new(window, cx));
         let palette = cx.new(|cx| PaletteView::new(window, cx));
+        let cloud_card = cx.new(crate::cloud_view::CloudSignInView::new);
 
         let now = Instant::now();
         let mut shell = Self {
@@ -275,6 +289,7 @@ impl Shell {
                 harnesses: raw,
                 ..AgentState::default()
             },
+            cloud: cloud::CloudState::new(cloud, cloud_card),
             latex: LatexSetup::Checking,
             toasts: Vec::new(),
             settings_task: None,
@@ -286,6 +301,7 @@ impl Shell {
         shell.configure_panes(given, cx);
         shell.sync_library(cx);
         shell.check_latex(cx);
+        shell.init_cloud(window, cx);
         if detect {
             shell.detect_agents(cx);
         }
@@ -308,7 +324,9 @@ impl Shell {
         let overlays = self.overlays.clone();
         let library_view = self.library_view.clone();
         let palette = self.palette.clone();
+        let cloud_card = self.cloud.card.clone();
         let mut subscriptions = vec![
+            cx.subscribe_in(&cloud_card, window, Self::on_cloud_card_event),
             cx.subscribe_in(&editor, window, Self::on_editor_event),
             cx.subscribe_in(&chat, window, Self::on_chat_event),
             cx.subscribe_in(&overlays, window, Self::on_overlay_event),
@@ -500,6 +518,7 @@ impl Shell {
             can_install_latex: self.latex.can_install(),
             installing_latex: matches!(self.latex, LatexSetup::Installing(_)),
             creating: self.creating,
+            cloud: self.library_cloud_data(),
         };
         self.library_view
             .update(cx, |view, cx| view.set_data(data, cx));

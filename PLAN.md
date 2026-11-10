@@ -111,6 +111,7 @@ crates/
   oyl-sources   no UI  bibliography, cite keys, DOI/arXiv/URL lookup,
                          citation scanning, source PDFs, figures
   oyl-history   no UI  versions of the folder, diff, restore
+  oyl-sync      no UI  Oyl Cloud: sign-in, push, pull (docs/sync-protocol.md)
   oyl-typeset   no UI  Compiler: embedded Typst, external LaTeX, PDF raster
   oyl-agent     no UI  detection, Registry, Sorcar / Claude Code / Codex
   oyl-ui        GPUI   tokens, light/dark, glass shapes

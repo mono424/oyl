@@ -123,6 +123,7 @@ cargo clippy --workspace --all-targets
 | `oyl-core` | Paper folders: manifest, library, settings, templates, outline, export, watching |
 | `oyl-sources` | Bibliography, citations, lookups (Crossref, arXiv), source PDFs, figures |
 | `oyl-history` | Versions of a paper folder, diffs, restore |
+| `oyl-sync` | Oyl Cloud sync of paper folders: device sign-in, push, pull through the history's branches |
 | `oyl-typeset` | Embedded Typst, external LaTeX, PDF rasterizing |
 | `oyl-agent` | Harness detection; the Sorcar, Claude Code and Codex harnesses |
 | `oyl-ui` | Design tokens, light/dark, glass shapes |

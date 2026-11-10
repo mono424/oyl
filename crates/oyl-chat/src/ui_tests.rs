@@ -299,3 +299,68 @@ fn a_harness_without_efforts_shows_no_pills(cx: &mut TestAppContext) {
     });
     assert_eq!((effort, pill), (None, None));
 }
+
+#[gpui::test]
+fn changes_from_oyl_cloud_wait_in_a_card_of_their_own(cx: &mut TestAppContext) {
+    use super::{
+        CLOUD_REVIEW, ChatEvent, ReviewChoice, ReviewConflict, ReviewFile, ReviewLine,
+        ReviewLineKind, ReviewView,
+    };
+    use std::cell::RefCell;
+    use std::rc::Rc;
+
+    let (window, pane, _dir) = open(cx);
+    let events: Rc<RefCell<Vec<ChatEvent>>> = Rc::default();
+    let seen = events.clone();
+    cx.update(|cx| {
+        cx.subscribe(&pane, move |_, event: &ChatEvent, _| {
+            seen.borrow_mut().push(event.clone())
+        })
+        .detach()
+    });
+    let review = ReviewView {
+        files: vec![ReviewFile {
+            path: "main.typ".into(),
+            added: 1,
+            removed: 1,
+            binary: false,
+            lines: vec![ReviewLine {
+                kind: ReviewLineKind::Added,
+                text: "Method, from the cloud.".into(),
+            }],
+        }],
+        conflicts: vec![ReviewConflict {
+            id: "0123456789abcdef".into(),
+            file: "main.typ".into(),
+            place: "line 5".into(),
+            lines: true,
+            main: "Method, mine.\n".into(),
+            agent: "Method, from the cloud.\n".into(),
+        }],
+        note: None,
+    };
+    pane.update(cx, |pane, cx| {
+        pane.set_cloud_review(Some(review.clone()), Some("From MacBook Pro".into()), cx)
+    });
+    draw(window, cx);
+    assert_eq!(
+        pane.read_with(cx, |pane, _| pane.cloud_review().cloned()),
+        Some(review)
+    );
+    // It belongs to no thread: the thread on screen has no review of its own.
+    let thread = pane.read_with(cx, |pane, _| pane.thread().id.clone());
+    assert!(pane.read_with(cx, |pane, _| pane.branch_view(&thread).is_none()));
+
+    pane.update(cx, |pane, cx| {
+        pane.set_review_choice(CLOUD_REVIEW, "0123456789abcdef", ReviewChoice::Yours, cx);
+        pane.apply_review(CLOUD_REVIEW, cx);
+    });
+    draw(window, cx);
+    assert!(events.borrow().contains(&ChatEvent::ApplyReview {
+        thread: CLOUD_REVIEW.to_string(),
+        choices: vec![("0123456789abcdef".to_string(), ReviewChoice::Yours)],
+    }));
+    pane.update(cx, |pane, cx| pane.set_cloud_review(None, None, cx));
+    draw(window, cx);
+    assert!(pane.read_with(cx, |pane, _| pane.cloud_review().is_none()));
+}

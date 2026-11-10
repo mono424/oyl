@@ -142,6 +142,17 @@ impl Stamp {
         }
     }
 
+    /// A stamp no file ever has: a file recorded with it is always compared
+    /// by content.
+    pub(crate) fn never() -> Stamp {
+        Stamp {
+            len: u64::MAX,
+            modified: (i64::MIN, 0),
+            changed: (i64::MIN, 0),
+            inode: 0,
+        }
+    }
+
     /// The stamp of the regular file at `path`; `None` when there is none
     /// (missing, a folder, a symbolic link, …).
     pub(crate) fn read(path: &Path) -> io::Result<Option<Stamp>> {
@@ -233,6 +244,38 @@ fn keep_entry(entry: &DirEntry) -> bool {
     } else {
         is_normal(name) && keep_file(name)
     }
+}
+
+/// The keys (paths relative to `root`, `/`-separated) of every regular file
+/// of the paper folder `root` that belongs to the paper: what a
+/// [`Branch`](crate::Branch) copies and brings back, and what Oyl Cloud
+/// syncs. Sources, `refs.bib`, figures, PDFs in `sources/`, styles, data and
+/// hidden files such as `.latexmkrc`; never `.oyl/`, `.git/`, `.DS_Store`,
+/// build output (`build/`, `out/`, `_minted*`, LaTeX's auxiliary files, a PDF
+/// at the top of the folder named after a `.tex`/`.typ` there), installed
+/// dependencies or symbolic links. In path order.
+pub fn paper_files(root: &Path) -> Result<Vec<String>> {
+    let mut found = walk(root)?;
+    let stems = source_stems(found.files.keys());
+    found.drop_build_pdfs(&stems);
+    Ok(found.files.into_keys().collect())
+}
+
+/// Whether `key` names a file [`paper_files`] could list, by its name
+/// alone (compiled PDFs aside).
+pub fn is_paper_file(key: &str) -> bool {
+    is_copied_key(key)
+}
+
+/// The SHA-256 of a file's bytes as lowercase hex, read in chunks: the name
+/// the history (and Oyl Cloud) give its content.
+pub fn hash_file(path: &Path) -> io::Result<String> {
+    hash_reader(File::open(path)?)
+}
+
+/// The SHA-256 of `bytes` as lowercase hex (see [`hash_file`]).
+pub fn hash_bytes(bytes: &[u8]) -> String {
+    hash_reader(bytes).unwrap_or_default()
 }
 
 /// Copies the regular file `from` to `to`, which must not exist yet,
