@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+    <!-- Oyl's veil, light and dark (src/lib/theme.ts keeps it in step with the toggle). -->
+    <meta name="theme-color" content="#f3f1ec" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#15151a" media="(prefers-color-scheme: dark)" />
+    <meta name="description" content="Oyl on the web: your courses, lecture material and writing, studied and written with an AI by your side." />
+    <meta name="application-name" content="Oyl" />
+    <meta name="apple-mobile-web-app-title" content="Oyl" />
+    <link rel="icon" type="image/png" href="/favicon.png" />
+    <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
+    <link rel="manifest" href="/manifest.webmanifest" />
+    <title>Oyl</title>
+    <script>
+      // Light or dark before the first paint: the choice made with the toggle
+      // (src/lib/theme.ts), else the system's.
+      (function () {
+        var choice = 'system';
+        try { choice = localStorage.getItem('oyl:appearance') || 'system'; } catch (e) {}
+        var dark = choice === 'dark' || (choice !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches);
+        document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+      })();
+    </script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

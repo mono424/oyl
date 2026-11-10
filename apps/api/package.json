@@ -1,0 +1,27 @@
+{
+  "name": "@oyl/api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev --port 8787",
+    "deploy": "wrangler deploy",
+    "type-check": "tsc --noEmit",
+    "test": "node --experimental-transform-types --import ./test/register.mjs --test test/*.test.ts",
+    "cf-typegen": "wrangler types"
+  },
+  "dependencies": {
+    "@hockeymask/core": "^0.1.1",
+    "@modelcontextprotocol/server": "^2.3.1",
+    "@spooky-sync/backend": "file:../../vendor/spooky-sync-backend-0.0.1-canary.366.tgz",
+    "fast-png": "^8.0.0",
+    "hono": "^4.13.13",
+    "unpdf": "^1.9.1",
+    "zod": "^4.6.7"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^5.20261019.1",
+    "typescript": "^5.9.0",
+    "wrangler": "^4.151.2"
+  }
+}

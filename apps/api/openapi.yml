@@ -1,0 +1,165 @@
+openapi: 3.1.0
+info:
+  version: 1.0.0
+  title: oyl-api
+  description: >-
+    Jobs of the API backend (sp00ky.yml `apps.api`). The web app writes a row
+    to the `job` outbox (schema/src/outbox/api.surql) with `path` set to one of
+    these paths, `assigned_to` set to the material (or source), and the request
+    body below as `payload`. sp00ky's job runner POSTs the payload here with
+    the backend's token. Every payload's `id` is the row's `assigned_to`: the
+    outbox permission refuses anything else. These paths are not public.
+components:
+  schemas:
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+      required:
+        - error
+  parameters: {}
+paths:
+  /jobs/materials/index:
+    post:
+      summary: (Re)build a material's search index from its current text.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                id:
+                  type: string
+                  example: material:k3f2a...
+              required:
+                - id
+      responses:
+        '200':
+          description: Indexing started (a Workflow run per material revision).
+        '400':
+          description: The material has no text to index yet.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '404':
+          description: The material no longer exists.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /jobs/materials/memory:
+    post:
+      summary: >-
+        Build a ready material's course knowledge graph (Agent Memory and the
+        concept map) from its current text, without re-indexing it.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                id:
+                  type: string
+                  example: material:k3f2a...
+                force:
+                  type: boolean
+                  description: Build again even when this revision's graph exists.
+              required:
+                - id
+      responses:
+        '200':
+          description: >-
+            Started (a memory-only Workflow run), or nothing to do: Agent
+            Memory is off, the material is not ready, or its graph is built.
+        '404':
+          description: The material no longer exists.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /jobs/graphs/backfill:
+    post:
+      summary: >-
+        Start the knowledge graph build of every ready material that has none
+        for its current text. Run by the `graph-backfill` schedule; belongs
+        to no single material.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: The number of builds started.
+  /jobs/materials/progress:
+    post:
+      summary: Record the last lecture section the student reached.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                id:
+                  type: string
+                  example: material:k3f2a...
+                through:
+                  type: integer
+                  description: Zero-based section index, or -1 for not started.
+                rev:
+                  type: integer
+                  description: The material's `index_rev` the section index refers to.
+              required:
+                - id
+                - through
+                - rev
+      responses:
+        '200':
+          description: Saved.
+        '400':
+          description: The lecture changed or is not ready, or the section is out of range.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /jobs/fetchers/run:
+    post:
+      summary: Check a source (a bCourses course or a web page) now and import what is new or changed.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                id:
+                  type: string
+                  example: fetcher:k3f2a...
+              required:
+                - id
+      responses:
+        '200':
+          description: >-
+            A check started (a Workflow run), or nothing to do while one of
+            this source is still running.
+        '404':
+          description: The source no longer exists.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+  /jobs/fetchers/tick:
+    post:
+      summary: >-
+        Start the check of every enabled source that is due. Run by the
+        `fetchers-tick` schedule; belongs to no single record.
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+      responses:
+        '200':
+          description: The number of checks started.
+webhooks: {}

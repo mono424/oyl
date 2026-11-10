@@ -1,0 +1,48 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "oyl-api",
+  "main": "src/index.ts",
+  "compatibility_date": "2026-10-15",
+  "compatibility_flags": ["nodejs_compat"],
+
+  // server-schema.surql is imported as a string.
+  "rules": [{ "type": "Text", "globs": ["**/*.surql"], "fallthrough": true }],
+
+  // Embeddings for the lecture search index.
+  "ai": { "binding": "AI" },
+
+  // INGEST (one run per material) and FETCH (one run per source check) are
+  // durable workflows on sp00ky's job engine (`withWorkflows` in src/index.ts),
+  // not Cloudflare Workflows: they need SPKY_DB_* and the `job` outbox.
+
+  // PDF parsing and image extraction need more than the default 30 s of CPU
+  // per step. Requires the Workers Paid plan.
+  "limits": { "cpu_ms": 300000 },
+
+  "observability": { "enabled": true },
+
+  "vars": {
+    // The web app's origin, for CORS. Comma-separated for several.
+    "APP_ORIGIN": "http://localhost:5180,https://oyl.stg.spky.cloud",
+    // The local database (dev/sp00ky.yml); sp00ky sets SPKY_DB_* itself on
+    // its Worker backend.
+    "SPKY_DB_NS": "main",
+    "SPKY_DB_NAME": "oyl",
+    "EMBEDDING_MODEL": "@cf/qwen/qwen3-embedding-0.6b",
+    // The local sync node's job runner sends it on /jobs/* (dev/sp00ky.yml
+    // `apps.api.auth.token`). Not a secret: /jobs/* is never public.
+    "JOB_TOKEN": "local-dev-jobs"
+  }
+
+  // Secrets (wrangler secret put <NAME>, or .dev.vars locally):
+  //   SPKY_DB_URL          https://<instance>.surreal.cloud (no /rpc)
+  //   SPKY_DB_USER         database user the API acts as for server-only work
+  //   SPKY_DB_PASS
+  //   SPKY_DB_LEVEL        `namespace` or `database` for a non-root user
+  //   (SURREAL_URL, SURREAL_NS, SURREAL_DB, SURREAL_USER, SURREAL_PASS and
+  //   SURREAL_AUTH_NS still work for whatever SPKY_DB_* leaves unset.)
+  //   AGENT_MEMORY_URL     Context data-plane base, ending /api/v1/{context_id}
+  //                        (the course knowledge graph)
+  //   AGENT_MEMORY_API_KEY server key with scoped memory read/write and scope:create
+  //   FETCHER_KEY          long random string sealing the Canvas tokens of sources
+}

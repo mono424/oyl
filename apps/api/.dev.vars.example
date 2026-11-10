@@ -1,0 +1,15 @@
+# Copy to .dev.vars for `wrangler dev` (pnpm dev:api). Never commit .dev.vars.
+# Local stack from `spky dev`: SurrealDB on :8666, namespace/db in wrangler.jsonc.
+# Same names sp00ky sets on its Worker backend (an older .dev.vars with
+# SURREAL_URL, SURREAL_USER and SURREAL_PASS still works).
+SPKY_DB_URL=http://localhost:8666
+SPKY_DB_USER=root
+SPKY_DB_PASS=root
+# SurrealDB Agent Memory builds each course's knowledge graph. It is a
+# separate Context data plane, not the SQL endpoint. Leave both unset to skip
+# the graph: search and studying in ChatGPT then use the lecture text only.
+# AGENT_MEMORY_URL=https://YOUR-CONTEXT-HOST/api/v1/YOUR-CONTEXT-ID
+# AGENT_MEMORY_API_KEY=...
+# Seals the bCourses access tokens of sources. Any long random string, e.g.
+# `openssl rand -hex 32`. Without it, bCourses sources cannot be added.
+FETCHER_KEY=local-dev-fetcher-key-change-me

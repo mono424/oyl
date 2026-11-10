@@ -1,6 +1,28 @@
+# --- Rust (the desktop app, crates/) ---
 target/
-.DS_Store
-*.log
 # Local build settings (e.g. a target-dir outside the tree)
 .cargo/
+# Agent worktrees
 .worktrees/
+
+# --- Node / pnpm (the web side: apps/, scripts/) ---
+node_modules
+dist
+# Wrangler's local state and secrets (only .dev.vars.example is tracked)
+.wrangler
+.dev.vars
+# Environment files with secrets (examples and apps/web/.env.production,
+# which holds no secret, are tracked)
+.env
+.env.local
+.env*.local
+# Astro
+.astro/
+# sp00ky's local state
+schema/.sp00ky
+schema/.spooky
+.sp00ky
+
+# --- Everywhere ---
+.DS_Store
+*.log

@@ -1,0 +1,256 @@
+---
+import '../styles/global.css';
+import Icon from '../components/Icon.astro';
+import Logo from '../components/Logo.astro';
+
+const appUrl = import.meta.env.PUBLIC_APP_URL?.trim() || (import.meta.env.DEV ? 'http://localhost:5180' : 'https://oyl.stg.spky.cloud/');
+const baseUrl = import.meta.env.BASE_URL;
+const canonicalUrl = new URL(baseUrl, Astro.site);
+const waveform = [12, 22, 16, 33, 47, 27, 19, 40, 57, 34, 22, 48, 64, 39, 22, 35, 51, 29, 16, 26, 44, 32, 20, 13, 27, 39, 23, 15, 30, 19, 12];
+const faqs = [
+  { question: 'What is Oyl?', answer: 'Oyl is an AI tutor you talk to in your browser. Add your course materials, start a voice call, and work through what you are learning out loud. You can ask questions, get explanations, or have your tutor quiz you.' },
+  { question: 'What can I upload?', answer: 'You can upload PDF lecture slides, Markdown files, and text notes, or paste your notes directly into a course. Your tutor uses the material in that course to guide your conversations.' },
+  { question: 'Do I need to download an app?', answer: 'No download needed. Oyl runs in your browser. You will need a microphone and permission to use it. Headphones are a good idea for a clear conversation.' },
+  { question: 'Can I choose how I study?', answer: 'Yes. Choose Explain it for a guided walkthrough, Quiz me to practice answering questions, or I ask to lead the conversation yourself. You can also set the language and add instructions for your tutor.' },
+  { question: 'Can I revisit a conversation?', answer: 'Yes. Your calls include a transcript and a recap, so you can go back over what you discussed and pick up where you left off.' },
+];
+---
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#f3f1ec" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#15151a" media="(prefers-color-scheme: dark)" />
+    <meta name="description" content="Turn your lecture slides and notes into a conversation. Oyl is the AI voice tutor that helps you talk through ideas, ask questions, and practice what you know." />
+    <meta property="og:title" content="Oyl | Talk it through. Make it click." />
+    <meta property="og:description" content="Your notes. Your questions. Your AI study partner. Turn course material into a conversation with Oyl." />
+    <meta property="og:type" content="website" />
+    <meta property="og:url" content={canonicalUrl.href} />
+    <link rel="canonical" href={canonicalUrl.href} />
+    <link rel="icon" type="image/png" href={`${baseUrl}favicon.png`} />
+    <link rel="apple-touch-icon" href={`${baseUrl}apple-touch-icon.png`} />
+    <script is:inline>
+      // Light or dark before the first paint: the toggle's choice, else the system's.
+      (function () {
+        var choice = 'system';
+        try { choice = localStorage.getItem('oyl:appearance') || 'system'; } catch (e) {}
+        var dark = choice === 'dark' || (choice !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches);
+        document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+      })();
+    </script>
+    <title>Oyl | Talk it through. Make it click.</title>
+  </head>
+  <body>
+    <a class="skip-link" href="#main">Skip to content</a>
+    <div class="site-frame">
+      <header class="header">
+        <a href="#" class="wordmark" aria-label="Oyl home">
+          <Logo />
+          Oyl
+        </a>
+        <nav class="desktop-nav" aria-label="Main navigation">
+          <a href="#how-it-works">How it works</a>
+          <a href="#your-study-partner">Why Oyl</a>
+          <a href="#questions">Questions</a>
+        </nav>
+        <div class="nav-actions">
+          <button class="theme-toggle" type="button" aria-label="Switch light and dark" title="Light / dark"><Icon name="moon" size={17} class="icon-moon" /><Icon name="sun" size={17} class="icon-sun" /></button>
+          {appUrl && <a class="sign-in" href={appUrl}>Log in <Icon name="arrow" size={15} /></a>}
+          {appUrl
+            ? <a class="button button-dark button-small" href={appUrl}>Get started <Icon name="arrow" size={15} /></a>
+            : <button class="button button-dark button-small" data-open-demo>Try a demo <Icon name="arrow" size={15} /></button>}
+          <button class="menu-toggle" aria-label="Open navigation" aria-expanded="false" aria-controls="mobile-nav"><Icon name="menu" /></button>
+        </div>
+        <nav id="mobile-nav" class="mobile-nav" aria-label="Mobile navigation" hidden>
+          <a href="#how-it-works">How it works <Icon name="arrow" size={16} /></a>
+          <a href="#your-study-partner">Why Oyl <Icon name="arrow" size={16} /></a>
+          <a href="#questions">Questions <Icon name="arrow" size={16} /></a>
+          {appUrl && <a href={appUrl}>Log in <Icon name="arrow" size={16} /></a>}
+        </nav>
+      </header>
+
+      <main id="main">
+        <section class="hero" aria-labelledby="hero-title">
+          <div class="hero-copy">
+            <Logo large class="hero-logo" />
+            <div class="eyebrow"><span class="status-dot"></span> A little conversation. A lot more clarity.</div>
+            <h1 id="hero-title">Talk it through.<br /><span>Make it click.</span></h1>
+            <p class="hero-description">Turn your lecture slides and notes into a conversation.<br class="desktop-break" /> Meet the AI study partner that listens, explains, and asks back.</p>
+            <div class="hero-actions">
+              {appUrl
+                ? <a class="button button-dark" href={appUrl}>Find your aha moment <Icon name="arrow" size={18} /></a>
+                : <button class="button button-dark" data-open-demo>Try a conversation <Icon name="arrow" size={18} /></button>}
+              <button class="button button-quiet" data-open-demo><span class="play-icon"><Icon name="play" size={13} /></span> See how it works</button>
+            </div>
+            <p class="hero-note"><Icon name="headphones" size={14} /> Your material. Your pace. Just press call.</p>
+          </div>
+
+          <div class="hero-triptych" aria-label="From your notes to a conversation">
+            <div class="photo-panel">
+              <img src={`${baseUrl}images/study-anywhere.jpg`} alt="A student wearing headphones, studying on a laptop in a sunny park" width="1000" height="667" fetchpriority="high" />
+              <div class="photo-topline"><Logo class="small-orbit" /> A fresh way to study.</div>
+              <div class="photo-bottom"><span>Big ideas.<br />Anywhere you are.</span><span class="circle-arrow"><Icon name="arrow" size={22} /></span></div>
+            </div>
+            <div class="material-panel">
+              <span class="panel-kicker">01 / BRING YOUR NOTES</span>
+              <div class="material-stack">
+                <div class="back-sheet back-sheet-one"></div><div class="back-sheet back-sheet-two"></div>
+                <div class="material-card">
+                  <div class="material-card-heading"><span class="file-icon"><Icon name="file" size={21} /></span><span class="tag">YOUR COURSE</span></div>
+                  <h2>A little food<br />for thought.</h2>
+                  <p>Intro to Psychology</p>
+                  <div class="file-row"><span class="pdf-label">PDF</span><div><strong>Memory & learning</strong><span>Lecture 04 · 24 pages</span></div><span class="file-check"><Icon name="check" size={13} /></span></div>
+                  <div class="file-row"><span class="notes-label"><Icon name="file" size={15} /></span><div><strong>My lecture notes</strong><span>Notes · 6 pages</span></div><span class="file-check"><Icon name="check" size={13} /></span></div>
+                  <div class="material-ready"><span class="status-dot"></span> Ready for a good conversation</div>
+                </div>
+              </div>
+              <span class="panel-caption">The stuff you need to learn. All in one place.</span>
+            </div>
+            <div class="call-panel">
+              <span class="panel-kicker">02 / TALK IT THROUGH</span>
+              <div class="voice-card">
+                <div class="voice-card-top"><span class="voice-status"><span></span> Study session</span><span class="demo-label">PREVIEW</span></div>
+                <div class="tutor-avatar"><Logo /></div>
+                <h2>Your aha is calling.</h2><p>Memory & learning</p>
+                <div class="waveform" aria-hidden="true">{waveform.map((height, index) => <i style={`--bar-height:${height}px;--bar-delay:${index * -0.09}s`}></i>)}</div>
+                <p class="tutor-quote">“Let’s try it another way.<br />How would you explain it to a friend?”</p>
+                <div class="call-controls" aria-hidden="true"><span><Icon name="mic" size={15} /></span><span class="end-call"><Icon name="phone" size={17} /></span><span><Icon name="volume" size={16} /></span></div>
+              </div>
+              <span class="panel-caption">Less memorizing. More understanding.</span>
+            </div>
+          </div>
+          <div class="triptych-footnote"><span>Built around your course. And the way you think.</span><span class="scroll-cue">A better study session starts here <span>↓</span></span></div>
+        </section>
+
+        <section id="how-it-works" class="how-section section-container" aria-labelledby="how-title">
+          <div class="section-heading"><span class="section-label">A SIMPLE CHANGE OF STUDY PLANS</span><h2 id="how-title">From “I don’t get it”<br /><span>to “I’ve got this.”</span></h2><p>No blank chat box. No perfect prompt.<br />Just your material and a conversation that moves you forward.</p></div>
+          <div class="steps">
+            <article class="step"><span class="step-number">01</span><div class="step-content"><div class="step-symbol"><Icon name="upload" size={24} /></div><h3>Bring what you’re learning.</h3><p>Drop in lecture slides, PDFs, or your own notes. Your tutor gets to know the material, so you can get straight to the good questions.</p><div class="step-detail">PDFs <span>·</span> Markdown <span>·</span> Your notes</div></div></article>
+            <article class="step"><span class="step-number">02</span><div class="step-content"><div class="step-symbol"><Icon name="headphones" size={25} /></div><h3>Make yourself heard.</h3><p>Ask the question you’ve been stuck on. Talk through a tricky concept. Or let your tutor ask the questions. It’s your call.</p><div class="step-detail">Explain it <span>·</span> Quiz me <span>·</span> I ask</div></div></article>
+            <article class="step"><span class="step-number">03</span><div class="step-content"><div class="step-symbol"><Icon name="check" size={26} /></div><h3>Keep the conversation going.</h3><p>Finish with a recap, revisit your transcript, and pick up where you left off. Every conversation gives you something to build on.</p><div class="step-detail">Call history <span>·</span> Transcripts <span>·</span> Recaps</div></div></article>
+          </div>
+        </section>
+
+        <section id="your-study-partner" class="partner-section section-container" aria-labelledby="partner-title">
+          <div class="partner-art">
+            <span class="art-label">A CONVERSATION THAT CLICKS</span>
+            <div class="conversation">
+              <div class="chat-bubble student-bubble"><span>YOU</span> I keep mixing up short-term<br />and working memory.</div>
+              <div class="chat-bubble tutor-bubble"><span><Logo class="mini-brand" /> OYL</span> Think of short-term memory as a<br />desk. Working memory is what<br />you do with what’s on it.</div>
+              <div class="chat-bubble aha-bubble">Oh. So remembering a number<br />vs. adding it in my head?</div>
+              <div class="got-it"><Icon name="check" size={14} /> Now you’re making connections.</div>
+            </div>
+            <span class="illustration-note">An example conversation from a psychology course</span>
+          </div>
+          <div class="partner-copy"><span class="section-label">MEET YOUR THINKING-OUT-LOUD PARTNER</span><h2 id="partner-title">A patient tutor.<br />An open mind.<br /><span>Your kind of pace.</span></h2><p>Some things make more sense when you say them out loud. Oyl gives you space to be curious, get it wrong, and try again.</p><p>Grounded in your course material, ready to explain it another way. No raised hands required.</p><button class="text-link" data-open-demo>Try a sample conversation <Icon name="arrow" size={18} /></button></div>
+        </section>
+
+        <section id="questions" class="faq-section section-container" aria-labelledby="faq-title">
+          <div class="faq-heading"><span class="section-label">BEFORE YOU PRESS CALL</span><h2 id="faq-title">A few good<br /> <span>questions.</span></h2><p>Curiosity looks good on you.</p></div>
+          <div class="faq-list">{faqs.map((faq) => <details class="faq-item"><summary>{faq.question}<span class="faq-plus"><Icon name="plus" size={18} /></span></summary><p>{faq.answer}</p></details>)}</div>
+        </section>
+
+        <section class="closing-section" aria-labelledby="closing-title"><Logo class="closing-orbit" /><span class="section-label">YOUR NEXT AHA MOMENT IS ONE CALL AWAY</span><h2 id="closing-title">Goodbye, blank stare.<br /><span>Hello, Oyl.</span></h2>{appUrl ? <a href={appUrl} class="button button-dark">Let’s talk it through <Icon name="arrow" size={18} /></a> : <button class="button button-dark" data-open-demo>Try a conversation <Icon name="arrow" size={18} /></button>}<p>Your notes. Your questions. Your study partner.</p></section>
+      </main>
+
+      <footer class="footer section-container"><a href="#" class="wordmark" aria-label="Oyl home"><Logo />Oyl</a><p>A little less stuck. A little more you’ve got this.</p><span>© {new Date().getFullYear()} Oyl</span></footer>
+    </div>
+
+    <dialog class="demo-dialog" aria-labelledby="demo-title">
+      <div class="demo-header"><span class="section-label">A LITTLE TASTE OF OYL</span><button class="dialog-close" aria-label="Close sample conversation"><Icon name="close" /></button></div>
+      <h2 id="demo-title">How do you like to learn?</h2><p class="demo-intro">Explore a sample session about memory and learning.<br />Choose a mode to see the conversation.</p>
+      <div class="demo-tabs" role="tablist" aria-label="Study mode"><button id="tab-explain" role="tab" aria-controls="demo-conversation" aria-selected="true" data-mode="explain">Explain it</button><button id="tab-quiz" role="tab" aria-controls="demo-conversation" aria-selected="false" tabindex="-1" data-mode="quiz">Quiz me</button><button id="tab-qa" role="tab" aria-controls="demo-conversation" aria-selected="false" tabindex="-1" data-mode="qa">I ask</button></div>
+      <div id="demo-conversation" class="demo-conversation" role="tabpanel" aria-labelledby="tab-explain" tabindex="0" aria-live="polite"></div>
+      <div class="demo-footer"><span>Illustrative preview · No microphone needed</span>{appUrl && <a href={appUrl} class="button button-dark button-small">Try your own material <Icon name="arrow" size={15} /></a>}</div>
+    </dialog>
+
+    <script>
+      const menuButton = document.querySelector<HTMLButtonElement>('.menu-toggle');
+      const mobileNav = document.querySelector<HTMLElement>('#mobile-nav');
+      const closeMenu = () => {
+        menuButton?.setAttribute('aria-expanded', 'false');
+        menuButton?.setAttribute('aria-label', 'Open navigation');
+        if (mobileNav) mobileNav.hidden = true;
+      };
+      menuButton?.addEventListener('click', () => {
+        const open = menuButton.getAttribute('aria-expanded') !== 'true';
+        menuButton.setAttribute('aria-expanded', String(open));
+        menuButton.setAttribute('aria-label', open ? 'Close navigation' : 'Open navigation');
+        if (mobileNav) mobileNav.hidden = !open;
+      });
+      mobileNav?.querySelectorAll('a').forEach((link) => link.addEventListener('click', closeMenu));
+      document.addEventListener('keydown', (event) => { if (event.key === 'Escape') closeMenu(); });
+      matchMedia('(min-width: 761px)').addEventListener('change', closeMenu);
+
+      const dialog = document.querySelector<HTMLDialogElement>('.demo-dialog');
+      const conversation = document.querySelector<HTMLElement>('#demo-conversation');
+      const tabs = Array.from(document.querySelectorAll<HTMLButtonElement>('[data-mode]'));
+      const conversations: Record<string, { speaker: string; text: string }[]> = {
+        explain: [
+          { speaker: 'Oyl', text: 'Let’s make working memory a little more familiar. Imagine your short-term memory is a desk. It holds the things you need right now.' },
+          { speaker: 'You', text: 'Okay, so where does working memory fit in?' },
+          { speaker: 'Oyl', text: 'It’s what you do with the things on that desk. Remembering 24 is short-term memory. Adding 6 to it in your head uses working memory. Can you think of another example?' },
+        ],
+        quiz: [
+          { speaker: 'Oyl', text: 'Ready for a quick question? You hear a phone number and repeat it until you can write it down. Which type of memory are you using?' },
+          { speaker: 'You', text: 'Short-term memory, because I’m just holding on to it?' },
+          { speaker: 'Oyl', text: 'Exactly. You’re briefly storing the number. If you were rearranging those digits in your head, that would bring in working memory. Want to try a trickier one?' },
+        ],
+        qa: [
+          { speaker: 'You', text: 'Why do I forget what I just read even though I understood it?' },
+          { speaker: 'Oyl', text: 'Understanding something in the moment doesn’t always mean it has made its way into long-term memory. Your notes call that next step encoding.' },
+          { speaker: 'You', text: 'So explaining it in my own words might help?' },
+          { speaker: 'Oyl', text: 'That’s a useful way to work with the idea. Let’s try it: how would you explain encoding to someone who has never heard the term?' },
+        ],
+      };
+      const selectMode = (mode: string) => {
+        tabs.forEach((tab) => { const selected = tab.dataset.mode === mode; tab.setAttribute('aria-selected', String(selected)); tab.tabIndex = selected ? 0 : -1; });
+        if (!conversation) return;
+        conversation.setAttribute('aria-labelledby', `tab-${mode}`);
+        conversation.replaceChildren(...(conversations[mode] ?? conversations.explain).map(({speaker, text}) => {
+          const message = document.createElement('div');
+          message.className = `demo-message ${speaker === 'You' ? 'demo-you' : ''}`;
+          const label = document.createElement('span'); label.textContent = speaker;
+          const body = document.createElement('p'); body.textContent = text;
+          message.append(label, body); return message;
+        }));
+      };
+      tabs.forEach((tab, index) => {
+        tab.addEventListener('click', () => selectMode(tab.dataset.mode ?? 'explain'));
+        tab.addEventListener('keydown', (event) => {
+          let next = index;
+          if (event.key === 'ArrowRight') next = (index + 1) % tabs.length;
+          else if (event.key === 'ArrowLeft') next = (index - 1 + tabs.length) % tabs.length;
+          else if (event.key === 'Home') next = 0;
+          else if (event.key === 'End') next = tabs.length - 1;
+          else return;
+          event.preventDefault(); tabs[next].focus(); selectMode(tabs[next].dataset.mode ?? 'explain');
+        });
+      });
+      document.querySelectorAll('[data-open-demo]').forEach((button) => button.addEventListener('click', () => { selectMode('explain'); dialog?.showModal(); }));
+      document.querySelector('.dialog-close')?.addEventListener('click', () => dialog?.close());
+
+      // Light and dark, like the app's toggle: flips what is on screen, remembered.
+      const media = matchMedia('(prefers-color-scheme: dark)');
+      const chrome = () => document.querySelectorAll<HTMLMetaElement>('meta[name="theme-color"]').forEach((meta) => { meta.content = document.documentElement.dataset.theme === 'dark' ? '#15151a' : '#f3f1ec'; });
+      document.querySelector('.theme-toggle')?.addEventListener('click', () => {
+        const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+        document.documentElement.dataset.theme = next;
+        try { localStorage.setItem('oyl:appearance', next); } catch {}
+        chrome();
+      });
+      media.addEventListener('change', () => {
+        let choice: string | null = null;
+        try { choice = localStorage.getItem('oyl:appearance'); } catch {}
+        if (choice === 'light' || choice === 'dark') return;
+        document.documentElement.dataset.theme = media.matches ? 'dark' : 'light';
+        chrome();
+      });
+      chrome();
+      dialog?.addEventListener('click', (event) => { if (event.target === dialog) { const rect = dialog.getBoundingClientRect(); if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) dialog.close(); } });
+      dialog?.addEventListener('close', () => { document.body.style.overflow = ''; });
+      new MutationObserver(() => { if (dialog?.open) document.body.style.overflow = 'hidden'; }).observe(dialog!, { attributes: true, attributeFilter: ['open'] });
+    </script>
+  </body>
+</html>

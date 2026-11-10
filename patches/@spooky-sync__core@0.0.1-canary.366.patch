@@ -1,0 +1,88 @@
+diff --git a/dist/index.js b/dist/index.js
+index 242b42b965a60cf5192a937eed797481f02cf880..e1674883a019d384a9565e207623307b0bbaf9a9 100644
+--- a/dist/index.js
++++ b/dist/index.js
+@@ -5179,8 +5179,20 @@ function needed(s, hash) {
+ 	const e = s.queries.get(hash);
+ 	if (!e || !hasServerMembership(e.lifecycle)) return [];
+ 	const deletes = pendingDeleteIds(s);
+-	return e.remoteArray.filter(([id, v]) => !deletes.has(id) && (s.versions.get(id) ?? -1) < v);
++	return e.remoteArray.filter(([id, v]) => !deletes.has(id) && ((s.versions.get(id) ?? -1) < v || unverifiedBody(s, id)));
+ }
++/**
++* Oyl patch. The SSP publishes a row's new version from inside the write's
++* still open transaction, so a client could read the old body in that window and
++* store it under the new version, after which nothing fetched the real one. Text
++* stored that way is read again once per session.
++*/
++const verifiedBodies = /* @__PURE__ */ new Set();
++const unverifiedBody = (s, id) => /^(document|answer):/.test(id) && !verifiedBodies.has(id) && !s.outbox.some((i) => i.recordId === id && i.status === "pending");
++/** Oyl patch: fetches of a row whose announced version has not committed yet. */
++const uncommittedTries = /* @__PURE__ */ new Map();
++const UNCOMMITTED_RETRY_MS = 1e3;
++const UNCOMMITTED_MAX_TRIES = 120;
+ /** Subquery child bodies missing or stale locally (never part of `settled`). */
+ function neededChildren(s, hash) {
+ 	const e = s.queries.get(hash);
+@@ -8106,16 +8118,39 @@ function* fetchRows(env) {
+ 		const epoch = yield fx.local.epoch();
+ 		yield fx.state.update(compose(...plan.hashes.map((h) => applyLifecycle(h, { type: "fetch-begin" }))));
+ 		let failed = 0;
++		let uncommitted = false;
+ 		try {
+-			const results = yield fx.all(plan.chunks.map((ids) => fx.remote.query(bodySelect(), { ids: ids.map(parseRecordIdString) }, env.remoteTimeoutMs)));
++			const results = yield fx.all(plan.chunks.map((ids) => fx.remote.query(`SELECT record_id, version FROM _00_version WHERE record_id IN $ids; ${bodySelect()}`, { ids: ids.map(parseRecordIdString) }, env.remoteTimeoutMs)));
+ 			for (let i = 0; i < results.length; i++) {
+ 				const r = results[i];
+-				const first = r.ok ? r.value[0] : void 0;
++				const first = r.ok ? r.value[1] : void 0;
+ 				if (!r.ok || !first || first.status === "ERR" || !Array.isArray(first.result)) {
+ 					failed++;
+ 					continue;
+ 				}
+-				if (!(yield* landChunk(env, plan.chunks[i], first.result, plan.versions, state, epoch))) failed++;
++				const committed = new Map((Array.isArray(r.value[0]?.result) ? r.value[0].result : []).map((v) => [typeof v.record_id === "string" ? v.record_id : encodeRecordId(v.record_id), v.version]));
++				const waiting = new Set(plan.chunks[i].filter((id) => {
++					const version = committed.get(id);
++					if (version === void 0 || version >= (plan.versions.get(id) ?? 0)) {
++						uncommittedTries.delete(id);
++						return false;
++					}
++					const tries = (uncommittedTries.get(id) ?? 0) + 1;
++					uncommittedTries.set(id, tries);
++					return tries <= UNCOMMITTED_MAX_TRIES;
++				}));
++				if (waiting.size > 0) uncommitted = true;
++				// The newest committed body still lands, at its real version. A write that
++				// aborted after announcing itself must not hold back the text before it, and
++				// rolling back refused saves can leave the local version equal to the committed one.
++				const stamped = new Map(plan.versions);
++				const skip = new Set();
++				for (const id of waiting) {
++					if (committed.get(id) >= (state.versions.get(id) ?? -1)) stamped.set(id, committed.get(id));
++					else skip.add(id);
++				}
++				const rows = first.result.filter((row) => !(row?.id && typeof row.id === "object" && skip.has(encodeRecordId(row.id))));
++				if (!(yield* landChunk(env, plan.chunks[i].filter((id) => !skip.has(id)), rows, stamped, state, epoch))) failed++;
+ 			}
+ 		} finally {
+ 			yield fx.state.update(compose(...plan.hashes.map((h) => applyLifecycle(h, { type: "fetch-end" }))));
+@@ -8131,6 +8166,10 @@ function* fetchRows(env) {
+ 			yield fx.timer.set("fetch", backoffMs(attempt), { type: "FetchRows" });
+ 			return;
+ 		}
++		if (uncommitted) {
++			yield fx.timer.set("fetch", UNCOMMITTED_RETRY_MS, { type: "FetchRows" });
++			return;
++		}
+ 	}
+ }
+ /**
+@@ -8171,6 +8210,7 @@ function* landChunk(env, requested, rows, versions, state, epoch) {
+ 			}
+ 		});
+ 		seen.add(id);
++		verifiedBodies.add(id);
+ 	}
+ 	if (bodies.length > 0) {
+ 		try {

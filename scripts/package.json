@@ -1,0 +1,13 @@
+{
+  "name": "@oyl/scripts",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "backfill:pages": "tsx backfill-chunk-pages.ts"
+  },
+  "devDependencies": {
+    "tsx": "^4.20.0",
+    "@types/node": "^22.0.0"
+  }
+}

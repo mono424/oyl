@@ -133,3 +133,95 @@ cargo clippy --workspace --all-targets
 The UI is built with [GPUI](https://gpui.rs) through
 [GPUI Kit](https://gpui-kit.com). See [PLAN.md](PLAN.md) for the design and
 architecture.
+
+## Oyl Cloud / web
+
+The same repository also holds Oyl's web side: a browser app, its API and a
+landing page, in a pnpm workspace next to the Cargo workspace. It is where your
+courses, lecture material and writing live online, synced live to every
+browser, and where an AI client (ChatGPT today) works with them through Oyl's
+MCP server. Papers written in the desktop app sync to it
+([docs/sync-protocol.md](docs/sync-protocol.md)).
+
+What it does:
+
+- **Courses and material.** Add PDF slides, LaTeX, Markdown or text notes to a
+  course. PDFs stay as they are to read page by page; their text and pictures
+  become searchable. LaTeX and TikZ render in the browser.
+- **Documents.** Write a research proposal or an essay in Markdown or LaTeX
+  with the course's papers beside it: cite with `\cite{key}` or `[@`, read a
+  paper's PDF next to the text, add images, export PDF or `.tex` with a
+  `references.bib`. Every change is kept in History and can be restored.
+- **Homework.** Answer an exercise sheet part by part next to the sheet, with
+  live Markdown, math and images, and export a clean PDF.
+- **Sources.** Follow a bCourses course or a course website: new and changed
+  lecture PDFs come in by themselves (a [hockeymask](https://github.com/mono424/hockeymask) mapping decides what to take).
+- **Sites.** Upload a built website to a course and open it in place.
+- **Papers.** Papers from Oyl on your Mac, synced with their history: read
+  any revision's source in the browser. A Mac connects by approving its code
+  on `/connect`.
+- **Study with an AI.** Connect ChatGPT once over OAuth and study by voice from
+  your own courses: it reads your material, keeps a per-course knowledge graph
+  and a concept-by-concept map of what you understood, quizzes you, and saves
+  each session with a recap. It can also edit your documents and homework.
+
+### Stack
+
+| Part | Technology |
+| --- | --- |
+| Web app (`apps/web`) | SolidJS, TypeScript, Vite, Tailwind CSS |
+| Landing page (`apps/landing`) | Astro |
+| API (`apps/api`) | Hono on Cloudflare Workers (a sp00ky Worker backend), Workers AI, the MCP server |
+| Data and search | SurrealDB with vector and full-text search (`schema/`) |
+| Live sync | sp00ky, with a local store in the browser |
+| Course knowledge graph | SurrealDB Agent Memory |
+
+### Running it
+
+Use **Node.js 22.22 or newer**, **pnpm 10.20.0** and **Docker** for the local
+stack. Cloudflare (document processing, embeddings) and a SurrealDB Agent
+Memory Context (the knowledge graph) are needed for everything to work; see
+[docs/setup.md](docs/setup.md#accounts-you-need).
+
+```sh
+pnpm install
+cp apps/api/.dev.vars.example apps/api/.dev.vars   # then fill it in (docs/setup.md)
+pnpm dev                                           # database, sync node, web app and API
+```
+
+| Service | Local URL |
+| --- | --- |
+| Web app | <http://localhost:5180> |
+| API Worker | <http://localhost:8787> |
+| Landing page (`pnpm dev:landing`) | <http://localhost:4322> |
+
+| Command | What it does |
+| --- | --- |
+| `pnpm dev` | Start the local database, sync node, web app and API |
+| `pnpm dev:landing` | Start the landing page (copy `apps/landing/.env.example` to `.env.local` first) |
+| `pnpm type-check` | Check types across the pnpm workspace |
+| `pnpm --filter @oyl/web build` | Build the web app |
+| `pnpm build:landing` | Build the static landing page |
+| `pnpm --filter @oyl/api test` | The API's tests |
+
+The hosted app is meant to live at `https://oyl.stg.spky.cloud` (sp00ky project
+`oyl`); see [docs/setup.md](docs/setup.md) for deployment, schema changes and
+the MCP server. ChatGPT reaches the MCP server over HTTPS only; the setup guide
+covers a tunnel for trying the local stack.
+
+### Repository map
+
+| Path | Contents |
+| --- | --- |
+| [`crates/`](crates) | The desktop app (Cargo workspace) |
+| [`apps/web`](apps/web) | The web app |
+| [`apps/api`](apps/api) | Document ingestion, search, the MCP server |
+| [`apps/landing`](apps/landing) | The landing page |
+| [`schema`](schema) | Database schema and migrations (sp00ky) |
+| [`shared`](shared) | TypeScript shared by the web app and the API |
+| [`scripts`](scripts) | `bundle.sh` (desktop app) and maintenance scripts (web) |
+| [`dev`](dev) | sp00ky configuration of the local stack |
+| [`assets`](assets) | The logo and app icon ([`assets/brand`](assets/brand) for the web) |
+| [`docs`](docs) | [Setup and deployment](docs/setup.md), [design tokens on the web](docs/brand/README.md) |
+
+Landing page photo by [Sanket Mishra on Unsplash](https://unsplash.com/photos/a-girl-sitting-on-a-bench-using-a-laptop-vvE2GOnGudg).
