@@ -427,3 +427,74 @@ DEFINE EVENT OVERWRITE site_file_parts ON TABLE site_file WHEN $event = 'DELETE'
 DEFINE EVENT OVERWRITE site_files_deleted ON TABLE site WHEN $event = 'DELETE' THEN {
   DELETE site_file WHERE site = $before.id;
 };
+
+-- ##################################################################
+-- PAPER SYNC (src/sync.ts, docs/sync-protocol.md)
+--
+-- The server-only half of paper sync (main schema `paper_sync`,
+-- `paper_revision`): the blobs revisions point at, and the desktop's
+-- connections with the device flow that makes them.
+-- ##################################################################
+
+-- A file's bytes, stored once per owner and named by their SHA-256. The id is
+-- derived from the owner and the hash (sync.ts blobId). The bytes are the files
+-- /papers/<id key>_<n> of the `materials` bucket, parts of at most 1 MiB,
+-- written after the hash of the whole upload matched. Never changed; nothing
+-- deletes them in v1 (revisions are kept forever).
+DEFINE TABLE OVERWRITE sync_blob SCHEMAFULL
+  COMMENT 'sp00ky:nosync'
+  PERMISSIONS NONE;
+DEFINE FIELD OVERWRITE owner ON TABLE sync_blob TYPE record<user>;
+DEFINE FIELD OVERWRITE sha256 ON TABLE sync_blob TYPE string;
+DEFINE FIELD OVERWRITE size ON TABLE sync_blob TYPE int;
+DEFINE FIELD OVERWRITE parts ON TABLE sync_blob TYPE int;
+DEFINE FIELD OVERWRITE created_at ON TABLE sync_blob TYPE datetime DEFAULT time::now();
+
+DEFINE INDEX IF NOT EXISTS sync_blob_owner_sha ON TABLE sync_blob FIELDS owner, sha256 UNIQUE;
+
+DEFINE EVENT OVERWRITE sync_blob_parts ON TABLE sync_blob WHEN $event = 'DELETE' THEN {
+  FOR $n IN array::range(0, $before.parts) {
+    type::file('materials', '/papers/' + <string>record::id($before.id) + '_' + <string>$n).delete();
+  };
+};
+
+-- A desktop app's sign-in in progress (RFC 8628 style). The id is the user
+-- code (`sync_device_code:c<8 letters>`), which the web app's /connect page
+-- looks up; the device polls with its device code, stored as a SHA-256.
+DEFINE TABLE OVERWRITE sync_device_code SCHEMAFULL
+  COMMENT 'sp00ky:nosync'
+  PERMISSIONS NONE;
+DEFINE FIELD OVERWRITE device_hash ON TABLE sync_device_code TYPE string;
+-- What the device calls itself ("MacBook Pro"); the connection becomes "Oyl on <name>".
+DEFINE FIELD OVERWRITE device_name ON TABLE sync_device_code TYPE string;
+DEFINE FIELD OVERWRITE status ON TABLE sync_device_code TYPE string DEFAULT 'pending'
+  ASSERT $value IN ['pending', 'approved', 'denied'];
+-- Who approved or declined it.
+DEFINE FIELD OVERWRITE owner ON TABLE sync_device_code TYPE option<record<user>>;
+DEFINE FIELD OVERWRITE polled_at ON TABLE sync_device_code TYPE option<datetime>;
+DEFINE FIELD OVERWRITE expires_at ON TABLE sync_device_code TYPE datetime;
+-- Set once the device collected its answer: a code works once.
+DEFINE FIELD OVERWRITE consumed_at ON TABLE sync_device_code TYPE option<datetime>;
+DEFINE FIELD OVERWRITE created_at ON TABLE sync_device_code TYPE datetime DEFAULT time::now();
+
+DEFINE INDEX IF NOT EXISTS sync_device_code_hash ON TABLE sync_device_code FIELDS device_hash UNIQUE;
+DEFINE INDEX IF NOT EXISTS sync_device_code_expires ON TABLE sync_device_code FIELDS expires_at;
+
+-- A desktop app allowed to sync: its key (`oyl_sync_...`, stored as a SHA-256)
+-- and the `api_key` row Settings lists as "Oyl on <name>". Revoking or deleting
+-- that row stops the key on its next request.
+DEFINE TABLE OVERWRITE sync_device SCHEMAFULL
+  COMMENT 'sp00ky:nosync'
+  PERMISSIONS NONE;
+DEFINE FIELD OVERWRITE owner ON TABLE sync_device TYPE record<user>;
+DEFINE FIELD OVERWRITE connection ON TABLE sync_device TYPE record<api_key>;
+DEFINE FIELD OVERWRITE name ON TABLE sync_device TYPE string;
+DEFINE FIELD OVERWRITE token_hash ON TABLE sync_device TYPE string;
+DEFINE FIELD OVERWRITE created_at ON TABLE sync_device TYPE datetime DEFAULT time::now();
+
+DEFINE INDEX IF NOT EXISTS sync_device_token ON TABLE sync_device FIELDS token_hash UNIQUE;
+DEFINE INDEX IF NOT EXISTS sync_device_connection ON TABLE sync_device FIELDS connection;
+
+DEFINE EVENT OVERWRITE api_key_sync_devices_deleted ON TABLE api_key WHEN $event = 'DELETE' THEN {
+  DELETE sync_device WHERE connection = $before.id;
+};

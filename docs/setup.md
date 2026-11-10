@@ -30,6 +30,8 @@ ChatGPT through the MCP server. Workspace packages and deployment resources use 
    /material-assets/:id  images extracted from PDFs
    /mcp              MCP server (Streamable HTTP) for ChatGPT
    /oauth/*          account linking for ChatGPT
+   /api/sync         paper sync for the desktop app: device sign-in, papers,
+                     revisions, blobs -> `materials` bucket (docs/sync-protocol.md)
 ```
 
 | Path | What |
@@ -257,6 +259,26 @@ through the static assets. Opaque origins throw on `localStorage`, so HTML pages
 a small in-memory replacement as they are served, and what a site stores lasts only
 until the page is closed or reloaded.
 
+## Paper sync
+
+Papers written in the desktop app sync to the account over `/api/sync`
+(`apps/api/src/sync.ts`); [docs/sync-protocol.md](sync-protocol.md) is the
+contract with the desktop client. A paper is a `paper_sync` row, each snapshot
+an immutable `paper_revision` listing its files by SHA-256 (both in the sp00ky
+schema, readable by their owner, written only by the API), and the bytes are
+blobs in the `materials` bucket under `/papers/`, once per owner (`sync_blob`,
+server-only). A commit is a compare-and-set on the paper's head.
+
+The desktop signs in with a device flow: it gets a code, the user approves
+"Oyl on <device>" on the web app's `/connect?code=` page, and the app collects a
+sync key (`oyl_sync_...`) that opens `/api/sync` only. Each key is a connection
+under **Connections** in Settings, where revoking it stops it at once
+(`sync_device` holds the key's hash, `apps/api/src/sync-device.ts`). The web app
+lists synced papers under **Papers** and shows a revision's files read-only.
+
+`apps/api/test/sync.test.ts` covers every endpoint; its database half runs with
+`OYL_TEST_SURREAL=1` against the local SurrealDB, like the other tests.
+
 ## Homework
 
 **Answer** on any material opens a homework document for it (`homework`
@@ -423,7 +445,7 @@ the sync node POSTs its payload to the path in
 [`apps/api/openapi.yml`](../apps/api/openapi.yml) (re-indexing, lecture
 progress), retrying failures. Only the paths under `worker.expose` are public:
 search, PDF upload and download, the OAuth consent calls, OAuth, MCP,
-lecture images and uploaded sites. Frontend assets continue to use `/assets/`. Verify unauthenticated
+lecture images, uploaded sites and paper sync (`/api/sync/*`). Frontend assets continue to use `/assets/`. Verify unauthenticated
 `/mcp` returns an OAuth `401` challenge after deployment.
 
 ### 1. Database

@@ -108,6 +108,9 @@ apps:
         - /api/sites/*
         # A key for the student's own scripts, made in Settings.
         - /api/keys
+        # Paper sync for the desktop app: its device sign-in, papers, revisions
+        # and blobs (apps/api/src/sync.ts, docs/sync-protocol.md).
+        - /api/sync/*
         # The consent page of an AI client connection, and its redirect.
         - /api/oauth/*
         # OAuth for AI clients: discovery, registration, authorize, token.

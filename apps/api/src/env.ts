@@ -59,6 +59,8 @@ export interface Env {
 export interface Caller {
   userId: string;
   token: string;
+  /** A device's sync key (sync.ts): the name it was approved as. Unset for the web app's session. */
+  device?: string;
 }
 
 export type AppEnv = { Bindings: Env; Variables: { caller: Caller } };

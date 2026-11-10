@@ -182,11 +182,15 @@ export function recordId(table: string, raw: unknown): string {
   return id;
 }
 
-/** An error whose message is safe to show to the caller. */
+/**
+ * An error whose message is safe to show to the caller. `details` go into the
+ * JSON answer beside `error`, e.g. the current head of a refused sync commit.
+ */
 export class UserError extends Error {
   constructor(
     message: string,
-    readonly status: 400 | 403 | 404 | 409 | 503 = 400,
+    readonly status: 400 | 403 | 404 | 409 | 410 | 413 | 422 | 503 = 400,
+    readonly details?: Record<string, unknown>,
   ) {
     super(message);
   }

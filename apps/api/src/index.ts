@@ -9,6 +9,7 @@ import { fetcherRoutes } from './fetch/routes';
 import { loadAnswerImage, storeAnswerImage } from './answers';
 import { readVersion, restoreVersion } from './documents';
 import { finishSite, serveSiteFile, storeSiteFile } from './sites';
+import { syncRoutes } from './sync';
 import {
   buildMissingGraphs,
   createApiKey,
@@ -32,7 +33,7 @@ import { FetchSource } from './fetch/workflow';
 const app = new Hono<AppEnv>();
 
 app.onError((err, c) => {
-  if (err instanceof UserError) return c.json({ error: err.message }, err.status);
+  if (err instanceof UserError) return c.json({ error: err.message, ...err.details }, err.status);
   // Anything else may carry database internals: log it, answer generically.
   console.error(err);
   return c.json({ error: 'Something went wrong. Try again in a moment.' }, 500);
@@ -51,12 +52,14 @@ app.use(
   '/api/*',
   cors({
     origin: (origin, c) => (c.env.APP_ORIGIN.split(',').map((o: string) => o.trim()).includes(origin) ? origin : null),
-    allowHeaders: ['authorization', 'content-type', 'x-file-name'],
-    allowMethods: ['GET', 'POST', 'OPTIONS'],
+    allowHeaders: ['authorization', 'content-type', 'x-file-name', 'if-none-match'],
+    allowMethods: ['GET', 'POST', 'PUT', 'PATCH', 'OPTIONS'],
     maxAge: 600,
   }),
 );
-app.use('/api/*', requireUser);
+// Paper sync (sync.ts) also takes a device's sync key, and its device flow
+// starts signed out, so it checks callers itself.
+app.use('/api/*', (c, next) => (c.req.path.startsWith('/api/sync/') ? next() : requireUser(c, next)));
 
 app.get('/health', (c) => c.json({ ok: true }));
 
@@ -209,6 +212,10 @@ app.get('/site-files/:site/*', (c) => serveSiteFile(c.env, c.req.param('site'), 
 // ── Sources (fetch/routes.ts) ─────────────────────────────────────────────
 
 app.route('/api/fetchers', fetcherRoutes);
+
+// ── Paper sync (sync.ts, docs/sync-protocol.md) ───────────────────────────
+
+app.route('/api/sync', syncRoutes);
 
 // ── API keys (for the MCP server) ─────────────────────────────────────────
 

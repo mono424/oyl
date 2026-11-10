@@ -697,10 +697,81 @@ DEFINE FIELD OVERWRITE finished_at ON TABLE fetch_run TYPE option<datetime>;
 DEFINE INDEX OVERWRITE fetch_run_fetcher ON TABLE fetch_run FIELDS fetcher, started_at;
 
 -- ##################################################################
+-- PAPER SYNC (docs/sync-protocol.md)
+--
+-- Papers the desktop app syncs to the account: one `paper_sync` per paper
+-- folder and one immutable `paper_revision` per snapshot of it. Only the API
+-- writes them (apps/api/src/sync.ts, the /api/sync endpoints), with a
+-- compare-and-set on `head`; the web app reads them live. A revision lists
+-- every file of the paper by SHA-256; the bytes are blobs stored once per
+-- owner (`sync_blob` in apps/api/src/server-schema.surql, files in the
+-- `materials` bucket). Named paper_sync because `paper` is a document's
+-- bibliography entry.
+-- ##################################################################
+
+DEFINE TABLE OVERWRITE paper_sync SCHEMAFULL
+  PERMISSIONS
+    FOR select WHERE owner = $auth.id
+    FOR create, update, delete WHERE false;
+
+DEFINE FIELD OVERWRITE owner ON TABLE paper_sync TYPE record<user> READONLY; -- @parent
+DEFINE FIELD OVERWRITE name ON TABLE paper_sync TYPE string ASSERT string::len($value) > 0;
+DEFINE FIELD OVERWRITE engine ON TABLE paper_sync TYPE string
+  ASSERT $value IN ['typst', 'latex'];
+-- The entry file, relative to the paper folder ("main.typ").
+DEFINE FIELD OVERWRITE main ON TABLE paper_sync TYPE string ASSERT string::len($value) > 0;
+-- The latest revision. NONE until the first commit.
+DEFINE FIELD OVERWRITE head ON TABLE paper_sync TYPE option<record<paper_revision>>;
+-- Who wrote the head revision: `device:<name>`, `web` or `agent`.
+DEFINE FIELD OVERWRITE updated_by ON TABLE paper_sync TYPE option<string>;
+DEFINE FIELD OVERWRITE created_at ON TABLE paper_sync TYPE datetime DEFAULT time::now() READONLY;
+DEFINE FIELD OVERWRITE updated_at ON TABLE paper_sync TYPE datetime VALUE time::now();
+-- Soft delete: set when the paper is removed from the cloud, NONE when restored.
+DEFINE FIELD OVERWRITE deleted_at ON TABLE paper_sync TYPE option<datetime>;
+
+DEFINE INDEX OVERWRITE paper_sync_owner ON TABLE paper_sync FIELDS owner;
+
+DEFINE EVENT OVERWRITE paper_sync_deleted ON TABLE paper_sync WHEN $event = "DELETE" THEN {
+  DELETE paper_revision WHERE paper = $before.id;
+};
+
+-- One snapshot of a paper. Never changed once written.
+DEFINE TABLE OVERWRITE paper_revision SCHEMAFULL
+  PERMISSIONS
+    FOR select WHERE owner = $auth.id
+    FOR create, update, delete WHERE false;
+
+DEFINE FIELD OVERWRITE owner ON TABLE paper_revision TYPE record<user> READONLY;
+DEFINE FIELD OVERWRITE paper ON TABLE paper_revision TYPE record<paper_sync> READONLY; -- @parent
+-- Counts up from 1 per paper.
+DEFINE FIELD OVERWRITE n ON TABLE paper_revision TYPE int READONLY;
+-- The revision it was made on. NONE for the first.
+DEFINE FIELD OVERWRITE parent ON TABLE paper_revision TYPE option<record<paper_revision>>;
+-- Every tracked file of the paper, as JSON with the paths sorted:
+-- {"main.typ":{"sha256":"<64 hex>","size":1234}, ...}. Can be long, so the
+-- sync engine only carries the record and the client fetches the value (@opaque).
+-- @opaque
+DEFINE FIELD OVERWRITE files ON TABLE paper_revision TYPE string;
+DEFINE FIELD OVERWRITE file_count ON TABLE paper_revision TYPE int;
+-- Bytes of all its files together.
+DEFINE FIELD OVERWRITE size ON TABLE paper_revision TYPE int;
+-- `device:<name>` (the desktop app on that machine), `web` or `agent`.
+DEFINE FIELD OVERWRITE author ON TABLE paper_revision TYPE string;
+DEFINE FIELD OVERWRITE message ON TABLE paper_revision TYPE option<string>;
+DEFINE FIELD OVERWRITE created_at ON TABLE paper_revision TYPE datetime DEFAULT time::now() READONLY;
+
+-- Unique: two commits on the same head cannot both become revision n.
+DEFINE INDEX OVERWRITE paper_revision_paper ON TABLE paper_revision FIELDS paper, n UNIQUE;
+
+-- ##################################################################
 -- API KEYS (MCP access for AI clients)
 -- ##################################################################
 
 -- The browser generates the key, shows it once, and stores only its SHA-256.
+-- An OAuth connection and a desktop's sync connection ("Oyl on <device>",
+-- prefix `oyl_sync_`) are rows here too, so Settings lists and revokes them;
+-- their real credentials are server-only (oauth_grant, sync_device), and the
+-- `key_hash` of such a row matches no key.
 DEFINE TABLE OVERWRITE api_key SCHEMAFULL
   PERMISSIONS
     FOR select, update, delete WHERE owner = $auth.id

@@ -138,7 +138,8 @@ The same repository also holds Oyl's web side: a browser app, its API and a
 landing page, in a pnpm workspace next to the Cargo workspace. It is where your
 courses, lecture material and writing live online, synced live to every
 browser, and where an AI client (ChatGPT today) works with them through Oyl's
-MCP server. The desktop app will sync with it later.
+MCP server. Papers written in the desktop app sync to it
+([docs/sync-protocol.md](docs/sync-protocol.md)).
 
 What it does:
 
@@ -154,6 +155,9 @@ What it does:
 - **Sources.** Follow a bCourses course or a course website: new and changed
   lecture PDFs come in by themselves (a [hockeymask](https://github.com/mono424/hockeymask) mapping decides what to take).
 - **Sites.** Upload a built website to a course and open it in place.
+- **Papers.** Papers from Oyl on your Mac, synced with their history: read
+  any revision's source in the browser. A Mac connects by approving its code
+  on `/connect`.
 - **Study with an AI.** Connect ChatGPT once over OAuth and study by voice from
   your own courses: it reads your material, keeps a per-course knowledge graph
   and a concept-by-concept map of what you understood, quizzes you, and saves
