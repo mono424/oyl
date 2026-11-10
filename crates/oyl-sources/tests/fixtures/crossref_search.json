@@ -1,0 +1,392 @@
+{
+  "status": "ok",
+  "message-type": "work-list",
+  "message-version": "1.0.0",
+  "message": {
+    "facets": {},
+    "total-results": 3195166,
+    "items": [
+      {
+        "publisher": "Springer Science and Business Media LLC",
+        "issue": "7553",
+        "DOI": "10.1038/nature14539",
+        "type": "journal-article",
+        "page": "436-444",
+        "title": [
+          "Deep learning"
+        ],
+        "volume": "521",
+        "author": [
+          {
+            "given": "Yann",
+            "family": "LeCun",
+            "sequence": "first",
+            "affiliation": [],
+            "role": [
+              {
+                "vocabulary": "crossref",
+                "role": "author"
+              }
+            ]
+          },
+          {
+            "given": "Yoshua",
+            "family": "Bengio",
+            "sequence": "additional",
+            "affiliation": [],
+            "role": [
+              {
+                "vocabulary": "crossref",
+                "role": "author"
+              }
+            ]
+          },
+          {
+            "given": "Geoffrey",
+            "family": "Hinton",
+            "sequence": "additional",
+            "affiliation": [],
+            "role": [
+              {
+                "vocabulary": "crossref",
+                "role": "author"
+              }
+            ]
+          }
+        ],
+        "container-title": [
+          "Nature"
+        ],
+        "issued": {
+          "date-parts": [
+            [
+              2015,
+              5,
+              27
+            ]
+          ]
+        },
+        "URL": "https://doi.org/10.1038/nature14539",
+        "ISSN": [
+          "0028-0836",
+          "1476-4687"
+        ]
+      },
+      {
+        "publisher": "Association for Computing Machinery (ACM)",
+        "issue": "7",
+        "abstract": "<jats:p>How can neural networks learn the rich internal representations required for difficult tasks such as recognizing objects or understanding language?</jats:p>",
+        "DOI": "10.1145/3448250",
+        "type": "journal-article",
+        "page": "58-65",
+        "title": [
+          "Deep learning for AI"
+        ],
+        "volume": "64",
+        "author": [
+          {
+            "given": "Yoshua",
+            "family": "Bengio",
+            "sequence": "first",
+            "affiliation": [
+              {
+                "name": "Université de Montréal"
+              }
+            ],
+            "role": [
+              {
+                "vocabulary": "crossref",
+                "role": "author"
+              }
+            ]
+          },
+          {
+            "given": "Yann",
+            "family": "Lecun",
+            "sequence": "additional",
+            "affiliation": [
+              {
+                "name": "New York University"
+              }
+            ],
+            "role": [
+              {
+                "vocabulary": "crossref",
+                "role": "author"
+              }
+            ]
+          },
+          {
+            "given": "Geoffrey",
+            "family": "Hinton",
+            "sequence": "additional",
+            "affiliation": [
+              {
+                "name": "University of Toronto, Canada"
+              }
+            ],
+            "role": [
+              {
+                "vocabulary": "crossref",
+                "role": "author"
+              }
+            ]
+          }
+        ],
+        "container-title": [
+          "Communications of the ACM"
+        ],
+        "issued": {
+          "date-parts": [
+            [
+              2021,
+              6,
+              21
+            ]
+          ]
+        },
+        "URL": "https://doi.org/10.1145/3448250",
+        "ISSN": [
+          "0001-0782",
+          "1557-7317"
+        ]
+      },
+      {
+        "publisher": "ACM",
+        "DOI": "10.1145/1553374.1553543",
+        "type": "proceedings-article",
+        "page": "1-1",
+        "title": [
+          "Workshop summary: Workshop on learning feature hierarchies"
+        ],
+        "author": [
+          {
+            "given": "Kay",
+            "family": "Yu",
+            "sequence": "first",
+            "affiliation": [
+              {
+                "name": "NEC Laboratories America"
+              }
+            ],
+            "role": [
+              {
+                "vocabulary": "crossref",
+                "role": "author"
+              }
+            ]
+          },
+          {
+            "given": "Ruslan",
+            "family": "Salakhutdinov",
+            "sequence": "additional",
+            "affiliation": [
+              {
+                "name": "University of Toronto, Canada"
+              }
+            ],
+            "role": [
+              {
+                "vocabulary": "crossref",
+                "role": "author"
+              }
+            ]
+          },
+          {
+            "given": "Yann",
+            "family": "LeCun",
+            "sequence": "additional",
+            "affiliation": [
+              {
+                "name": "New York University"
+              }
+            ],
+            "role": [
+              {
+                "vocabulary": "crossref",
+                "role": "author"
+              }
+            ]
+          },
+          {
+            "given": "Geoff",
+            "family": "Hinton",
+            "sequence": "additional",
+            "affiliation": [
+              {
+                "name": "University of Toronto, Canada"
+              }
+            ],
+            "role": [
+              {
+                "vocabulary": "crossref",
+                "role": "author"
+              }
+            ]
+          },
+          {
+            "given": "Yoshua",
+            "family": "Bengio",
+            "sequence": "additional",
+            "affiliation": [
+              {
+                "name": "University of Montreal, Canada"
+              }
+            ],
+            "role": [
+              {
+                "vocabulary": "crossref",
+                "role": "author"
+              }
+            ]
+          }
+        ],
+        "event": {
+          "sponsor": [
+            "MITACS",
+            "Microsoft Research Microsoft Research",
+            "NSF"
+          ],
+          "acronym": "ICML '09",
+          "name": "ICML '09: The 26th Annual International Conference on Machine Learning held in conjunction with the 2007 International Conference on Inductive Logic Programming",
+          "location": "Montreal Quebec Canada"
+        },
+        "container-title": [
+          "Proceedings of the 26th Annual International Conference on Machine Learning"
+        ],
+        "issued": {
+          "date-parts": [
+            [
+              2009,
+              6,
+              14
+            ]
+          ]
+        },
+        "URL": "https://doi.org/10.1145/1553374.1553543"
+      },
+      {
+        "publisher": "The MIT Press",
+        "DOI": "10.7551/mitpress/7496.003.0016",
+        "type": "book-chapter",
+        "page": "321-360",
+        "title": [
+          "Scaling Learning Algorithms toward AI"
+        ],
+        "author": [
+          {
+            "given": "Yoshua",
+            "family": "Bengio",
+            "sequence": "first",
+            "affiliation": [],
+            "role": [
+              {
+                "vocabulary": "crossref",
+                "role": "author"
+              }
+            ]
+          },
+          {
+            "given": "Yann",
+            "family": "LeCun",
+            "sequence": "additional",
+            "affiliation": [],
+            "role": [
+              {
+                "vocabulary": "crossref",
+                "role": "author"
+              }
+            ]
+          }
+        ],
+        "container-title": [
+          "Large-Scale Kernel Machines"
+        ],
+        "issued": {
+          "date-parts": [
+            [
+              2007,
+              8,
+              17
+            ]
+          ]
+        },
+        "ISBN": [
+          "9780262255790"
+        ],
+        "URL": "https://doi.org/10.7551/mitpress/7496.003.0016"
+      },
+      {
+        "publisher": "Springer Science and Business Media LLC",
+        "issue": "1",
+        "DOI": "10.1007/s11263-015-0813-1",
+        "type": "journal-article",
+        "page": "1-2",
+        "title": [
+          "Guest Editorial: Deep Learning"
+        ],
+        "volume": "113",
+        "author": [
+          {
+            "given": "Marc’Aurelio",
+            "family": "Ranzato",
+            "sequence": "first",
+            "affiliation": [],
+            "role": [
+              {
+                "vocabulary": "crossref",
+                "role": "author"
+              }
+            ]
+          },
+          {
+            "given": "Geoffrey",
+            "family": "Hinton",
+            "sequence": "additional",
+            "affiliation": [],
+            "role": [
+              {
+                "vocabulary": "crossref",
+                "role": "author"
+              }
+            ]
+          },
+          {
+            "given": "Yann",
+            "family": "LeCun",
+            "sequence": "additional",
+            "affiliation": [],
+            "role": [
+              {
+                "vocabulary": "crossref",
+                "role": "author"
+              }
+            ]
+          }
+        ],
+        "container-title": [
+          "International Journal of Computer Vision"
+        ],
+        "issued": {
+          "date-parts": [
+            [
+              2015,
+              4,
+              24
+            ]
+          ]
+        },
+        "URL": "https://doi.org/10.1007/s11263-015-0813-1",
+        "ISSN": [
+          "0920-5691",
+          "1573-1405"
+        ]
+      }
+    ],
+    "items-per-page": 5,
+    "query": {
+      "start-index": 0,
+      "search-terms": null
+    }
+  }
+}

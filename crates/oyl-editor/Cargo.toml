@@ -1,0 +1,24 @@
+[package]
+name = "oyl-editor"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+gpui-kit.workspace = true
+oyl-ui = { path = "../oyl-ui" }
+oyl-model = { path = "../oyl-model" }
+typst-syntax.workspace = true
+anyhow.workspace = true
+log.workspace = true
+# The editor's completion and hover providers speak LSP types; the version
+# must match the one gpui-base is built against.
+lsp-types = { version = "0.97.0", features = ["proposed"] }
+# Three-way merge of external edits into a dirty buffer.
+diffy = "0.5"
+# Line diffs to carry the cursor across a reload.
+similar = "2.7"
+
+[dev-dependencies]
+tempfile.workspace = true

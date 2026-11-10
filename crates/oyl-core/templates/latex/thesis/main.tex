@@ -1,0 +1,77 @@
+% A thesis in several files: this one sets the look and holds the front
+% matter; each chapter lives in chapters/ and is included below with \input.
+\documentclass[11pt,a4paper,oneside]{report}
+
+% Fonts and typography
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{microtype}
+
+% Page
+\usepackage[a4paper,hmargin=2.8cm,top=3cm,bottom=3.2cm]{geometry}
+
+% Mathematics, figures and tables
+\usepackage{amsmath,amssymb}
+\usepackage{graphicx}
+\graphicspath{{figures/}}
+\usepackage{booktabs}
+
+% Citations, author-year (natbib with BibTeX)
+\usepackage[round]{natbib}
+
+% Links and citations in the thesis's accent colour
+\usepackage{xcolor}
+\definecolor{accent}{RGB}{140,82,18}
+\usepackage[colorlinks=true,linkcolor=accent,citecolor=accent,urlcolor=accent]{hyperref}
+
+\newcommand{\thesistitle}{{{title}}}
+\newcommand{\thesisauthor}{{{author}}}
+\newcommand{\thesisdate}{{{date}}}
+\newcommand{\thesisdegree}{A thesis submitted for the degree of Doctor of Philosophy}
+\newcommand{\thesisinstitution}{Your University}
+
+\hypersetup{pdftitle={\thesistitle},pdfauthor={\thesisauthor}}
+
+\begin{document}
+
+\begin{titlepage}
+  \centering
+  \vspace*{4cm}
+  {\Huge\bfseries \thesistitle\par}
+  \vspace{2cm}
+  {\Large \thesisauthor\par}
+  \vfill
+  {\large \thesisdegree\par}
+  \vspace{0.4cm}
+  {\large \thesisinstitution\par}
+  \vspace{0.4cm}
+  {\large \thesisdate\par}
+  \vspace*{1.5cm}
+\end{titlepage}
+
+% Front matter, numbered i, ii, iii ...
+\pagenumbering{roman}
+
+\chapter*{Abstract}
+\addcontentsline{toc}{chapter}{Abstract}
+
+Summarize the question, the approach and the findings of the thesis in one
+page. Write it last.
+
+{\hypersetup{linkcolor=black}\tableofcontents}
+
+% Main matter, numbered 1, 2, 3 ...
+\cleardoublepage
+\pagenumbering{arabic}
+
+\input{chapters/introduction}
+\input{chapters/background}
+\input{chapters/conclusion}
+
+\cleardoublepage
+\phantomsection
+\addcontentsline{toc}{chapter}{\bibname}
+\bibliographystyle{plainnat}
+\bibliography{refs}
+
+\end{document}

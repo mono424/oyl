@@ -1,0 +1,124 @@
+% A two-column conference paper. The preamble (up to \begin{document}) gives
+% it its look; the writing starts at the abstract.
+\documentclass[10pt,letterpaper]{article}
+
+% Fonts and typography
+\usepackage[T1]{fontenc}
+\usepackage{mathptmx}
+\usepackage{microtype}
+
+% Page: two columns
+\usepackage[letterpaper,hmargin=0.75in,top=0.85in,bottom=1in,columnsep=0.3in]{geometry}
+
+% Mathematics, figures and tables
+\usepackage{amsmath,amssymb}
+\usepackage{graphicx}
+\graphicspath{{figures/}}
+\usepackage{booktabs}
+\setlength{\belowcaptionskip}{6pt} % tables carry their caption on top
+
+% Citations, numeric (natbib with BibTeX)
+\usepackage[numbers,sort&compress]{natbib}
+
+% Links and citations in the paper's accent colour
+\usepackage{xcolor}
+\definecolor{accent}{RGB}{140,82,18}
+\usepackage[colorlinks=true,linkcolor=accent,citecolor=accent,urlcolor=accent]{hyperref}
+
+% Compact section headings for two columns
+\makeatletter
+\renewcommand\section{\@startsection{section}{1}{\z@}%
+  {-2.2ex \@plus -0.5ex \@minus -0.2ex}{1ex \@plus 0.2ex}%
+  {\normalfont\large\bfseries}}
+\renewcommand\subsection{\@startsection{subsection}{2}{\z@}%
+  {-1.8ex \@plus -0.5ex \@minus -0.2ex}{0.8ex \@plus 0.2ex}%
+  {\normalfont\normalsize\bfseries}}
+\makeatother
+
+\newcommand{\papertitle}{{{title}}}
+\newcommand{\paperauthor}{{{author}}}
+\newcommand{\paperaffiliation}{Your institution}
+\newcommand{\paperdate}{{{date}}}
+\newcommand{\paperkeywords}{typesetting, literate programming, writing tools}
+
+\hypersetup{pdftitle={\papertitle},pdfauthor={\paperauthor}}
+
+\begin{document}
+
+\twocolumn[
+  \begin{center}
+    {\LARGE\bfseries \papertitle\par}
+    \vspace{0.9em}
+    {\large \paperauthor\par}
+    \vspace{0.2em}
+    {\itshape \paperaffiliation\par}
+    \vspace{0.2em}
+    {\small \paperdate\par}
+  \end{center}
+  \vspace{1.5em}
+]
+
+\noindent\textbf{\textit{Abstract}---}One paragraph on the problem, the
+approach, and the main result, with the number that matters. Write it last.
+
+\smallskip
+\noindent\textbf{\textit{Keywords}---}\paperkeywords
+
+\section{Introduction}
+\label{sec:introduction}
+
+State the problem and why it matters in the first paragraph. Programs, like
+papers, should be written for people first~\citep{knuth1984}; so should the
+opening of a paper.
+
+End the introduction with the contributions:
+\begin{itemize}
+  \item the first contribution, in one line;
+  \item the second, with the section that shows it
+    (Section~\ref{sec:approach}).
+\end{itemize}
+
+\section{Approach}
+\label{sec:approach}
+
+Describe the method precisely enough to reproduce it. Equations are numbered:
+\begin{equation}
+  \hat{y} = \operatorname*{arg\,max}_{y}\, p_\theta(y \mid x)
+  \label{eq:decode}
+\end{equation}
+and referred to by label, as in~\eqref{eq:decode}.
+
+\section{Evaluation}
+\label{sec:evaluation}
+
+\begin{table}[htbp]
+  \centering
+  \caption{Results on the main benchmark.}
+  \label{tab:main}
+  \begin{tabular}{lrr}
+    \toprule
+    Method   & Score & Time (s) \\
+    \midrule
+    Method A & 71.2  & 3.4      \\
+    Method B & 84.9  & 2.1      \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+Table~\ref{tab:main} compares the methods. Put images in the figures
+folder and place them in a \texttt{figure} environment with a caption.
+
+\section{Related Work}
+\label{sec:related}
+
+Place the paper among the closest prior work, citing each by its key.
+
+\section{Conclusion}
+\label{sec:conclusion}
+
+Summarize the result and its limits in a few sentences.
+
+\bibliographystyle{abbrvnat}
+\bibliography{refs}
+
+\end{document}

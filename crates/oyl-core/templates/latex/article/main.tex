@@ -1,0 +1,91 @@
+% The preamble (up to \begin{document}) gives the paper its look.
+% The writing starts at the abstract.
+\documentclass[11pt,a4paper]{article}
+
+% Fonts and typography
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{microtype}
+
+% Page
+\usepackage[a4paper,hmargin=2.6cm,top=2.8cm,bottom=3cm]{geometry}
+
+% Mathematics, figures and tables
+\usepackage{amsmath,amssymb}
+\usepackage{graphicx}
+\graphicspath{{figures/}}
+\usepackage{booktabs}
+\setlength{\belowcaptionskip}{6pt} % tables carry their caption on top
+
+% Citations, author-year (natbib with BibTeX)
+\usepackage[round]{natbib}
+
+% Links and citations in the paper's accent colour
+\usepackage{xcolor}
+\definecolor{accent}{RGB}{140,82,18}
+\usepackage[colorlinks=true,linkcolor=accent,citecolor=accent,urlcolor=accent]{hyperref}
+
+\title{{{title}}}
+\author{{{author}}}
+\date{{{date}}}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+One paragraph on what this paper does, how, and what it finds. Write it last,
+when you know what the paper says.
+\end{abstract}
+
+\section{Introduction}
+\label{sec:introduction}
+
+Start here. Oyl compiles the paper whenever you pause, so the pages follow
+your words. Cite a source from \texttt{refs.bib} by its key: programs, like
+papers, should be written for people first~\citep{knuth1984}. The list of
+references at the end fills in by itself.
+
+Ask the agent to draft, tighten or restructure any part of the paper. It edits
+these files directly, and every change is kept in the history.
+
+\section{Method}
+\label{sec:method}
+
+Equations are numbered and can be referred to by their label:
+\begin{equation}
+  \mathcal{L}(\theta) = -\sum_{i=1}^{n} \log p_\theta(y_i \mid x_i)
+  \label{eq:loss}
+\end{equation}
+Minimizing~\eqref{eq:loss} over $\theta$ fits the model to the $n$ examples.
+
+\section{Results}
+\label{sec:results}
+
+Table~\ref{tab:results} shows how a table looks. Images go in the
+\texttt{figures/} folder and are placed the same way, in a \texttt{figure}
+environment with \texttt{\textbackslash includegraphics} and a caption.
+
+\begin{table}[htbp]
+  \centering
+  \caption{A table with a caption, numbered and referred to by its label.}
+  \label{tab:results}
+  \begin{tabular}{lrr}
+    \toprule
+    Method   & Accuracy (\%) & Time (s) \\
+    \midrule
+    Method A & 71.2          & 3.4      \\
+    Method B & 84.9          & 2.1      \\
+    \bottomrule
+  \end{tabular}
+\end{table}
+
+\section{Conclusion}
+\label{sec:conclusion}
+
+Say what the paper showed and what comes next.
+
+\bibliographystyle{plainnat}
+\bibliography{refs}
+
+\end{document}

@@ -1,0 +1,44 @@
+[package]
+name = "oyl-app"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[[bin]]
+name = "oyl"
+path = "src/main.rs"
+
+[dependencies]
+gpui-kit.workspace = true
+oyl-ui = { path = "../oyl-ui" }
+oyl-model = { path = "../oyl-model" }
+oyl-core = { path = "../oyl-core" }
+oyl-sources = { path = "../oyl-sources" }
+oyl-history = { path = "../oyl-history" }
+oyl-typeset = { path = "../oyl-typeset" }
+oyl-agent = { path = "../oyl-agent" }
+oyl-editor = { path = "../oyl-editor" }
+oyl-preview = { path = "../oyl-preview" }
+oyl-chat = { path = "../oyl-chat" }
+oyl-panels = { path = "../oyl-panels" }
+anyhow.workspace = true
+log.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+async-channel.workspace = true
+parking_lot.workspace = true
+chrono.workspace = true
+dirs.workspace = true
+# Restoring SIGCHLD for a process launched from Finder (see `main`).
+libc = "0.2"
+# `oyl --self-test` works in a temporary folder and pastes a generated PNG.
+tempfile.workspace = true
+image.workspace = true
+
+[dev-dependencies]
+# GPUI's headless test platform for the shell's UI tests. Enabled on the GPUI
+# package gpui-kit itself uses, as oyl-preview does: gpui-kit's own
+# `test-support` feature also makes Cargo resolve its optional gpui-fast
+# backend, whose taffy pin conflicts with the workspace's lock.
+gpui = { package = "gpui-pre", version = "=0.3.12", features = ["test-support"] }

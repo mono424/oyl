@@ -1,0 +1,28 @@
+[package]
+name = "oyl-preview"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+publish.workspace = true
+
+[dependencies]
+gpui-kit.workspace = true
+oyl-ui = { path = "../oyl-ui" }
+oyl-model = { path = "../oyl-model" }
+image.workspace = true
+anyhow.workspace = true
+log.workspace = true
+smol.workspace = true
+serde.workspace = true
+
+[dev-dependencies]
+# GPUI's headless test platform, for the pane's UI tests (src/ui_tests.rs).
+# Enabled on the GPUI package gpui-kit itself uses (`gpui_kit::*` then
+# re-exports the test types): gpui-kit's own `test-support` feature also
+# makes Cargo resolve its optional gpui-fast backend, whose `taffy =0.15.0`
+# pin conflicts with the workspace's locked taffy 0.15.1.
+gpui = { package = "gpui-pre", version = "=0.3.12", features = ["test-support"] }
+
+[[example]]
+name = "preview"
+path = "examples/preview.rs"

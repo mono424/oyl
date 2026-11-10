@@ -1,0 +1,72 @@
+% Notes: loose structure, quick to write in. The preamble (up to
+% \begin{document}) gives them their look.
+\documentclass[11pt,a4paper]{article}
+
+% Fonts and typography
+\usepackage[T1]{fontenc}
+\usepackage{lmodern}
+\usepackage{microtype}
+
+% Page: paragraphs separated by space, not indented
+\usepackage[a4paper,hmargin=2.4cm,vmargin=2.6cm]{geometry}
+\usepackage{parskip}
+
+% Mathematics and figures
+\usepackage{amsmath,amssymb}
+\usepackage{graphicx}
+\graphicspath{{figures/}}
+
+% Citations, author-year (natbib with BibTeX)
+\usepackage[round]{natbib}
+
+% Links and citations in the accent colour
+\usepackage{xcolor}
+\definecolor{accent}{RGB}{140,82,18}
+\usepackage[colorlinks=true,linkcolor=accent,citecolor=accent,urlcolor=accent]{hyperref}
+
+% Unnumbered sections
+\setcounter{secnumdepth}{0}
+
+\newcommand{\notestitle}{{{title}}}
+\newcommand{\notesauthor}{{{author}}}
+\newcommand{\notesdate}{{{date}}}
+
+\hypersetup{pdftitle={\notestitle},pdfauthor={\notesauthor}}
+
+\begin{document}
+
+{\LARGE\bfseries \notestitle\par}
+\vspace{0.3em}
+{\color{black!60}\notesauthor\quad\textperiodcentered\quad\notesdate\par}
+\vspace{0.4em}
+\noindent\rule{\linewidth}{0.4pt}
+
+\section{Ideas}
+
+\begin{itemize}
+  \item Write things down as they come; structure can wait.
+  \item One idea per bullet, so it is easy to move later.
+  \begin{itemize}
+    \item Sub-points go one level in.
+  \end{itemize}
+\end{itemize}
+
+\section{Reading}
+
+Keep track of what you read and what it gave you. Programs, like papers,
+should be written for people first~\citep{knuth1984}. Every source cited from
+\texttt{refs.bib} appears in the list at the end.
+
+\section{Next steps}
+
+\begin{enumerate}
+  \item Turn the strongest idea into a paragraph.
+  \item Ask the agent to find the related work and add it to
+    \texttt{refs.bib}.
+  \item Start a paper from these notes when the outline holds.
+\end{enumerate}
+
+\bibliographystyle{plainnat}
+\bibliography{refs}
+
+\end{document}
