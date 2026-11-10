@@ -262,7 +262,7 @@ function Reader(props: {
               </Show>
               <Show when={props.paper.url?.trim()}>
                 {(url) => (
-                  <a href={url()} target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 break-all text-blue underline underline-offset-2">
+                  <a href={url()} target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-1 break-all text-accent underline underline-offset-2">
                     {url()} <ExternalLink size={13} stroke-width={1.9} />
                   </a>
                 )}
@@ -379,7 +379,7 @@ function AddPapers(props: { owner: string; documentId: string; courseId: string;
           />
         </div>
         <Show when={notice()}>
-          <p class="rounded-xl bg-red-soft px-3 py-2 text-[13px] text-red">{notice()}</p>
+          <p class="rounded-xl bg-danger-soft px-3 py-2 text-[13px] text-danger">{notice()}</p>
         </Show>
         <p class="pt-1 text-[12px] text-muted">An uploaded PDF joins the course's material too, so ChatGPT can search it.</p>
         <div>

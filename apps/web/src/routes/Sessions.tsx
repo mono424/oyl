@@ -16,7 +16,7 @@ export default function SessionsPage() {
 
   return (
     <div class="mx-auto w-full min-w-0 max-w-3xl px-4 pb-6 pt-6 sm:px-8 sm:pb-14 sm:pt-5">
-      <h1 class="text-[26px] font-semibold leading-tight tracking-tight sm:text-[30px]">Sessions</h1>
+      <h1 class="font-display text-[28px] font-normal leading-tight tracking-[-0.01em] sm:text-[32px]">Sessions</h1>
       <p class="mt-1.5 text-[15px] leading-relaxed text-muted sm:text-[16px]">
         The study sessions ChatGPT saved, with their recap, and your earlier calls.
       </p>
@@ -38,7 +38,7 @@ export default function SessionsPage() {
           >
             {(call) => (
               <li>
-                <A href={`/calls/${idKey(call.id)}`} class="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3 gap-y-1 rounded-2xl px-3 py-3 hover:bg-soft sm:flex sm:gap-3">
+                <A href={`/calls/${idKey(call.id)}`} class="grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3 gap-y-1 rounded-lg px-3 py-3 hover:bg-soft sm:flex sm:gap-3">
                   <Dot tone="idle" class="row-span-2 mx-0.5 sm:mx-1" />
                   <span class="min-w-0 flex-1">
                     <span class="line-clamp-2 text-[15px] font-medium [overflow-wrap:anywhere] sm:block sm:truncate">

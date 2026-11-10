@@ -13,7 +13,7 @@ import { SideSlot } from './HeaderSlot';
 import { VirtualList } from './VirtualList';
 
 const navClass = (active: boolean) =>
-  `flex h-11 items-center gap-3 rounded-2xl px-3 text-[15px] transition-colors ${active ? 'bg-soft text-fg' : 'text-fg hover:bg-soft'}`;
+  `flex h-11 items-center gap-3 rounded-lg px-3 text-[15px] transition-colors md:h-9 md:text-[14px] ${active ? 'bg-accent-soft text-fg' : 'text-fg hover:bg-soft'}`;
 
 /** A lecture: /courses/<course>/materials/<material>. */
 const MATERIAL_PATH = /^\/courses\/([^/]+)\/materials\/([^/]+)\/?$/;
@@ -71,11 +71,11 @@ export function Sidebar(props: { open: boolean; onClose: () => void }) {
   return (
     <>
       <Show when={props.open}>
-        <button type="button" aria-label="Close navigation" tabindex="-1" class="absolute inset-0 z-20 bg-black/30 md:hidden" onClick={props.onClose} />
+        <button type="button" aria-label="Close navigation" tabindex="-1" class="absolute inset-0 z-20 bg-[var(--overlay)] md:hidden" onClick={props.onClose} />
       </Show>
       <aside
         id="app-navigation"
-        class={`scroll-quiet absolute inset-y-0 left-0 z-30 w-[288px] max-w-[calc(100%-3rem)] shrink-0 overflow-y-auto overscroll-contain rounded-r-2xl bg-surface px-3 py-4 shadow-card transition-[transform,visibility] md:visible md:static md:max-w-none md:translate-x-0 md:rounded-none md:shadow-none ${
+        class={`scroll-quiet absolute inset-y-0 left-0 z-30 w-[288px] max-w-[calc(100%-3rem)] shrink-0 overflow-y-auto overscroll-contain rounded-r-2xl bg-raised px-3 py-4 shadow-raised transition-[transform,visibility] md:visible md:bg-transparent md:static md:max-w-none md:translate-x-0 md:rounded-none md:shadow-none ${
           props.open ? 'visible translate-x-0' : 'invisible -translate-x-full'
         }`}
         aria-label="Navigation"
@@ -96,7 +96,7 @@ export function Sidebar(props: { open: boolean; onClose: () => void }) {
                 </button>
               }
             >
-              <form onSubmit={create} class="flex h-11 items-center gap-3 rounded-2xl bg-soft px-3">
+              <form onSubmit={create} class="flex h-11 items-center gap-3 rounded-lg bg-soft px-3 md:h-9">
                 <Plus size={19} stroke-width={1.6} class="shrink-0 text-muted" />
                 <input
                   class="min-w-0 flex-1 bg-transparent text-[16px] outline-none placeholder:text-faint md:text-[15px]"
@@ -113,7 +113,7 @@ export function Sidebar(props: { open: boolean; onClose: () => void }) {
           </nav>
 
           <Show when={attentionItems().length > 0}>
-            <div class="mt-5 overflow-hidden rounded-[18px] border border-line bg-surface shadow-card">
+            <div class="mt-5 overflow-hidden rounded-2xl border border-line bg-surface shadow-card">
               <div class="p-1.5">
                 <SectionLabel class="pt-2">Needs attention</SectionLabel>
                 <ul>
@@ -122,7 +122,7 @@ export function Sidebar(props: { open: boolean; onClose: () => void }) {
                       <li>
                         <A
                           href={`/courses/${idKey(m.course)}/materials/${idKey(m.id)}`}
-                          class="flex h-11 items-center gap-3 rounded-2xl px-3 text-[15px] hover:bg-soft"
+                          class="flex h-11 items-center gap-3 rounded-lg px-3 text-[15px] hover:bg-soft"
                           title={m.status === 'failed' ? (m.error ?? undefined) : (m.status_detail ?? undefined)}
                         >
                           <Dot tone={materialTone(m.status)} class="ml-1 mr-1" />
@@ -209,8 +209,8 @@ export function RecentSessions() {
             <li>
               <A
                 href={`/calls/${idKey(call.id)}`}
-                class={`flex h-9 items-center gap-2 rounded-xl px-3 text-[13px] transition-colors ${
-                  location.pathname === `/calls/${idKey(call.id)}` ? 'bg-soft text-fg' : 'text-muted hover:bg-soft hover:text-fg'
+                class={`flex h-9 items-center gap-2 rounded-lg px-3 text-[13px] transition-colors ${
+                  location.pathname === `/calls/${idKey(call.id)}` ? 'bg-accent-soft text-fg' : 'text-muted hover:bg-soft hover:text-fg'
                 }`}
               >
                 <span class="min-w-0 flex-1 truncate">

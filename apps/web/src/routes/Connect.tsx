@@ -48,11 +48,11 @@ export default function ConnectPage() {
   return (
     <div class="mx-auto w-full min-w-0 max-w-xl px-4 py-7 sm:px-5 sm:py-20">
       <Card class="p-5 sm:p-8">
-        <span class="mb-5 flex h-12 w-12 items-center justify-center rounded-2xl bg-soft text-muted"><Link2 size={23} stroke-width={1.6} /></span>
-        <h1 class="text-[26px] font-semibold leading-tight tracking-tight">Connect your assistant</h1>
+        <span class="mb-5 flex h-12 w-12 items-center justify-center rounded-lg bg-soft text-muted"><Link2 size={23} stroke-width={1.6} /></span>
+        <h1 class="font-display text-[28px] font-normal leading-tight tracking-[-0.01em]">Connect your assistant</h1>
         <Show when={consent.loading}><Loader size={6} label="Checking your connection request" class="mt-5 text-faint" /></Show>
         <Show when={consent.error}>
-          <p class="mt-4 break-words text-[15px] text-red" role="alert">{consent.error?.message ?? 'This connection request has expired.'}</p>
+          <p class="mt-4 break-words text-[15px] text-danger" role="alert">{consent.error?.message ?? 'This connection request has expired.'}</p>
           <A href="/settings" class={`${buttonClass('soft')} mt-5 w-full sm:w-auto`}>Back to ChatGPT settings</A>
         </Show>
         <Show when={consent()}>
@@ -73,9 +73,9 @@ export default function ConnectPage() {
             <p class="mt-4 text-[13px] leading-relaxed text-muted [overflow-wrap:anywhere]">
               Return to {request().redirectHost} after approval. You can revoke this connection from the ChatGPT page in Oyl at any time.
             </p>
-            <Show when={error()}><p class="mt-4 break-words text-[14px] text-red" role="alert">{error()}</p></Show>
+            <Show when={error()}><p class="mt-4 break-words text-[14px] text-danger" role="alert">{error()}</p></Show>
             <div class="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
-              <Button disabled={busy()} onClick={() => decide(true)}><Show when={busy()} fallback={<>Allow access<ArrowUpRight size={16} /></>}><Loader size={4} label="Connecting" class="text-solid-fg" /></Show></Button>
+              <Button disabled={busy()} onClick={() => decide(true)}><Show when={busy()} fallback={<>Allow access<ArrowUpRight size={16} /></>}><Loader size={4} label="Connecting" class="text-on-accent" /></Show></Button>
               <Button variant="ghost" disabled={busy()} onClick={() => decide(false)}>Cancel</Button>
             </div>
           </>}

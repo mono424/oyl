@@ -580,14 +580,14 @@ function Workspace(props: { doc: DocumentRow; papers: PaperRow[]; courseKey: str
           <Show
             when={!isTex()}
             fallback={
-              <div class="sticky top-3 mx-auto h-[calc(100dvh-7.5rem)] min-w-0 max-w-[58rem]">
+              <div class="oyl-card sticky top-3 mx-auto h-[calc(100dvh-7.5rem)] min-w-0 max-w-[58rem] overflow-hidden py-2 pr-2">
                 <Suspense fallback={<div class="h-40 animate-pulse rounded-xl bg-soft" />}>
                   <TexDocumentEditor content={() => textOf(id)} onInput={(t) => edit(id, t)} onBlur={saveAll} onView={setView} uploadImage={(file) => uploadImage(id, file)} onAddImages={(add) => (addImages = add)} label={props.doc.title} />
                 </Suspense>
               </div>
             }
           >
-          <div class="mx-auto max-w-3xl px-1 sm:px-4">
+          <div class="oyl-card mx-auto max-w-3xl px-4 pt-5 sm:px-9 sm:pt-8">
             <Suspense fallback={<div class="h-40 animate-pulse rounded-xl bg-soft" />}>
               <Editor
                 parts={parts}
@@ -626,9 +626,9 @@ function Workspace(props: { doc: DocumentRow; papers: PaperRow[]; courseKey: str
 
       {/* Phones and tablets: the papers slide up over the text. */}
       <Show when={!wide() && showPapers()}>
-        <div class="fixed inset-0 z-30 bg-black/10" onClick={() => setShowPapers(false)} />
+        <div class="fixed inset-0 z-30 bg-[var(--overlay)]" onClick={() => setShowPapers(false)} />
         <aside
-          class="fixed inset-x-0 bottom-0 z-40 flex h-[78dvh] flex-col overflow-hidden rounded-t-2xl border border-line bg-surface shadow-[0_-10px_30px_-18px_rgb(0_0_0/0.3)]"
+          class="fixed inset-x-0 bottom-0 z-40 flex h-[78dvh] flex-col overflow-hidden rounded-t-2xl border border-line-strong bg-raised shadow-raised backdrop-blur-xl"
           aria-label="Papers"
         >
           {panel()}
@@ -654,7 +654,7 @@ function DownloadMenu(props: { items: { label: string; detail: string; icon: typ
         <div class="fixed inset-0 z-40" onClick={() => setOpen(false)} />
         <div
           role="menu"
-          class="absolute right-0 z-50 mt-2 w-64 rounded-2xl border border-line bg-surface p-1.5 shadow-card"
+          class="absolute right-0 z-50 mt-2 w-64 oyl-glass rounded-2xl border-line-strong p-1.5 shadow-raised"
           onKeyDown={(e) => e.key === 'Escape' && setOpen(false)}
         >
           <For each={props.items}>

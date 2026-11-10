@@ -192,7 +192,7 @@ export function PdfViewer(props: {
       {/* The viewer's controls stay on top while the pages scroll. */}
       <Show when={doc()}>
         <div class="sticky top-3 z-10 mb-3 flex justify-center">
-          <div class="flex items-center gap-1 rounded-full border border-line bg-surface/95 px-2 py-1 shadow-card backdrop-blur">
+          <div class="oyl-glass flex items-center gap-1 rounded-xl px-2 py-1 shadow-raised">
             <span class="px-2 text-[13px] tabular-nums text-muted">
               p. {current()} / {doc()!.numPages}
             </span>
@@ -235,7 +235,7 @@ export function PdfViewer(props: {
                     data-page={i() + 1}
                     role="img"
                     aria-label={`Page ${i() + 1}`}
-                    class="scroll-mt-20 overflow-hidden rounded-md bg-white shadow-card"
+                    class="oyl-paper scroll-mt-20 overflow-hidden rounded-md"
                     style={{ width: `${pageWidth()}px`, height: `${Math.round(pageWidth() / ratio)}px` }}
                   />
                 )}

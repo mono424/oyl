@@ -102,7 +102,7 @@ export function Sheet(props: {
             <span class="hidden shrink-0 sm:block">{props.icon}</span>
           </Show>
           <div class="min-w-0 flex-1">
-            <h2 id={titleId} class="text-[17px] font-semibold leading-tight tracking-tight sm:text-[22px]">
+            <h2 id={titleId} class="font-display text-[19px] font-normal leading-tight tracking-[-0.01em] sm:text-[24px]">
               {props.title}
             </h2>
             <Show when={props.subtitle}>
@@ -111,7 +111,7 @@ export function Sheet(props: {
           </div>
           <button
             type="button"
-            class="-mr-1 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-[var(--glass-fill)] text-muted transition-colors hover:bg-[var(--glass-fill-strong)] hover:text-fg sm:h-9 sm:w-9"
+            class="-mr-1 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-[var(--glass-fill)] text-muted transition-colors hover:bg-[var(--glass-fill-strong)] hover:text-fg sm:h-9 sm:w-9"
             aria-label="Close"
             onClick={close}
           >

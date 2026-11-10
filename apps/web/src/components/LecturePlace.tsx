@@ -112,7 +112,7 @@ export function LecturePlace(props: {
       </button>
 
       <Show when={props.error}>
-        <p class="mt-1.5 break-words text-[12px] text-red" role="alert">
+        <p class="mt-1.5 break-words text-[12px] text-danger" role="alert">
           {props.error}
         </p>
       </Show>
@@ -123,7 +123,7 @@ export function LecturePlace(props: {
           ref={list}
           role="listbox"
           aria-label="Reached in lecture"
-          class="scroll-quiet absolute inset-x-0 top-full z-50 mt-2 max-h-[min(28rem,60dvh)] overflow-y-auto overscroll-contain rounded-2xl border border-line bg-surface p-1.5 shadow-card"
+          class="scroll-quiet absolute inset-x-0 top-full z-50 mt-2 max-h-[min(28rem,60dvh)] overflow-y-auto overscroll-contain oyl-glass rounded-2xl border-line-strong p-1.5 shadow-raised"
           onKeyDown={onListKey}
         >
           <p class="px-3 pb-1.5 pt-1 text-[12px] leading-snug text-faint">

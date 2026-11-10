@@ -4,9 +4,10 @@ import { AudioLines, MessageCircle } from 'lucide-solid';
 import type { schema } from '../schema.gen';
 import { api, MCP_URL } from '../lib/api';
 import { useAuth } from '../lib/auth';
+import { appearance, setAppearance, type Appearance } from '../lib/theme';
 import { qApiKeys } from '../lib/query';
 import { CopyField, useChatGPTGuide, VOICE_PROMPTS } from '../components/ChatGPTGuide';
-import { Button, Card, Dot, formatDate, inputClass } from '../components/ui';
+import { Button, Card, Dot, formatDate, inputClass, Segmented } from '../components/ui';
 
 /** Makes a key for the user's own scripts. The API only hands it out this once. */
 function NewApiKey() {
@@ -71,7 +72,7 @@ export default function SettingsPage() {
 
   return (
     <div class="mx-auto w-full min-w-0 max-w-3xl px-4 py-7 sm:px-8 sm:py-14">
-      <h1 class="text-[28px] font-semibold leading-tight tracking-tight sm:text-[30px]">ChatGPT</h1>
+      <h1 class="font-display text-[30px] font-normal leading-tight tracking-[-0.01em] sm:text-[32px]">ChatGPT</h1>
       <p class="mt-1.5 max-w-2xl text-[16px] leading-relaxed text-muted">
         Study with ChatGPT from your own courses: it reads your lectures, progress and past sessions, quizzes you and saves what
         you covered. It can also create courses, add material and upload PDFs, through Oyl's MCP server.
@@ -97,7 +98,7 @@ export default function SettingsPage() {
 
       <Card class="mt-4 p-4 sm:p-6">
         <div class="flex items-center gap-3">
-          <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-soft text-muted">
+          <span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-soft text-muted">
             <AudioLines size={20} stroke-width={1.7} />
           </span>
           <h2 class="text-[18px] font-semibold tracking-tight">Learn on the go with ChatGPT voice</h2>
@@ -108,7 +109,7 @@ export default function SettingsPage() {
         </p>
         <ul class="mt-4 flex flex-col gap-2" aria-label="Things to say">
           <For each={VOICE_PROMPTS}>
-            {(prompt) => <li class="rounded-2xl bg-soft px-3.5 py-2.5 text-[14px] [overflow-wrap:anywhere]">"{prompt}"</li>}
+            {(prompt) => <li class="rounded-lg bg-soft px-3.5 py-2.5 text-[14px] [overflow-wrap:anywhere]">"{prompt}"</li>}
           </For>
         </ul>
         <p class="mt-4 max-w-xl text-[13px] leading-relaxed text-muted">
@@ -124,7 +125,7 @@ export default function SettingsPage() {
         <ul>
           <For each={keys.data() ?? []} fallback={<li class="px-3 py-4 text-[14px] text-muted">No connections yet.</li>}>
             {(k) => (
-              <li class="flex items-center gap-2 rounded-2xl px-2 py-2.5 hover:bg-soft sm:gap-3 sm:px-3">
+              <li class="flex items-center gap-2 rounded-lg px-2 py-2.5 hover:bg-soft sm:gap-3 sm:px-3">
                 <Dot tone={k.revoked_at ? 'idle' : 'ready'} class="mx-1" />
                 <div class="min-w-0 flex-1">
                   <span class="text-[15px] font-medium [overflow-wrap:anywhere]">{k.name}</span>
@@ -142,6 +143,23 @@ export default function SettingsPage() {
             )}
           </For>
         </ul>
+      </Card>
+
+      <Card class="mt-4 flex flex-col gap-3 p-4 sm:flex-row sm:items-center sm:justify-between sm:p-6">
+        <div>
+          <h2 class="text-[16px] font-semibold">Appearance</h2>
+          <p class="mt-1 text-[14px] text-muted">System follows your device. The sun and moon in the top bar switch it too.</p>
+        </div>
+        <Segmented<Appearance>
+          label="Appearance"
+          value={appearance()}
+          onChange={setAppearance}
+          options={[
+            { value: 'system', label: 'System' },
+            { value: 'light', label: 'Light' },
+            { value: 'dark', label: 'Dark' },
+          ]}
+        />
       </Card>
     </div>
   );

@@ -24,7 +24,7 @@ export default function Home() {
 
   return (
     <div class="mx-auto w-full max-w-3xl px-4 pb-7 pt-6 sm:px-8 sm:pb-14 sm:pt-5">
-      <h1 class="break-words text-[28px] font-semibold leading-tight tracking-tight sm:text-[30px]">
+      <h1 class="break-words font-display text-[30px] font-normal leading-tight tracking-[-0.01em] sm:text-[34px]">
         {greeting()}
         <Show when={firstName()}>, {firstName()}</Show>
       </h1>

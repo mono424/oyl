@@ -1,11 +1,15 @@
-/** Divider-tab colors a course can carry. Keys are stored on `course.color`. */
+/**
+ * Divider-tab colors a course can carry. Keys are stored on `course.color`.
+ * Quiet, dusty tones that sit beside Oyl's one amber accent without competing
+ * with it.
+ */
 export const COURSE_COLORS = {
-  blue: '#8fb8e8',
-  orange: '#f2a97e',
-  green: '#9ed3a8',
-  lilac: '#cfa6e0',
-  yellow: '#f0cd5e',
-  red: '#e89a9a',
+  blue: '#9aaec4',
+  orange: '#d4a07c',
+  green: '#9cb89e',
+  lilac: '#b6a3c2',
+  yellow: '#d2b56c',
+  red: '#cc958f',
 } as const;
 
 export type CourseColor = keyof typeof COURSE_COLORS;

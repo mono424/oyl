@@ -68,7 +68,7 @@ export function SidePanel(props: {
           }}
         />
         <aside
-          class={`flex h-full shrink-0 flex-col overflow-hidden rounded-2xl border border-line bg-surface shadow-frame ${motion}`}
+          class={`flex h-full shrink-0 flex-col overflow-hidden oyl-card rounded-2xl ${motion}`}
           style={{ width: `${props.width}px`, ...still() }}
           aria-label={props.label}
         >

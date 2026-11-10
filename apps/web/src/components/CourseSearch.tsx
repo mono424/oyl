@@ -87,7 +87,7 @@ export function CourseSearch(props: { courseId: string }) {
           <Loader label="Searching" class="ml-3 mt-4 text-faint" />
         </Show>
         <Show when={error()}>
-          <p class="mt-3 break-words text-[13px] text-red">{error()}</p>
+          <p class="mt-3 break-words text-[13px] text-danger">{error()}</p>
         </Show>
         <Show when={hits()}>
           {(list) => (

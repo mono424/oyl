@@ -509,11 +509,11 @@ const highlight = HighlightStyle.define([
   { tag: tags.emphasis, fontStyle: 'italic' },
   { tag: tags.strong, fontWeight: '600' },
   { tag: tags.strikethrough, textDecoration: 'line-through', color: 'var(--muted)' },
-  { tag: tags.link, color: 'var(--blue)' },
+  { tag: tags.link, color: 'var(--accent)' },
   { tag: tags.url, color: 'var(--muted)' },
   { tag: [tags.processingInstruction, tags.contentSeparator], color: 'var(--faint)' },
   { tag: tags.quote, color: 'var(--muted)' },
-  { tag: mathTag, color: 'color-mix(in srgb, var(--blue) 80%, var(--fg))', fontFamily: 'var(--font-mono)', fontSize: '0.9em' },
+  { tag: mathTag, color: 'color-mix(in srgb, var(--accent) 80%, var(--fg))', fontFamily: 'var(--font-mono)', fontSize: '0.9em' },
 ]);
 
 /** Markdown with math, previewed in place. `syntax` extends the parser (a document's citations). */

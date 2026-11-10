@@ -76,7 +76,7 @@ export default function SitePage() {
           <Show when={s().status === 'ready'} fallback={<div class="p-10 text-muted">This site's upload did not finish. Delete it and upload it again.</div>}>
             {/* Keyed by address, so choosing another first page loads it. */}
             <Show when={url()} keyed>
-              {(src) => <iframe title={s().title} src={src} class="block min-h-0 w-full flex-1 border-0 bg-white" sandbox="allow-scripts allow-forms allow-modals allow-downloads allow-popups allow-popups-to-escape-sandbox" allow="autoplay; fullscreen" />}
+              {(src) => <iframe title={s().title} src={src} class="block min-h-0 w-full flex-1 border-0 bg-paper" sandbox="allow-scripts allow-forms allow-modals allow-downloads allow-popups allow-popups-to-escape-sandbox" allow="autoplay; fullscreen" />}
             </Show>
           </Show>
         </div>

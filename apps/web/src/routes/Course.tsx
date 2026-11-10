@@ -236,7 +236,7 @@ export default function CoursePage() {
           <Show when={c().description}>
             <p class="max-w-2xl break-words pt-3 text-[15px] leading-snug text-muted sm:pt-5 sm:text-[16px]">{c().description}</p>
           </Show>
-          <div class="sticky top-0 z-10 -mx-3 mb-3 bg-surface px-3 pb-2 pt-3 sm:pt-5">
+          <div class="sticky top-0 z-10 -mx-3 mb-3 bg-veil px-3 pb-2 pt-3 backdrop-blur-xl sm:pt-5">
             <CourseSearch courseId={c().id} />
             <div class="mt-2 flex items-center gap-2">
               <div role="tablist" aria-label="Course content" class="scroll-quiet -mx-1 flex min-w-0 flex-1 items-center gap-0.5 overflow-x-auto px-1">
@@ -248,7 +248,7 @@ export default function CoursePage() {
                       id={`course-tab-${t.value}`}
                       aria-selected={tab() === t.value}
                       aria-controls="course-tab-panel"
-                      class={`flex h-11 shrink-0 items-center rounded-full px-2 text-[13px] transition-colors sm:px-3.5 sm:text-[14px] md:h-8 ${
+                      class={`flex h-11 shrink-0 items-center rounded-lg px-2 text-[13px] transition-colors sm:px-3.5 sm:text-[14px] md:h-8 ${
                         tab() === t.value ? 'bg-soft font-medium text-fg' : 'text-muted hover:bg-soft hover:text-fg'
                       }`}
                       onClick={() => showTab(t.value)}
@@ -299,9 +299,9 @@ export default function CoursePage() {
                 <SourcesSection courseId={c().id} onOpen={setOpenSource} onAdd={() => setAddingSource(true)} />
               </Match>
               <Match when={tab() === 'material'}>
-                <section class={`-mx-3 rounded-2xl ${dragging() ? 'ring-2 ring-blue/40' : ''}`}>
+                <section class={`-mx-3 rounded-2xl ${dragging() ? 'ring-2 ring-accent/40' : ''}`}>
                   <Show when={notice()}>
-                    <p class="mx-3 mb-2 shrink-0 break-words rounded-xl bg-red-soft px-3.5 py-2.5 text-[14px] text-red">{notice()}</p>
+                    <p class="mx-3 mb-2 shrink-0 break-words rounded-xl bg-danger-soft px-3.5 py-2.5 text-[14px] text-danger">{notice()}</p>
                   </Show>
 
                   <Show when={writing()}>
@@ -392,7 +392,7 @@ function AddMaterial(props: { onFiles: (files: FileList) => void; onWrite: () =>
         <div class="fixed inset-0 z-40" onClick={() => setOpen(false)} />
         <div
           role="menu"
-          class="absolute right-0 z-50 mt-2 w-56 rounded-2xl border border-line bg-surface p-1.5 shadow-card"
+          class="absolute right-0 z-50 mt-2 w-56 oyl-glass rounded-2xl border-line-strong p-1.5 shadow-raised"
           onKeyDown={(e) => e.key === 'Escape' && setOpen(false)}
         >
           <button
@@ -555,7 +555,7 @@ function CourseSettings(props: { course: CourseRow }) {
               <Button
                 variant="ghost"
                 size="sm"
-                class="-ml-3 text-red"
+                class="-ml-3 text-danger"
                 onClick={async () => {
                   if (confirm(`Delete “${props.course.title}” with all its material and study sessions? This cannot be undone.`)) {
                     close();
@@ -676,7 +676,7 @@ function MaterialList(props: { courseId: string; courseKey: string; sort: Sort; 
                   </span>
                 </Show>
                 <Show when={m().status === 'failed' && m().error}>
-                  <span class="min-w-0 max-w-full truncate text-[13px] text-red sm:max-w-md" title={m().error ?? ''}>
+                  <span class="min-w-0 max-w-full truncate text-[13px] text-danger sm:max-w-md" title={m().error ?? ''}>
                     {m().error}
                   </span>
                 </Show>
@@ -796,14 +796,14 @@ function SitesSection(props: {
     </>
   );
   return (
-    <section class={`-mx-3 rounded-2xl ${props.dragging ? 'ring-2 ring-blue/40' : ''}`}>
+    <section class={`-mx-3 rounded-2xl ${props.dragging ? 'ring-2 ring-accent/40' : ''}`}>
       <input ref={(el) => { folder = el; el.webkitdirectory = true; }} type="file" class="sr-only" tabindex="-1" onChange={picked} />
       <input ref={file} type="file" class="sr-only" tabindex="-1" accept=".zip,.html,.htm,application/zip,text/html" onChange={picked} />
       <Show when={props.progress}>
         <p class="mx-3 mb-2 rounded-xl bg-soft px-3.5 py-2.5 text-[14px] text-muted" role="status">{props.progress}</p>
       </Show>
       <Show when={props.notice}>
-        <p class="mx-3 mb-2 break-words rounded-xl bg-red-soft px-3.5 py-2.5 text-[14px] text-red">{props.notice}</p>
+        <p class="mx-3 mb-2 break-words rounded-xl bg-danger-soft px-3.5 py-2.5 text-[14px] text-danger">{props.notice}</p>
       </Show>
       <Show
         when={rows().length > 0}

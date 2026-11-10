@@ -248,12 +248,12 @@ function Workspace(props: { id: string; title: string; answers: AnswerRow[]; she
       </span>
       <Show when={compact && props.sheet}>
         {(sheet) => (
-          <A href={materialPath(idString(sheet().course), idString(sheet().id), pageOf(a))} class="inline-flex h-7 items-center gap-1 rounded-full px-2 hover:bg-soft hover:text-fg" title="Open the sheet">
+          <A href={materialPath(idString(sheet().course), idString(sheet().id), pageOf(a))} class="inline-flex h-7 items-center gap-1 rounded-md px-2 hover:bg-soft hover:text-fg" title="Open the sheet">
             <ExternalLink size={13} stroke-width={1.9} />
           </A>
         )}
       </Show>
-      <button type="button" class="-mr-1 inline-flex h-7 w-7 items-center justify-center rounded-full hover:bg-soft hover:text-fg" aria-label="Hide the exercise (⌘E)" onClick={() => setShowExercise(false)}>
+      <button type="button" class="-mr-1 inline-flex h-7 w-7 items-center justify-center rounded-md hover:bg-soft hover:text-fg" aria-label="Hide the exercise (⌘E)" onClick={() => setShowExercise(false)}>
         <X size={14} stroke-width={1.9} />
       </button>
     </div>
@@ -301,7 +301,7 @@ function Workspace(props: { id: string; title: string; answers: AnswerRow[]; she
               class={active() ? 'fixed inset-x-0 z-30 px-2 pt-2' : 'pt-2'}
               style={active() ? { top: `${viewport().top}px` } : undefined}
             >
-              <div class="overflow-hidden rounded-xl border border-line bg-surface shadow-[0_10px_30px_-18px_rgb(0_0_0/0.3)]">
+              <div class="overflow-hidden rounded-xl border border-line-strong bg-raised shadow-raised">
                 {panelHeader(a(), true)}
                 <Show when={!folded()}>
                   <div class="overflow-y-auto overscroll-contain p-2" style={{ 'max-height': `${pinnedHeight()}px` }}>
@@ -358,7 +358,7 @@ function Workspace(props: { id: string; title: string; answers: AnswerRow[]; she
 
       <div class="relative mt-4 flex items-start gap-0">
         <div class="relative min-w-0 flex-1 pb-24">
-          <div class="mx-auto max-w-3xl">
+          <div class="oyl-card mx-auto max-w-3xl pt-5 pr-3 sm:pt-8 sm:pr-6">
             <Show when={props.answers.length} fallback={<p class="py-10 text-center text-muted">This sheet has no parts to answer.</p>}>
               <Suspense fallback={<div class="mx-12 h-40 animate-pulse rounded-xl bg-soft sm:mx-16" />}>
                 <Show when={parts()} keyed>

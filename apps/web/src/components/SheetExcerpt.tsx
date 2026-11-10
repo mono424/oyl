@@ -108,17 +108,17 @@ export function SheetExcerpt(props: { pdf: PDFDocumentProxy | null; segments: Se
           <div class="space-y-3">
             <For each={pages()}>
               {(p, i) => (
-                <div class="sheet-excerpt relative overflow-hidden rounded-md border border-line bg-white">
+                <div class="sheet-excerpt relative overflow-hidden oyl-paper rounded-md border border-line">
                   {p.canvas}
                   <For each={p.bands}>
                     {(b, j) => (
                       <>
                         {/* Everything but the part, dimmed; the part itself marked at its edge. */}
-                        <div class="pointer-events-none absolute inset-x-0 top-0 bg-white/60" style={{ height: `${b.top * 100}%` }} />
-                        <div class="pointer-events-none absolute inset-x-0 bottom-0 bg-white/60" style={{ height: `${(1 - b.bottom) * 100}%` }} />
+                        <div class="pointer-events-none absolute inset-x-0 top-0 bg-paper/60" style={{ height: `${b.top * 100}%` }} />
+                        <div class="pointer-events-none absolute inset-x-0 bottom-0 bg-paper/60" style={{ height: `${(1 - b.bottom) * 100}%` }} />
                         <div
                           ref={(el) => i() === 0 && j() === 0 && queueMicrotask(() => reveal(el))}
-                          class="pointer-events-none absolute left-0 w-[3px] rounded-full bg-blue/70"
+                          class="pointer-events-none absolute left-0 w-[3px] rounded-full bg-accent/70"
                           style={{ top: `${b.top * 100}%`, height: `${(b.bottom - b.top) * 100}%` }}
                         />
                       </>

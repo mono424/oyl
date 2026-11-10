@@ -55,7 +55,7 @@ export default function SessionPage() {
           <A href="/calls" class={`${buttonClass('ghost', 'sm')} -ml-3 mb-2 text-muted md:hidden`}>
             <ArrowLeft size={16} stroke-width={1.75} class="shrink-0" /> Sessions
           </A>
-          <h1 class="break-words text-[26px] font-semibold leading-tight tracking-tight sm:text-[30px]">
+          <h1 class="break-words font-display text-[28px] font-normal leading-tight tracking-[-0.01em] sm:text-[32px]">
             {modeLabel(call().mode)}
             <Show when={topic()}>: {topic()}</Show>
           </h1>
@@ -64,7 +64,7 @@ export default function SessionPage() {
           </p>
 
           <Show when={recapHtml()}>
-            <div class="mt-6 min-w-0 rounded-[20px] bg-soft p-4 sm:mt-8 sm:p-6">
+            <div class="mt-6 min-w-0 rounded-2xl bg-soft p-4 sm:mt-8 sm:p-6">
               <div class="mb-3 flex items-center gap-2 text-[13px] text-muted">
                 <Dot tone="ready" /> Recap
               </div>
@@ -90,8 +90,8 @@ export default function SessionPage() {
                 {(t) => (
                   <li class={`flex flex-col ${t.role === 'student' ? 'items-end' : 'items-start'}`}>
                     <p
-                      class={`min-w-0 max-w-[88%] rounded-[20px] px-4 py-2.5 text-[15px] leading-relaxed [overflow-wrap:anywhere] sm:max-w-[80%] ${
-                        t.role === 'student' ? 'rounded-br-md bg-solid text-solid-fg' : 'rounded-bl-md bg-soft text-fg'
+                      class={`min-w-0 max-w-[88%] rounded-2xl px-4 py-2.5 text-[15px] leading-relaxed [overflow-wrap:anywhere] sm:max-w-[80%] ${
+                        t.role === 'student' ? 'rounded-br-md bg-accent-soft text-fg' : 'rounded-bl-md bg-soft text-fg'
                       }`}
                     >
                       <span class="sr-only">{t.role === 'tutor' ? 'Tutor: ' : 'You: '}</span>
@@ -104,7 +104,7 @@ export default function SessionPage() {
                             {(s) => (
                               <A
                                 href={s.href}
-                                class="inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-full border border-line px-2.5 py-1 text-[12px] text-muted transition-colors hover:bg-soft hover:text-fg"
+                                class="inline-flex min-w-0 max-w-full items-center gap-1.5 rounded-md border border-line px-2.5 py-1 text-[12px] text-muted transition-colors hover:bg-soft hover:text-fg"
                               >
                                 <FileText size={12} stroke-width={1.9} class="shrink-0" />
                                 <span class="truncate">{s.title}</span>

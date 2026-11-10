@@ -83,10 +83,10 @@ export function VersionList(props: { documentId: string; selected: number | null
                           </Show>
                           <span class="ml-auto shrink-0 text-[12px] tabular-nums">
                             <Show when={row.added}>
-                              <span class="text-green">+{row.added.toLocaleString()}</span>
+                              <span class="text-success">+{row.added.toLocaleString()}</span>
                             </Show>{' '}
                             <Show when={row.removed}>
-                              <span class="text-red">-{row.removed.toLocaleString()}</span>
+                              <span class="text-danger">-{row.removed.toLocaleString()}</span>
                             </Show>
                           </span>
                         </span>
@@ -173,7 +173,7 @@ export function VersionView(props: {
 
   return (
     <div class="mx-auto max-w-3xl px-1 sm:px-4">
-      <div class="sticky top-3 z-10 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-2xl border border-line bg-surface px-3.5 py-2 shadow-card">
+      <div class="sticky top-3 z-10 flex flex-wrap items-center gap-x-3 gap-y-2 oyl-glass rounded-xl px-3.5 py-2 shadow-raised">
         <History size={16} stroke-width={1.75} class="shrink-0 text-muted" />
         <div class="min-w-0 flex-1 basis-40">
           <p class="truncate text-[14px] font-medium">Version {props.n}</p>
@@ -242,9 +242,9 @@ function VersionChanges(props: { pieces: Piece[]; first: boolean }) {
                 {piece.lines.toLocaleString()} unchanged {piece.lines === 1 ? 'line' : 'lines'}
               </div>
             ) : piece.kind === 'added' ? (
-              <ins class="rounded-sm bg-green/15 text-fg no-underline">{piece.text}</ins>
+              <ins class="rounded-sm bg-success/15 text-fg no-underline">{piece.text}</ins>
             ) : piece.kind === 'removed' ? (
-              <del class="rounded-sm bg-red-soft text-red">{piece.text}</del>
+              <del class="rounded-sm bg-danger-soft text-danger">{piece.text}</del>
             ) : (
               <span class="text-muted">{piece.text}</span>
             )

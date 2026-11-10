@@ -1,9 +1,11 @@
 import { A, useLocation } from '@solidjs/router';
 import { createSignal, onCleanup, onMount, Show } from 'solid-js';
-import { LogOut, Menu, MessageCircle, X } from 'lucide-solid';
+import { LogOut, Menu, MessageCircle, Moon, Sun, X } from 'lucide-solid';
 import { useAuth } from '../lib/auth';
+import { isDark, toggleAppearance } from '../lib/theme';
 import { useChatGPTGuide } from './ChatGPTGuide';
 import { HeaderEndSlot, HeaderSlot, HeaderTitleSlot, useFocused, useHeaderTitleUsed } from './HeaderSlot';
+import { IconButton } from './ui';
 
 /** Oyl's mark: the glass tile with its drop (assets/logo.png). */
 export function Logo(props: { class?: string }) {
@@ -50,7 +52,7 @@ export function TopBar(props: { onMenu: () => void; menuOpen: boolean }) {
         <Show when={!focused()}>
           <button
             type="button"
-            class="inline-flex h-11 w-11 items-center justify-center rounded-full text-muted hover:bg-soft hover:text-fg md:hidden"
+            class="inline-flex h-11 w-11 items-center justify-center rounded-lg text-muted hover:bg-soft hover:text-fg md:hidden"
             aria-label={props.menuOpen ? 'Close navigation' : 'Open navigation'}
             aria-expanded={props.menuOpen}
             aria-controls="app-navigation"
@@ -73,6 +75,12 @@ export function TopBar(props: { onMenu: () => void; menuOpen: boolean }) {
 
         <div ref={account} class="relative ml-auto flex shrink-0 items-center gap-2">
           <HeaderEndSlot class="flex items-center gap-1 empty:hidden" />
+          {/* Light and dark, like the desktop app's toggle: flips what is on screen. */}
+          <IconButton label={isDark() ? 'Light appearance' : 'Dark appearance'} size="sm" onClick={toggleAppearance}>
+            <Show when={isDark()} fallback={<Moon size={16} stroke-width={1.75} />}>
+              <Sun size={16} stroke-width={1.75} />
+            </Show>
+          </IconButton>
         </div>
       </header>
 
@@ -82,12 +90,12 @@ export function TopBar(props: { onMenu: () => void; menuOpen: boolean }) {
           <button
             type="button"
             onClick={() => setMenu(!menu())}
-            class="inline-flex h-11 w-11 items-center justify-center rounded-full border border-line bg-surface shadow-card transition-colors hover:bg-soft"
+            class="oyl-glass inline-flex h-11 w-11 items-center justify-center rounded-full shadow-card transition-colors hover:bg-surface"
             aria-label="Account menu"
             aria-haspopup="menu"
             aria-expanded={menu()}
           >
-            <span class="relative inline-flex h-8 w-8 items-center justify-center rounded-full bg-solid text-[13px] font-semibold text-solid-fg">
+            <span class="relative inline-flex h-8 w-8 items-center justify-center rounded-full bg-accent-soft text-[13px] font-semibold text-accent">
               {initial()}
               <Show when={guide.connected()}>
                 <span class="absolute -bottom-1 -right-1 grid h-[18px] w-[18px] place-items-center rounded-full bg-surface text-fg ring-2 ring-soft" title="ChatGPT connected">
@@ -98,7 +106,7 @@ export function TopBar(props: { onMenu: () => void; menuOpen: boolean }) {
           </button>
           <Show when={menu()}>
             <div class="fixed inset-0 z-40" onClick={() => setMenu(false)} />
-            <div role="menu" class="absolute bottom-full left-0 z-50 mb-2 w-60 rounded-2xl border border-line bg-surface p-1.5 shadow-card">
+            <div role="menu" class="oyl-glass absolute bottom-full left-0 z-50 mb-2 w-60 rounded-2xl border-line-strong p-1.5 shadow-raised">
               <div class="px-3 py-2">
                 <p class="truncate text-[14px] font-medium">{auth.user()?.name ?? 'Account'}</p>
                 <p class="truncate text-[13px] text-muted">{auth.user()?.email}</p>

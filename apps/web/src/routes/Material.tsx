@@ -165,7 +165,7 @@ export default function MaterialPage() {
                   </Button>
                   <Button size="sm" disabled={saving()} onClick={save}>
                     <Show when={saving()} fallback="Save">
-                      <Loader size={4} label="Saving" class="text-solid-fg" />
+                      <Loader size={4} label="Saving" class="text-on-accent" />
                     </Show>
                   </Button>
                 </Show>
@@ -181,7 +181,7 @@ export default function MaterialPage() {
             when={editing()}
             fallback={
               <article class={`mx-auto w-full min-w-0 px-4 pb-12 pt-6 sm:px-8 sm:pt-5 ${isPdf() ? 'max-w-5xl' : 'max-w-3xl'}`}>
-                <h1 class="break-words text-[22px] font-semibold leading-tight tracking-tight sm:text-[30px]">{m().title}</h1>
+                <h1 class="break-words font-display text-[24px] font-normal leading-tight tracking-[-0.01em] sm:text-[32px]">{m().title}</h1>
                 <Show when={meta() || m().source_url || isTex()}>
                   <p class="mt-1.5 break-words text-[14px] text-muted">
                     {meta()}

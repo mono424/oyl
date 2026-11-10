@@ -115,7 +115,7 @@ function GuideDialog(props: { connected: boolean; onClose: () => void }) {
               fallback={
                 <button
                   type="button"
-                  class="cta-glow inline-flex h-14 w-full items-center justify-center rounded-full text-[16px] font-semibold sm:h-12 sm:w-auto sm:px-8"
+                  class="cta-glow inline-flex h-14 w-full items-center justify-center rounded-lg text-[16px] font-semibold sm:h-12 sm:w-auto sm:px-8"
                   onClick={dismiss}
                 >
                   Done
@@ -127,11 +127,11 @@ function GuideDialog(props: { connected: boolean; onClose: () => void }) {
               </Button>
               <button
                 type="button"
-                class="cta-glow inline-flex h-14 w-full items-center gap-3 rounded-full pl-6 pr-2 text-[16px] font-semibold sm:h-12 sm:w-auto sm:pl-5 sm:text-[15px]"
+                class="cta-glow inline-flex h-14 w-full items-center gap-3 rounded-lg pl-6 pr-2 text-[16px] font-semibold sm:h-12 sm:w-auto sm:pl-5 sm:text-[15px]"
                 onClick={openChatGPT}
               >
                 <span class="flex-1 text-left">Open ChatGPT Plugins</span>
-                <span class="cta-arrow inline-flex h-10 w-10 items-center justify-center rounded-full bg-solid-fg/15 sm:h-8 sm:w-8">
+                <span class="cta-arrow inline-flex h-10 w-10 items-center justify-center rounded-md bg-on-accent/15 sm:h-8 sm:w-8">
                   <ArrowUpRight size={18} stroke-width={2.25} />
                 </span>
               </button>
@@ -139,7 +139,7 @@ function GuideDialog(props: { connected: boolean; onClose: () => void }) {
           </div>
           <Show when={urlCopied() && !props.connected}>
             <p class="mt-2.5 flex items-center justify-center gap-1.5 text-[13px] text-muted sm:justify-end" role="status">
-              <Check size={15} class="text-green" /> Server address copied. Paste it in step 3.
+              <Check size={15} class="text-success" /> Server address copied. Paste it in step 3.
             </p>
           </Show>
         </>
@@ -148,7 +148,7 @@ function GuideDialog(props: { connected: boolean; onClose: () => void }) {
       {() => (
         <>
           <div
-            class="flex items-center gap-2.5 rounded-2xl border border-[var(--glass-line)] bg-[var(--glass-fill)] px-3.5 py-2.5 text-[14px]"
+            class="flex items-center gap-2.5 rounded-lg border border-[var(--glass-line)] bg-[var(--glass-fill)] px-3.5 py-2.5 text-[14px]"
             role="status"
           >
             <Show
@@ -181,7 +181,7 @@ function GuideDialog(props: { connected: boolean; onClose: () => void }) {
                 <CopyField label="Name" text={PLUGIN_NAME} glass />
                 <CopyField label="Description" text={PLUGIN_DESCRIPTION} glass />
                 <CopyField label="Server URL" text={MCP_URL} mono glass />
-                <div class="flex items-center justify-between gap-3 rounded-2xl border border-[var(--glass-line)] px-3.5 py-2.5">
+                <div class="flex items-center justify-between gap-3 rounded-lg border border-[var(--glass-line)] px-3.5 py-2.5">
                   <span class="text-[13px] text-muted">Authentication</span>
                   <span class="text-[14px] font-medium text-fg">OAuth</span>
                 </div>
@@ -209,7 +209,7 @@ function GuideDialog(props: { connected: boolean; onClose: () => void }) {
               <ul class="mt-3 flex flex-col gap-2" aria-label="Things to say">
                 <For each={VOICE_PROMPTS}>
                   {(prompt) => (
-                    <li class="rounded-2xl bg-[var(--glass-fill)] px-3.5 py-2.5 text-[14px] text-fg [overflow-wrap:anywhere]">
+                    <li class="rounded-lg bg-[var(--glass-fill)] px-3.5 py-2.5 text-[14px] text-fg [overflow-wrap:anywhere]">
                       "{prompt}"
                     </li>
                   )}
@@ -232,8 +232,8 @@ function Step(props: { n: number; title: string; done?: boolean; children: JSX.E
   return (
     <li class="flex gap-3.5">
       <span
-        class={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-[14px] font-semibold ${
-          props.done ? 'bg-soft text-green' : 'bg-solid text-solid-fg'
+        class={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-[14px] font-semibold ${
+          props.done ? 'bg-success-soft text-success' : 'bg-accent-soft text-accent'
         }`}
         aria-hidden="true"
       >
@@ -257,7 +257,7 @@ export function CopyField(props: { label?: string; text: string; mono?: boolean;
   const [copied, setCopied] = createSignal(false);
   return (
     <div
-      class={`flex w-full min-w-0 items-center gap-2 rounded-2xl py-2 pl-3.5 pr-1.5 ${
+      class={`flex w-full min-w-0 items-center gap-2 rounded-lg py-2 pl-3.5 pr-1.5 ${
         props.glass ? 'border border-[var(--glass-line)] bg-[var(--glass-fill)]' : 'bg-soft'
       }`}
     >
@@ -269,7 +269,7 @@ export function CopyField(props: { label?: string; text: string; mono?: boolean;
       </div>
       <button
         type="button"
-        class={`inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-muted hover:text-fg sm:h-9 sm:w-9 ${
+        class={`inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-muted hover:text-fg sm:h-9 sm:w-9 ${
           props.glass ? 'hover:bg-[var(--glass-fill-strong)]' : 'hover:bg-surface'
         }`}
         aria-label={copied() ? 'Copied' : `Copy ${props.label ?? 'to clipboard'}`}
@@ -281,7 +281,7 @@ export function CopyField(props: { label?: string; text: string; mono?: boolean;
         }}
       >
         <Show when={copied()} fallback={<Copy size={16} stroke-width={1.75} />}>
-          <Check size={17} stroke-width={1.75} class="text-green" />
+          <Check size={17} stroke-width={1.75} class="text-success" />
         </Show>
       </button>
     </div>

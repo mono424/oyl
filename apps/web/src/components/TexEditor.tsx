@@ -16,10 +16,10 @@ import { Segmented } from './ui';
  */
 
 const highlight = HighlightStyle.define([
-  { tag: [tags.keyword, tags.tagName], color: 'var(--blue)' },
+  { tag: [tags.keyword, tags.tagName], color: 'var(--accent)' },
   { tag: [tags.bracket, tags.squareBracket], color: 'var(--muted)' },
   { tag: tags.comment, color: 'var(--faint)', fontStyle: 'italic' },
-  { tag: [tags.string, tags.atom], color: 'var(--green)' },
+  { tag: [tags.string, tags.atom], color: 'var(--muted)' },
   { tag: [tags.number, tags.special(tags.string)], color: '#b86c68' },
   { tag: tags.variableName, color: 'var(--fg)' },
 ]);
@@ -76,7 +76,7 @@ export default function TexEditor(props: { value: string; onChange: (value: stri
       <div class="grid min-w-0 gap-4 lg:grid-cols-2">
         <div ref={host} class={`tex-editor h-[65dvh] min-w-0 sm:h-[72vh] ${tab() === 'source' ? '' : 'max-lg:hidden'}`} />
         <div
-          class={`scroll-quiet h-[65dvh] min-w-0 overflow-y-auto rounded-[14px] border border-line px-5 py-4 sm:h-[72vh] ${tab() === 'preview' ? '' : 'max-lg:hidden'}`}
+          class={`scroll-quiet h-[65dvh] min-w-0 overflow-y-auto rounded-xl border border-line px-5 py-4 sm:h-[72vh] ${tab() === 'preview' ? '' : 'max-lg:hidden'}`}
           aria-label="Preview"
         >
           <Show when={preview().trim()} fallback={<p class="text-[14px] text-muted">The rendered document shows here.</p>}>

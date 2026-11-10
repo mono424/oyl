@@ -20,10 +20,10 @@ import { isImage } from '../lib/images';
  */
 
 const highlight = HighlightStyle.define([
-  { tag: [tags.keyword, tags.tagName], color: 'var(--blue)' },
+  { tag: [tags.keyword, tags.tagName], color: 'var(--accent)' },
   { tag: [tags.bracket, tags.squareBracket], color: 'var(--muted)' },
   { tag: tags.comment, color: 'var(--faint)', fontStyle: 'italic' },
-  { tag: [tags.string, tags.atom], color: 'var(--green)' },
+  { tag: [tags.string, tags.atom], color: 'var(--muted)' },
   { tag: [tags.number, tags.special(tags.string)], color: '#b86c68' },
   { tag: tags.variableName, color: 'var(--fg)' },
 ]);

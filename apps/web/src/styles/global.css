@@ -1,96 +1,173 @@
 @import 'tailwindcss';
 
 /*
- * Quiet desktop-app chrome: a white window on a light gray canvas, gray
- * secondary text, soft cards, pill buttons. Color is reserved for state:
- * red for what needs attention, blue for what is running, green for ready.
- * Every color is a token so the dark palette can swap them.
+ * Oyl's look on the web: frosted glass, warm ink, one amber accent.
+ * The tokens mirror crates/oyl-ui/src/theme.rs (the desktop app), light and
+ * dark; docs/brand/README.md has the mapping. Components never use color
+ * literals, only these tokens through Tailwind (bg-surface, text-muted,
+ * text-accent, ...).
+ *
+ * The window is a pane of glass (--veil) over a warm canvas. Things that
+ * float on it are near-opaque sheets (--surface, --raised) with hairline
+ * edges, and the text being written sits in a calmer card (--card). Color
+ * means something: amber is the accent (the main action, the caret, the
+ * selection, citations, what is running), danger, warning and success are
+ * for state.
+ *
+ * Light or dark is `data-theme` on <html>, set before the first paint
+ * (index.html) and by the toggle (src/lib/theme.ts). A subtree can force
+ * dark with data-theme="dark" (the knowledge graph's scene).
  */
 :root {
-  --canvas: #f1f1f0;
-  --surface: #ffffff;
-  --soft: #f4f4f3;
-  --hover: #efefee;
-  --line: #ebebea;
-  --line-strong: #dededc;
-  --fg: #1c1c1e;
-  --muted: #8a8a8e;
-  --faint: #b4b4b8;
-  --solid: #2b2b2d;
-  --solid-hover: #3a3a3d;
-  --solid-fg: #ffffff;
-  --red: #e5484d;
-  --red-soft: #fdecec;
-  --blue: #1d9bf0;
-  --green: #2f9e6a;
-  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.04), 0 10px 28px -12px rgb(0 0 0 / 0.12);
-  --shadow-frame: 0 1px 3px rgb(0 0 0 / 0.05), 0 24px 60px -24px rgb(0 0 0 / 0.18);
+  /* Window */
+  --canvas: #e8e5de;
+  --glow: rgb(173 101 0 / 0.07);
+  --veil: rgb(243 241 236 / 0.8);
+  --veil-strong: rgb(251 250 247 / 0.86);
+  /* The card the text being written sits in: a quiet white sheet. */
+  --card: rgb(255 255 255 / 0.78);
+  --card-edge: rgb(0 0 0 / 0.06);
+  /* Floating sheets (cards, inputs) and what overlaps content (menus). */
+  --surface: #fdfcfa;
+  --raised: rgb(255 255 255 / 0.96);
+  /* Fills on any of them: resting, hover, pressed. */
+  --soft: rgb(29 28 26 / 0.05);
+  --hover: rgb(29 28 26 / 0.08);
+  --active: rgb(29 28 26 / 0.11);
+  /* Hairlines */
+  --line: rgb(0 0 0 / 0.08);
+  --line-strong: rgb(0 0 0 / 0.15);
+  /* Ink */
+  --fg: #1d1c1a;
+  --muted: rgb(29 28 26 / 0.66);
+  --faint: rgb(29 28 26 / 0.4);
+  /* The one accent: amber, like lamplight on paper. */
+  --accent: #ad6500;
+  --accent-hover: rgb(173 101 0 / 0.88);
+  --accent-soft: rgb(173 101 0 / 0.14);
+  --on-accent: #ffffff;
+  /* Meaning */
+  --danger: #c6392f;
+  --danger-soft: rgb(198 57 47 / 0.12);
+  --warning: #9a6200;
+  --warning-soft: rgb(154 98 0 / 0.12);
+  --success: #2b7a4b;
+  --success-soft: rgb(43 122 75 / 0.12);
+  /* Paper: PDF pages and sites are always paper-white. */
+  --paper: #ffffff;
+  --selection: rgb(173 101 0 / 0.2);
+  --overlay: rgb(29 28 26 / 0.18);
+  /* No heavy shadows: a hairline does the work, a shadow only lifts menus. */
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.04);
+  --shadow-raised: 0 1px 2px rgb(0 0 0 / 0.04), 0 14px 36px -18px rgb(0 0 0 / 0.22);
+  /* The knowledge graph's scene, always dark. */
+  --scene: #111114;
   color-scheme: light;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --canvas: #0d0d0e;
-    --surface: #1a1a1c;
-    --soft: #242427;
-    --hover: #2a2a2d;
-    --line: #2b2b2e;
-    --line-strong: #38383c;
-    --fg: #f2f2f3;
-    --muted: #9a9aa0;
-    --faint: #66666b;
-    --solid: #f2f2f3;
-    --solid-hover: #ffffff;
-    --solid-fg: #1a1a1c;
-    --red: #ff6369;
-    --red-soft: #3a1d1f;
-    --blue: #4cb3ff;
-    --green: #4cc38a;
-    --shadow-card: 0 1px 2px rgb(0 0 0 / 0.4), 0 10px 28px -12px rgb(0 0 0 / 0.6);
-    --shadow-frame: 0 1px 3px rgb(0 0 0 / 0.5), 0 24px 60px -24px rgb(0 0 0 / 0.8);
-    color-scheme: dark;
-  }
+:root[data-theme='dark'],
+[data-theme='dark'] {
+  --canvas: #0c0c0e;
+  --glow: rgb(233 183 106 / 0.05);
+  --veil: rgb(21 21 26 / 0.8);
+  --veil-strong: rgb(17 17 20 / 0.86);
+  /* Recessed: darker than the veil. */
+  --card: rgb(12 12 15 / 0.82);
+  --card-edge: rgb(255 255 255 / 0.07);
+  --surface: #1c1c21;
+  --raised: rgb(34 34 39 / 0.96);
+  --soft: rgb(255 255 255 / 0.06);
+  --hover: rgb(255 255 255 / 0.1);
+  --active: rgb(255 255 255 / 0.15);
+  --line: rgb(255 255 255 / 0.09);
+  --line-strong: rgb(255 255 255 / 0.17);
+  --fg: #edecea;
+  --muted: rgb(237 236 234 / 0.65);
+  --faint: rgb(237 236 234 / 0.38);
+  --accent: #e9b76a;
+  --accent-hover: rgb(233 183 106 / 0.88);
+  --accent-soft: rgb(233 183 106 / 0.17);
+  --on-accent: #1c1407;
+  --danger: #ff7b72;
+  --danger-soft: rgb(255 123 114 / 0.16);
+  --warning: #f0c355;
+  --warning-soft: rgb(240 195 85 / 0.16);
+  --success: #74d19b;
+  --success-soft: rgb(116 209 155 / 0.16);
+  --paper: #fcfbf8;
+  --selection: rgb(233 183 106 / 0.28);
+  --overlay: rgb(0 0 0 / 0.4);
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.25);
+  --shadow-raised: 0 1px 2px rgb(0 0 0 / 0.3), 0 14px 36px -18px rgb(0 0 0 / 0.7);
+  color-scheme: dark;
 }
 
 @theme inline {
   --color-canvas: var(--canvas);
+  --color-veil: var(--veil);
+  --color-card: var(--card);
   --color-surface: var(--surface);
+  --color-raised: var(--raised);
   --color-soft: var(--soft);
   --color-hover: var(--hover);
+  --color-active: var(--active);
   --color-line: var(--line);
   --color-line-strong: var(--line-strong);
   --color-fg: var(--fg);
   --color-muted: var(--muted);
   --color-faint: var(--faint);
-  --color-solid: var(--solid);
-  --color-solid-hover: var(--solid-hover);
-  --color-solid-fg: var(--solid-fg);
-  --color-red: var(--red);
-  --color-red-soft: var(--red-soft);
-  --color-blue: var(--blue);
-  --color-green: var(--green);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-soft: var(--accent-soft);
+  --color-on-accent: var(--on-accent);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-paper: var(--paper);
+  --color-scene: var(--scene);
 
   --shadow-card: var(--shadow-card);
-  --shadow-frame: var(--shadow-frame);
+  --shadow-raised: var(--shadow-raised);
 
-  --font-sans: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', 'Segoe UI', system-ui, sans-serif;
-  --font-mono: ui-monospace, 'SF Mono', Menlo, monospace;
+  /* Oyl's radii: 6 for small controls, 10 for controls and rows, 16 for surfaces. */
+  --radius-md: 6px;
+  --radius-lg: 10px;
+  --radius-xl: 10px;
+  --radius-2xl: 16px;
+  --radius-3xl: 16px;
+
+  /* The system UI font; Menlo for code; Charter for the few display moments. */
+  --font-sans: -apple-system, BlinkMacSystemFont, system-ui, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
+  --font-mono: Menlo, ui-monospace, 'SF Mono', SFMono-Regular, Consolas, 'Liberation Mono', monospace;
+  --font-display: Charter, 'Bitstream Charter', 'Sitka Text', Cambria, 'Iowan Old Style', Georgia, serif;
 }
 
 html,
 body {
-  background: var(--canvas);
+  background-color: var(--canvas);
   color: var(--fg);
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   letter-spacing: -0.005em;
 }
+/* A faint warm light behind the glass, so the window reads as a pane. */
+body {
+  background-image:
+    radial-gradient(60rem 40rem at 10% -10%, var(--glow), transparent 70%),
+    radial-gradient(50rem 36rem at 105% 110%, var(--glow), transparent 70%);
+  background-attachment: fixed;
+}
+::selection { background: var(--selection); }
 
 html { -webkit-text-size-adjust: 100%; }
 body { margin: 0; min-width: 320px; }
 button, a, input, select, textarea { -webkit-tap-highlight-color: transparent; }
 button, a { touch-action: manipulation; }
 button, a, input, select, textarea { scroll-margin-block: 1rem; }
+input, textarea { caret-color: var(--accent); }
 
 /* Leave room for the home indicator and landscape camera cutouts. */
 @layer components {
@@ -110,16 +187,49 @@ button, a, input, select, textarea { scroll-margin-block: 1rem; }
   }
   @media (min-width: 768px) {
     .app-viewport {
-      padding-top: max(0.75rem, env(safe-area-inset-top));
-      padding-right: max(0.75rem, env(safe-area-inset-right));
-      padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
-      padding-left: max(0.75rem, env(safe-area-inset-left));
+      padding-top: max(0.5rem, env(safe-area-inset-top));
+      padding-right: max(0.5rem, env(safe-area-inset-right));
+      padding-bottom: max(0.5rem, env(safe-area-inset-bottom));
+      padding-left: max(0.5rem, env(safe-area-inset-left));
     }
+  }
+
+  /* The window: one pane of frosted glass with a hairline edge. */
+  .oyl-window {
+    background: var(--veil);
+    -webkit-backdrop-filter: blur(28px) saturate(1.4);
+    backdrop-filter: blur(28px) saturate(1.4);
+  }
+  @media (min-width: 768px) {
+    .oyl-window { border: 1px solid var(--line); border-radius: 16px; }
+  }
+  /* The card the text being written sits in (Oyl's editor card). */
+  .oyl-card {
+    background: var(--card);
+    border: 1px solid var(--card-edge);
+    border-radius: 16px;
+  }
+  /* A page of a PDF: the only truly opaque thing, a white sheet with a soft
+     shadow, washed slightly in dark mode so it does not glare. */
+  .oyl-paper {
+    background: var(--paper);
+    box-shadow: 0 1px 2px rgb(0 0 0 / 0.06), 0 10px 28px -14px rgb(0 0 0 / 0.2);
+  }
+  [data-theme='dark'] .oyl-paper {
+    box-shadow: 0 1px 2px rgb(0 0 0 / 0.4), 0 10px 28px -14px rgb(0 0 0 / 0.6);
+    filter: brightness(0.94);
+  }
+  /* Glass for things floating over content (bars over a scene, chips). */
+  .oyl-glass {
+    background: var(--raised);
+    border: 1px solid var(--line);
+    -webkit-backdrop-filter: blur(20px) saturate(1.4);
+    backdrop-filter: blur(20px) saturate(1.4);
   }
 }
 
 :focus-visible {
-  outline: 2px solid var(--blue);
+  outline: 2px solid color-mix(in srgb, var(--accent) 55%, transparent);
   outline-offset: 2px;
   border-radius: 10px;
 }
@@ -162,7 +272,7 @@ button, a, input, select, textarea { scroll-margin-block: 1rem; }
 .lecture ol { list-style: decimal; padding-left: 1.3em; }
 .lecture li { margin: 0.25em 0; }
 .lecture li::marker { color: var(--muted); }
-.lecture a { color: var(--blue); text-decoration: underline; text-underline-offset: 3px; }
+.lecture a { color: var(--accent); text-decoration: underline; text-underline-offset: 3px; }
 .lecture code {
   font-family: var(--font-mono);
   font-size: 0.875em;
@@ -173,7 +283,7 @@ button, a, input, select, textarea { scroll-margin-block: 1rem; }
 .lecture pre {
   background: var(--soft);
   padding: 1em;
-  border-radius: 14px;
+  border-radius: 10px;
   overflow-x: auto;
   max-width: 100%;
   overflow-wrap: normal;
@@ -187,9 +297,9 @@ button, a, input, select, textarea { scroll-margin-block: 1rem; }
 .lecture img {
   max-width: 100%;
   height: auto;
-  border-radius: 14px;
+  border-radius: 10px;
   border: 1px solid var(--line);
-  background: #fff;
+  background: var(--paper);
 }
 .lecture table { display: block; max-width: 100%; overflow-x: auto; border-collapse: collapse; font-size: 0.9375rem; }
 .lecture th,
@@ -207,9 +317,7 @@ button, a, input, select, textarea { scroll-margin-block: 1rem; }
 .tikz-pending .tikz-note { padding: 1.5em 0; text-align: center; }
 .tikz-error { text-align: left; }
 .tikz-error pre { margin: 0.5em 0 0; }
-@media (prefers-color-scheme: dark) {
-  .tikz:not(.tikz-pending, .tikz-error) { background: #fff; color: #000; border-radius: 14px; padding: 0.75em; }
-}
+[data-theme='dark'] .tikz:not(.tikz-pending, .tikz-error) { background: var(--paper); color: #000; border-radius: 10px; padding: 0.75em; }
 /* Formulas keep their own wrapping rules inside a lecture. */
 .lecture .katex,
 .lecture .katex * { overflow-wrap: normal; }
@@ -217,20 +325,20 @@ button, a, input, select, textarea { scroll-margin-block: 1rem; }
 /* The LaTeX editor (components/TexEditor.tsx). */
 .tex-editor .cm-editor {
   height: 100%;
-  background: var(--surface);
+  background: var(--card);
   color: var(--fg);
-  border: 1px solid var(--line);
-  border-radius: 14px;
+  border: 1px solid var(--card-edge);
+  border-radius: 16px;
   font-size: 13px;
 }
-.tex-editor .cm-editor.cm-focused { outline: none; border-color: var(--line-strong); box-shadow: 0 0 0 4px var(--soft); }
-.tex-editor .cm-scroller { font-family: var(--font-mono); line-height: 1.6; border-radius: 14px; }
-.tex-editor .cm-gutters { background: var(--soft); color: var(--faint); border-right: 1px solid var(--line); border-radius: 14px 0 0 14px; }
+.tex-editor .cm-editor.cm-focused { outline: none; border-color: var(--line-strong); box-shadow: 0 0 0 3px var(--accent-soft); }
+.tex-editor .cm-scroller { font-family: var(--font-mono); line-height: 1.6; border-radius: 16px; }
+.tex-editor .cm-gutters { background: transparent; color: var(--faint); border-right: 0; border-radius: 16px 0 0 16px; }
 .tex-editor .cm-activeLine,
 .tex-editor .cm-activeLineGutter { background: color-mix(in srgb, var(--soft) 70%, transparent); }
-.tex-editor .cm-cursor { border-left-color: var(--fg); }
+.tex-editor .cm-cursor { border-left-color: var(--accent); border-left-width: 2px; }
 .tex-editor .cm-selectionBackground,
-.tex-editor .cm-focused .cm-selectionBackground { background: color-mix(in srgb, var(--blue) 22%, transparent) !important; }
+.tex-editor .cm-focused .cm-selectionBackground { background: var(--selection) !important; }
 @media (max-width: 767px) { .tex-editor .cm-editor { font-size: 16px; } }
 /* A document's LaTeX: flat on the page, like the text of a Markdown document. */
 .tex-editor.flat .cm-editor { background: transparent; border: 0; border-radius: 0; font-size: 14px; }
@@ -277,46 +385,45 @@ button, a, input, select, textarea { scroll-margin-block: 1rem; }
 }
 
 /*
- * Glass sheet: frosted, translucent panel over a blurred page. A bottom sheet
- * on phones (slides up, drag the handle down to dismiss), a centered card on
+ * Glass sheet: Oyl's raised glass over a dimmed page. A bottom sheet on
+ * phones (slides up, drag the handle down to dismiss), a centered card on
  * wider screens. `data-closing` plays the exit before the dialog unmounts.
  */
 :root {
-  --glass-bg: rgb(255 255 255 / 0.72);
-  --glass-edge: rgb(255 255 255 / 0.7);
-  --glass-line: rgb(0 0 0 / 0.06);
-  --glass-fill: rgb(0 0 0 / 0.04);
-  --glass-fill-strong: rgb(255 255 255 / 0.7);
-  --glass-shadow: 0 -1px 0 rgb(255 255 255 / 0.6) inset, 0 30px 80px -20px rgb(0 0 0 / 0.35);
+  --glass-bg: rgb(253 252 250 / 0.9);
+  --glass-edge: rgb(0 0 0 / 0.1);
+  --glass-line: rgb(0 0 0 / 0.07);
+  --glass-fill: rgb(29 28 26 / 0.05);
+  --glass-fill-strong: rgb(255 255 255 / 0.75);
+  --glass-shadow: 0 18px 48px -24px rgb(0 0 0 / 0.28);
 }
-@media (prefers-color-scheme: dark) {
-  :root {
-    --glass-bg: rgb(30 30 33 / 0.7);
-    --glass-edge: rgb(255 255 255 / 0.12);
-    --glass-line: rgb(255 255 255 / 0.07);
-    --glass-fill: rgb(255 255 255 / 0.06);
-    --glass-fill-strong: rgb(255 255 255 / 0.1);
-    --glass-shadow: 0 1px 0 rgb(255 255 255 / 0.06) inset, 0 30px 80px -20px rgb(0 0 0 / 0.8);
-  }
+:root[data-theme='dark'],
+[data-theme='dark'] {
+  --glass-bg: rgb(34 34 39 / 0.9);
+  --glass-edge: rgb(255 255 255 / 0.12);
+  --glass-line: rgb(255 255 255 / 0.08);
+  --glass-fill: rgb(255 255 255 / 0.06);
+  --glass-fill-strong: rgb(255 255 255 / 0.1);
+  --glass-shadow: 0 18px 48px -24px rgb(0 0 0 / 0.75);
 }
 
 .glass-sheet {
   background: var(--glass-bg);
-  -webkit-backdrop-filter: blur(30px) saturate(1.8);
-  backdrop-filter: blur(30px) saturate(1.8);
+  -webkit-backdrop-filter: blur(28px) saturate(1.4);
+  backdrop-filter: blur(28px) saturate(1.4);
   border: 1px solid var(--glass-edge);
   box-shadow: var(--glass-shadow);
-  border-radius: 28px;
+  border-radius: 16px;
   margin: auto;
   width: calc(100% - 3rem);
   max-width: var(--sheet-max, 36rem);
   max-height: calc(100dvh - 4rem);
-  animation: sheet-pop 0.24s cubic-bezier(0.2, 0.9, 0.3, 1.1);
+  animation: sheet-pop 0.22s cubic-bezier(0.2, 0.9, 0.3, 1);
 }
 .glass-sheet::backdrop {
-  background: rgb(0 0 0 / 0.28);
-  -webkit-backdrop-filter: blur(6px);
-  backdrop-filter: blur(6px);
+  background: var(--overlay);
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
   animation: sheet-fade 0.3s ease-out;
 }
 .glass-sheet:focus-visible { outline: none; }
@@ -335,7 +442,7 @@ button, a, input, select, textarea { scroll-margin-block: 1rem; }
     max-width: 100%;
     /* Stop well short of the top so the page stays visible above it. */
     max-height: min(85dvh, calc(100dvh - max(4rem, env(safe-area-inset-top) + 2.5rem)));
-    border-radius: 24px 24px 0 0;
+    border-radius: 16px 16px 0 0;
     border-bottom: 0;
     animation: sheet-up 0.42s cubic-bezier(0.32, 0.72, 0, 1);
   }
@@ -348,36 +455,21 @@ html:has(.glass-sheet[open]) { overflow: hidden; }
 
 @keyframes sheet-up { from { transform: translateY(100%); } }
 @keyframes sheet-down { to { transform: translateY(100%); } }
-@keyframes sheet-pop { from { opacity: 0; transform: translateY(12px) scale(0.97); } }
-@keyframes sheet-pop-out { to { opacity: 0; transform: translateY(8px) scale(0.98); } }
+@keyframes sheet-pop { from { opacity: 0; transform: translateY(8px) scale(0.98); } }
+@keyframes sheet-pop-out { to { opacity: 0; transform: translateY(6px) scale(0.99); } }
 @keyframes sheet-fade { from { opacity: 0; } }
 @keyframes sheet-fade-out { to { opacity: 0; } }
 
-/* The one big call to action: solid pill with a soft top sheen and a glow. */
+/* The one big call to action: the accent, flat, no glow. */
 .cta-glow {
-  background-color: var(--solid);
-  background-image: linear-gradient(180deg, rgb(255 255 255 / 0.16), rgb(255 255 255 / 0) 55%);
-  color: var(--solid-fg);
-  box-shadow:
-    inset 0 1px 0 rgb(255 255 255 / 0.22),
-    inset 0 -1px 0 rgb(0 0 0 / 0.2),
-    0 10px 28px -10px rgb(0 0 0 / 0.55),
-    0 2px 6px -2px rgb(0 0 0 / 0.25);
-  transition: transform 0.15s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+  background-color: var(--accent);
+  color: var(--on-accent);
+  transition: transform 0.15s ease, background-color 0.2s ease;
 }
-.cta-glow:hover { background-color: var(--solid-hover); }
-.cta-glow:active { transform: scale(0.97); }
+.cta-glow:hover { background-color: var(--accent-hover); }
+.cta-glow:active { transform: scale(0.98); }
 .cta-glow .cta-arrow { transition: transform 0.2s ease; }
 .cta-glow:hover .cta-arrow { transform: translate(2px, -2px); }
-@media (prefers-color-scheme: dark) {
-  .cta-glow {
-    background-image: linear-gradient(180deg, rgb(255 255 255 / 0.9), rgb(255 255 255 / 0) 60%);
-    box-shadow:
-      inset 0 1px 0 rgb(255 255 255 / 0.9),
-      inset 0 -1px 0 rgb(0 0 0 / 0.12),
-      0 10px 32px -10px rgb(255 255 255 / 0.28);
-  }
-}
 
 @media (prefers-reduced-motion: reduce) {
   *,
@@ -398,7 +490,7 @@ html:has(.glass-sheet[open]) { overflow: hidden; }
 @media (min-width: 640px) { .answer-editor .cm-editor { font-size: 15px; } }
 .answer-editor .cm-editor.cm-focused { outline: none; }
 .answer-editor .cm-editor .cm-scroller { font-family: var(--font-sans); line-height: 1.7; overflow: visible; }
-.answer-editor .cm-editor .cm-content { padding: 0 0 35vh 3rem; caret-color: var(--fg); }
+.answer-editor .cm-editor .cm-content { padding: 0 0 35vh 3rem; caret-color: var(--accent); }
 @media (min-width: 640px) { .answer-editor .cm-editor .cm-content { padding-left: 4.25rem; } }
 .answer-editor .cm-editor .cm-line { position: relative; padding: 0 2px 0 14px; }
 
@@ -431,7 +523,7 @@ html:has(.glass-sheet[open]) { overflow: hidden; }
   top: var(--gap, 0px);
   bottom: 0;
   width: 1px;
-  background: color-mix(in srgb, var(--blue) 55%, transparent);
+  background: color-mix(in srgb, var(--accent) 55%, transparent);
   pointer-events: none;
 }
 .answer-editor .cm-hw-question {
@@ -456,9 +548,9 @@ html:has(.glass-sheet[open]) { overflow: hidden; }
 
 /* Images: where a dragged one drops (the part tinted, the drop cursor), and one on its way. */
 .answer-editor .cm-editor .cm-line.cm-hw-drop {
-  background: linear-gradient(color-mix(in srgb, var(--blue) 8%, transparent), color-mix(in srgb, var(--blue) 8%, transparent)) 0 var(--gap, 0px) / 100% calc(100% - var(--gap, 0px)) no-repeat;
+  background: linear-gradient(color-mix(in srgb, var(--accent) 8%, transparent), color-mix(in srgb, var(--accent) 8%, transparent)) 0 var(--gap, 0px) / 100% calc(100% - var(--gap, 0px)) no-repeat;
 }
-.answer-editor .cm-editor .cm-dropCursor { border-left: 2px solid var(--blue); margin-left: -1px; }
+.answer-editor .cm-editor .cm-dropCursor { border-left: 2px solid var(--accent); margin-left: -1px; }
 .answer-editor .cm-hw-uploading,
 .tex-editor .cm-hw-uploading {
   display: inline-flex;
@@ -495,7 +587,7 @@ html:has(.glass-sheet[open]) { overflow: hidden; }
 .answer-editor .cm-md-h1 { font-size: 1.45em; }
 .answer-editor .cm-md-h2 { font-size: 1.25em; }
 .answer-editor .cm-md-h3 { font-size: 1.08em; }
-.answer-editor .cm-md-link { color: var(--blue); text-decoration: underline; text-underline-offset: 3px; }
+.answer-editor .cm-md-link { color: var(--accent); text-decoration: underline; text-underline-offset: 3px; }
 .answer-editor .cm-md-code { font-family: var(--font-mono); font-size: 0.875em; background: var(--soft); padding: 0.1em 0.3em; border-radius: 5px; }
 .answer-editor .cm-md-codeblock,
 .answer-editor .cm-md-table { font-family: var(--font-mono); font-size: 0.875em; }
@@ -512,7 +604,7 @@ html:has(.glass-sheet[open]) { overflow: hidden; }
 .answer-editor .cm-md-bullet { display: inline-block; min-width: 0.6em; color: var(--muted); }
 .answer-editor .cm-md-hr { display: inline-block; width: 100%; vertical-align: middle; border-top: 1px solid var(--line-strong); }
 .answer-editor .cm-md-image { display: inline-block; max-width: 100%; padding: 0.35em 0; vertical-align: top; }
-.answer-editor .cm-md-image img { display: block; max-width: 100%; max-height: 28rem; height: auto; border: 1px solid var(--line); border-radius: 12px; background: #fff; }
+.answer-editor .cm-md-image img { display: block; max-width: 100%; max-height: 28rem; height: auto; border: 1px solid var(--line); border-radius: 10px; background: var(--paper); }
 .answer-editor .cm-md-math { padding: 0 1px; cursor: text; }
 .answer-editor .cm-md-math .katex { font-size: 1.06em; }
 .answer-editor .cm-md-math-display { padding: 0.4em 0 0.4em 14px; overflow-x: auto; overflow-y: hidden; cursor: text; }
@@ -522,7 +614,7 @@ html:has(.glass-sheet[open]) { overflow: hidden; }
 .answer-editor .cm-md-tikz .tikz { margin: 0; }
 .answer-editor .cm-md-tikz-preview { padding: 0.15em 0 0.6em 14px; opacity: 0.85; }
 .answer-editor .cm-md-math-block { background: linear-gradient(var(--soft), var(--soft)) 14px var(--gap, 0px) / calc(100% - 14px) calc(100% - var(--gap, 0px)) no-repeat; }
-.answer-editor .cm-editor .cm-tooltip { border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--fg); box-shadow: var(--shadow-card); }
+.answer-editor .cm-editor .cm-tooltip { border: 1px solid var(--line-strong); border-radius: 10px; background: var(--raised); color: var(--fg); box-shadow: var(--shadow-raised); }
 .answer-editor .cm-md-math-tip { padding: 0.35rem 0.6rem; font-size: 15px; }
 .answer-editor .cm-editor .cm-tooltip-arrow { display: none; }
 
@@ -538,21 +630,21 @@ html:has(.glass-sheet[open]) { overflow: hidden; }
 .answer-editor .cm-cite {
   padding: 0.05em 0.3em;
   border-radius: 6px;
-  color: color-mix(in srgb, var(--blue) 85%, var(--fg));
-  background: color-mix(in srgb, var(--blue) 9%, transparent);
+  color: color-mix(in srgb, var(--accent) 85%, var(--fg));
+  background: color-mix(in srgb, var(--accent) 9%, transparent);
   cursor: pointer;
   white-space: nowrap;
 }
-.answer-editor .cm-cite:hover { background: color-mix(in srgb, var(--blue) 16%, transparent); }
-.answer-editor .cm-cite-missing { color: var(--red); background: var(--red-soft); cursor: default; }
-.answer-editor .cm-cite-src { font-family: var(--font-mono); font-size: 0.88em; color: color-mix(in srgb, var(--blue) 80%, var(--fg)); }
+.answer-editor .cm-cite:hover { background: color-mix(in srgb, var(--accent) 16%, transparent); }
+.answer-editor .cm-cite-missing { color: var(--danger); background: var(--danger-soft); cursor: default; }
+.answer-editor .cm-cite-src { font-family: var(--font-mono); font-size: 0.88em; color: color-mix(in srgb, var(--accent) 80%, var(--fg)); }
 :is(.answer-editor, .tex-editor) .cm-editor .cm-tooltip.cm-tooltip-autocomplete { padding: 4px; }
 :is(.answer-editor, .tex-editor) .cm-editor .cm-tooltip.cm-tooltip-autocomplete > ul { max-height: 16rem; max-width: min(28rem, 90vw); font-family: var(--font-sans); }
-:is(.answer-editor, .tex-editor) .cm-editor .cm-tooltip.cm-tooltip-autocomplete > ul > li { display: flex; gap: 0.6rem; align-items: baseline; padding: 0.35rem 0.6rem; border-radius: 7px; }
-:is(.answer-editor, .tex-editor) .cm-editor .cm-tooltip.cm-tooltip-autocomplete > ul > li[aria-selected] { background: var(--soft); color: var(--fg); }
+:is(.answer-editor, .tex-editor) .cm-editor .cm-tooltip.cm-tooltip-autocomplete > ul > li { display: flex; gap: 0.6rem; align-items: baseline; padding: 0.35rem 0.6rem; border-radius: 6px; }
+:is(.answer-editor, .tex-editor) .cm-editor .cm-tooltip.cm-tooltip-autocomplete > ul > li[aria-selected] { background: var(--accent-soft); color: var(--fg); }
 :is(.answer-editor, .tex-editor) .cm-completionLabel { font-size: 14px; font-weight: 500; white-space: nowrap; }
 :is(.answer-editor, .tex-editor) .cm-completionDetail { min-width: 0; overflow: hidden; text-overflow: ellipsis; font-size: 12px; font-style: normal; color: var(--muted); }
-.tex-editor .cm-editor .cm-tooltip { border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--fg); box-shadow: var(--shadow-card); }
+.tex-editor .cm-editor .cm-tooltip { border: 1px solid var(--line-strong); border-radius: 10px; background: var(--raised); color: var(--fg); box-shadow: var(--shadow-raised); }
 .tex-editor .cm-completionLabel { font-family: var(--font-mono); font-size: 13px; }
 
 .sheet-excerpt canvas { border-radius: 6px; }

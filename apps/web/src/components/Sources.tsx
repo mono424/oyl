@@ -96,7 +96,7 @@ export function SourcesSection(props: { courseId: string; onOpen: (f: FetcherRow
     >
       <section class="-mx-3">
         <Show when={notice()}>
-          <p class="mx-3 mb-2 break-words rounded-xl bg-red-soft px-3.5 py-2.5 text-[14px] text-red">{notice()}</p>
+          <p class="mx-3 mb-2 break-words rounded-xl bg-danger-soft px-3.5 py-2.5 text-[14px] text-danger">{notice()}</p>
         </Show>
         <ul>
           <For each={fetchers.data() ?? []}>
@@ -112,7 +112,7 @@ export function SourcesSection(props: { courseId: string; onOpen: (f: FetcherRow
                     <span class="truncate">{sourceLine(f)}</span>
                   </span>
                   <Show when={f.last_error && f.status !== 'running'}>
-                    <span class="mt-0.5 block truncate text-[13px] text-red" title={f.last_error ?? ''}>
+                    <span class="mt-0.5 block truncate text-[13px] text-danger" title={f.last_error ?? ''}>
                       {f.last_error}
                     </span>
                   </Show>
@@ -243,7 +243,7 @@ export function AddSourceSheet(props: { courseId: string; onClose: () => void })
             }
           >
             <Show when={busy() === 'save'} fallback="Add source">
-              <Loader size={4} label="Adding the source" class="text-solid-fg" />
+              <Loader size={4} label="Adding the source" class="text-on-accent" />
             </Show>
           </Button>
         </div>
@@ -347,7 +347,7 @@ export function AddSourceSheet(props: { courseId: string; onClose: () => void })
           </Field>
 
           <Show when={error()}>
-            <p class="break-words rounded-xl bg-red-soft px-3.5 py-2.5 text-[14px] text-red">{error()}</p>
+            <p class="break-words rounded-xl bg-danger-soft px-3.5 py-2.5 text-[14px] text-danger">{error()}</p>
           </Show>
           <Show when={preview()}>{(p) => <PreviewList preview={p()} />}</Show>
         </div>
@@ -407,7 +407,7 @@ export function SourceSheet(props: { fetcher: FetcherRow; onClose: () => void })
     <Sheet
       title={f().name}
       icon={
-        <span class="flex h-10 w-10 items-center justify-center rounded-2xl bg-soft text-muted">
+        <span class="flex h-10 w-10 items-center justify-center rounded-lg bg-soft text-muted">
           <KindIcon kind={f().kind} size={20} />
         </span>
       }
@@ -439,7 +439,7 @@ export function SourceSheet(props: { fetcher: FetcherRow; onClose: () => void })
             }
           >
             <Show when={busy() === 'save'} fallback="Save">
-              <Loader size={4} label="Saving" class="text-solid-fg" />
+              <Loader size={4} label="Saving" class="text-on-accent" />
             </Show>
           </Button>
         </div>
@@ -455,7 +455,7 @@ export function SourceSheet(props: { fetcher: FetcherRow; onClose: () => void })
             </Button>
           </div>
           <Show when={f().last_error}>
-            <p class="break-words rounded-xl bg-red-soft px-3.5 py-2.5 text-[14px] text-red">{f().last_error}</p>
+            <p class="break-words rounded-xl bg-danger-soft px-3.5 py-2.5 text-[14px] text-danger">{f().last_error}</p>
           </Show>
 
           <Checkbox checked={f().enabled} onChange={(v) => db.update('fetcher', id, { enabled: v })}>
@@ -493,7 +493,7 @@ export function SourceSheet(props: { fetcher: FetcherRow; onClose: () => void })
           </Field>
 
           <Show when={error()}>
-            <p class="break-words rounded-xl bg-red-soft px-3.5 py-2.5 text-[14px] text-red">{error()}</p>
+            <p class="break-words rounded-xl bg-danger-soft px-3.5 py-2.5 text-[14px] text-danger">{error()}</p>
           </Show>
           <Show when={preview()}>{(p) => <PreviewList preview={p()} />}</Show>
 
@@ -545,7 +545,7 @@ export function SourceSheet(props: { fetcher: FetcherRow; onClose: () => void })
           <Button
             variant="ghost"
             size="sm"
-            class="-ml-3 text-red"
+            class="-ml-3 text-danger"
             onClick={async () => {
               if (confirm(`Delete the source “${f().name}”? The material it imported stays in the course.`)) {
                 close();

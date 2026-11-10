@@ -11,10 +11,10 @@ type ButtonProps = JSX.ButtonHTMLAttributes<HTMLButtonElement> & {
 };
 
 const VARIANTS = {
-  solid: 'bg-solid text-solid-fg hover:bg-solid-hover',
+  solid: 'bg-accent text-on-accent hover:bg-accent-hover',
   soft: 'bg-soft text-fg hover:bg-hover',
   ghost: 'text-fg hover:bg-soft',
-  danger: 'bg-red text-white hover:brightness-95',
+  danger: 'bg-danger text-on-accent hover:opacity-90',
 } as const;
 
 const SIZES = {
@@ -23,16 +23,16 @@ const SIZES = {
   lg: 'h-12 px-6 text-base gap-2.5',
 } as const;
 
-/** Pill styling, for buttons and for links that act as buttons. */
+/** Oyl's button: a 10px rounded control. For buttons and for links that act as buttons. */
 export const buttonClass = (variant: keyof typeof VARIANTS = 'solid', size: keyof typeof SIZES = 'md') =>
-  `inline-flex items-center justify-center whitespace-nowrap rounded-full font-medium transition-colors disabled:opacity-40 disabled:pointer-events-none ${VARIANTS[variant]} ${SIZES[size]}`;
+  `inline-flex items-center justify-center whitespace-nowrap rounded-lg font-medium transition-colors disabled:opacity-40 disabled:pointer-events-none ${VARIANTS[variant]} ${SIZES[size]}`;
 
 export function Button(props: ButtonProps) {
   const [local, rest] = splitProps(props, ['variant', 'size', 'class', 'type']);
   return <button type={local.type ?? 'button'} class={`${buttonClass(local.variant, local.size)} ${local.class ?? ''}`} {...rest} />;
 }
 
-/** Round icon-only button. */
+/** Icon-only button, quiet until hovered. */
 export function IconButton(props: JSX.ButtonHTMLAttributes<HTMLButtonElement> & { label: string; size?: 'sm' | 'md' | 'lg' }) {
   const [local, rest] = splitProps(props, ['label', 'size', 'class', 'type']);
   const size = { sm: 'h-11 w-11 md:h-8 md:w-8', md: 'h-11 w-11 md:h-10 md:w-10', lg: 'h-14 w-14' }[local.size ?? 'md'];
@@ -41,7 +41,7 @@ export function IconButton(props: JSX.ButtonHTMLAttributes<HTMLButtonElement> & 
       type={local.type ?? 'button'}
       aria-label={local.label}
       title={local.label}
-      class={`inline-flex shrink-0 items-center justify-center rounded-full text-muted hover:text-fg hover:bg-soft transition-colors ${size} ${local.class ?? ''}`}
+      class={`inline-flex shrink-0 items-center justify-center rounded-lg text-muted hover:text-fg hover:bg-soft transition-colors ${size} ${local.class ?? ''}`}
       {...rest}
     />
   );
@@ -52,7 +52,7 @@ export function IconButton(props: JSX.ButtonHTMLAttributes<HTMLButtonElement> & 
 export function Card(props: { children: JSX.Element; class?: string; as?: 'section' | 'div' } & JSX.HTMLAttributes<HTMLElement>) {
   const [local, rest] = splitProps(props, ['children', 'class', 'as']);
   return (
-    <section class={`rounded-[20px] border border-line bg-surface shadow-card ${local.class ?? ''}`} {...rest}>
+    <section class={`rounded-2xl border border-line bg-surface shadow-card ${local.class ?? ''}`} {...rest}>
       {local.children}
     </section>
   );
@@ -111,7 +111,7 @@ export function PageLoader(props: { label?: string }) {
 
 // ── State dots ────────────────────────────────────────────────────────────
 
-/** attention: red. running: blue, breathing. ready: green. idle: hollow ring. */
+/** attention: danger. running: the accent, breathing. ready: success. idle: hollow ring. */
 export type Tone = 'attention' | 'running' | 'ready' | 'idle';
 
 export function Dot(props: { tone: Tone; class?: string }) {
@@ -120,9 +120,9 @@ export function Dot(props: { tone: Tone; class?: string }) {
       aria-hidden="true"
       class={`inline-block h-2 w-2 shrink-0 rounded-full ${
         {
-          attention: 'bg-red',
-          running: 'bg-blue dot-breathe',
-          ready: 'bg-green',
+          attention: 'bg-danger',
+          running: 'bg-accent dot-breathe',
+          ready: 'bg-success',
           idle: 'border-[1.5px] border-faint',
         }[props.tone]
       } ${props.class ?? ''}`}
@@ -156,7 +156,7 @@ export function SectionLabel(props: { children: JSX.Element; class?: string }) {
 }
 
 /** A row in a list card: hover tint, optional leading icon or dot. */
-export const rowClass = 'flex items-center gap-3 rounded-2xl px-3 h-11 text-[15px] hover:bg-soft transition-colors';
+export const rowClass = 'flex items-center gap-3 rounded-lg px-3 h-11 text-[15px] hover:bg-soft transition-colors';
 
 // ── Forms ─────────────────────────────────────────────────────────────────
 
@@ -171,9 +171,9 @@ export function Field(props: { label: string; hint?: string; children: JSX.Eleme
 }
 
 export const inputClass =
-  'form-input w-full min-w-0 rounded-xl border border-line bg-surface px-3.5 py-2.5 placeholder:text-faint transition-colors focus:border-line-strong focus:outline-none focus:ring-4 focus:ring-soft';
+  'form-input w-full min-w-0 rounded-lg border border-line-strong bg-surface px-3.5 py-2.5 placeholder:text-faint transition-colors focus:border-accent/50 focus:outline-none focus:ring-3 focus:ring-accent-soft';
 
-/** Segmented control: light gray track, white selected pill. */
+/** Segmented control: a soft track, the selected option a raised sheet. */
 export function Segmented<T extends string>(props: {
   value: T;
   options: { value: T; label: string }[];
@@ -181,15 +181,15 @@ export function Segmented<T extends string>(props: {
   label: string;
 }) {
   return (
-    <div role="radiogroup" aria-label={props.label} class="inline-flex min-w-0 max-w-full rounded-full bg-soft p-1">
+    <div role="radiogroup" aria-label={props.label} class="inline-flex min-w-0 max-w-full rounded-lg bg-soft p-1">
       {props.options.map((o) => (
         <button
           type="button"
           role="radio"
           aria-checked={props.value === o.value}
           onClick={() => props.onChange(o.value)}
-          class={`min-h-11 min-w-0 flex-auto whitespace-nowrap rounded-full px-3 text-[14px] transition-colors md:min-h-8 md:flex-none md:px-3.5 ${
-            props.value === o.value ? 'bg-surface font-medium text-fg shadow-[0_1px_2px_rgb(0_0_0/0.08)]' : 'text-muted hover:text-fg'
+          class={`min-h-11 min-w-0 flex-auto whitespace-nowrap rounded-md px-3 text-[14px] transition-colors md:min-h-8 md:flex-none md:px-3.5 ${
+            props.value === o.value ? 'bg-surface font-medium text-fg shadow-card' : 'text-muted hover:text-fg'
           }`}
         >
           {o.label}

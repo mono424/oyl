@@ -25,19 +25,26 @@ import { Focus, HeaderEndActions, HeaderTitle } from '../components/HeaderSlot';
  * the API and is fetched again when the window regains focus.
  */
 
+/**
+ * The scene is drawn by WebGL, which cannot read CSS variables, so it carries
+ * Oyl's dark tokens as values (crates/oyl-ui/src/theme.rs, Tokens::dark):
+ * meaning colors for the levels, the amber accent for lectures, warm ink for
+ * the rest. The overlay around it uses the dark theme's CSS tokens.
+ */
+const INK = '#edecea';
 const LEVELS: { level: ConceptLevel; label: string; color: string }[] = [
-  { level: 'mastered', label: 'Mastered', color: '#7dffc6' },
-  { level: 'solid', label: 'Solid', color: '#34d399' },
-  { level: 'shaky', label: 'Shaky', color: '#fbbf24' },
-  { level: 'struggling', label: 'Struggling', color: '#fb7185' },
-  { level: 'introduced', label: 'Seen', color: '#60a5fa' },
-  { level: 'unseen', label: 'Not learned', color: '#64748b' },
+  { level: 'mastered', label: 'Mastered', color: '#74d19b' },
+  { level: 'solid', label: 'Solid', color: '#4fa877' },
+  { level: 'shaky', label: 'Shaky', color: '#f0c355' },
+  { level: 'struggling', label: 'Struggling', color: '#ff7b72' },
+  { level: 'introduced', label: 'Seen', color: '#c9c6bf' },
+  { level: 'unseen', label: 'Not learned', color: '#6e6c68' },
 ];
 const LEVEL = Object.fromEntries(LEVELS.map((l) => [l.level, l])) as Record<ConceptLevel, (typeof LEVELS)[number]>;
 const LEARNED = new Set<ConceptLevel>(['solid', 'mastered']);
-const LECTURE_COLOR = '#a78bfa';
-const BACKGROUND_COLOR = '#94a3b8';
-const SCENE = '#05070d';
+const LECTURE_COLOR = '#e9b76a';
+const BACKGROUND_COLOR = '#8e8c87';
+const SCENE = '#111114';
 
 type Node = {
   id: string;
@@ -153,7 +160,7 @@ export default function GraphPage() {
       .linkDirectionalParticleSpeed(0.006)
       .linkDirectionalParticleColor((l: Link) => {
         const from = end(l.target);
-        return from?.concept ? LEVEL[from.concept.level].color : '#ffffff';
+        return from?.concept ? LEVEL[from.concept.level].color : INK;
       })
       .onNodeClick((n: Node) => {
         if (n.kind === 'concept') select(n.id);
@@ -286,12 +293,12 @@ export default function GraphPage() {
 
   // ── Overlay ───────────────────────────────────────────────────────────
 
-  const glass = 'border border-white/10 bg-[#0b0f1a]/75 backdrop-blur-md';
+  const glass = 'oyl-glass';
   const chip = (active: boolean) =>
-    `shrink-0 rounded-full border px-3 py-1.5 text-[13px] backdrop-blur-md transition-colors ${active ? 'border-white bg-white font-medium text-[#05070d]' : 'border-white/10 bg-[#0b0f1a]/60 text-white/75 hover:bg-white/15 hover:text-white'}`;
+    `oyl-glass shrink-0 rounded-lg px-3 py-1.5 text-[13px] transition-colors ${active ? 'border-accent/40 bg-accent-soft font-medium text-accent' : 'text-muted hover:bg-hover hover:text-fg'}`;
 
   return (
-    <div class="relative h-full min-h-[24rem] overflow-hidden text-white" style={{ background: SCENE }}>
+    <div data-theme="dark" class="relative h-full min-h-[24rem] overflow-hidden bg-scene text-fg">
       <div ref={host} class="absolute inset-0" />
 
       {/* The whole window: back, the graph's name and the view in the top bar. */}
@@ -300,7 +307,7 @@ export default function GraphPage() {
         <div class="focus-in flex min-w-0 items-center gap-1.5 sm:-ml-2 sm:gap-2">
           <A
             href={`/courses/${params.courseKey}`}
-            class="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-muted transition-colors hover:bg-soft hover:text-fg md:h-10 md:w-10"
+            class="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-lg text-muted transition-colors hover:bg-soft hover:text-fg md:h-10 md:w-10"
             aria-label="Back to the course"
             title="Back to the course"
           >
@@ -317,7 +324,7 @@ export default function GraphPage() {
       </HeaderEndActions>
 
       {/* The lectures over the scene, and on phones the view, which the top bar has no room for. */}
-      <div class="pointer-events-none absolute inset-x-0 top-0 flex items-center gap-2 bg-linear-to-b from-[#05070d]/90 to-transparent pb-8 pr-3 pt-3 sm:pb-10 sm:pr-4 sm:pt-4">
+      <div class="pointer-events-none absolute inset-x-0 top-0 flex items-center gap-2 bg-linear-to-b from-scene/90 to-transparent pb-8 pr-3 pt-3 sm:pb-10 sm:pr-4 sm:pt-4">
         <div class="scroll-quiet pointer-events-auto flex min-w-0 flex-1 gap-1.5 overflow-x-auto px-3 sm:px-4">
           <Show when={(graph()?.lectures.length ?? 0) > 0}>
             <button type="button" class={chip(!lecture())} onClick={() => openLecture(null)}>
@@ -340,7 +347,7 @@ export default function GraphPage() {
         {(err) => (
         <Centered>
           <p class="text-[15px] font-medium">The knowledge graph could not be loaded.</p>
-          <p class="mt-1 text-[14px] text-white/55">{err()}</p>
+          <p class="mt-1 text-[14px] text-muted">{err()}</p>
           <button type="button" class={`mt-4 ${chip(false)}`} onClick={() => void refetch()}>
             Try again
           </button>
@@ -349,13 +356,13 @@ export default function GraphPage() {
       </Show>
       <Show when={!graph() && !loadError()}>
         <Centered>
-          <Loader size={8} pattern="ripple" label="Loading the knowledge graph" class="text-white/55" />
+          <Loader size={8} pattern="ripple" label="Loading the knowledge graph" class="text-muted" />
         </Centered>
       </Show>
       <Show when={scope() && scope()!.own.size === 0}>
         <Centered>
           <p class="text-[15px] font-medium">{lecture() ? 'No concepts mapped for this lecture yet' : 'No concepts mapped yet'}</p>
-          <p class="mt-1 max-w-sm text-[14px] leading-snug text-white/55">
+          <p class="mt-1 max-w-sm text-[14px] leading-snug text-muted">
             The graph fills in from your lectures once they are processed. Study with ChatGPT to see what you understood about each idea.
           </p>
         </Centered>
@@ -365,13 +372,13 @@ export default function GraphPage() {
       <Show when={counts().total > 0}>
         <div class={`absolute bottom-3 left-3 w-[min(17rem,calc(100%-1.5rem))] rounded-2xl p-3 sm:bottom-4 sm:left-4 ${glass} ${concept() ? 'max-sm:hidden' : ''}`}>
           <div class="flex items-baseline justify-between gap-2">
-            <span class="text-[13px] text-white/60">Learned</span>
+            <span class="text-[13px] text-muted">Learned</span>
             <span class="text-[13px] tabular-nums">
               <span class="text-[17px] font-semibold">{counts().learned}</span>
-              <span class="text-white/55"> of {counts().total}</span>
+              <span class="text-muted"> of {counts().total}</span>
             </span>
           </div>
-          <div class="mt-2 flex h-1.5 overflow-hidden rounded-full bg-white/8">
+          <div class="mt-2 flex h-1.5 overflow-hidden rounded-full bg-soft">
             <For each={LEVELS}>
               {(l) => <div style={{ width: `${(counts().out[l.level] / counts().total) * 100}%`, background: l.color, opacity: l.level === 'unseen' ? 0.35 : 1 }} />}
             </For>
@@ -379,10 +386,10 @@ export default function GraphPage() {
           <ul class="mt-2.5 grid grid-cols-2 gap-x-3 gap-y-1">
             <For each={LEVELS}>
               {(l) => (
-                <li class={`flex items-center gap-1.5 text-[12px] ${counts().out[l.level] ? 'text-white/80' : 'text-white/35'}`}>
+                <li class={`flex items-center gap-1.5 text-[12px] ${counts().out[l.level] ? 'text-fg/80' : 'text-faint'}`}>
                   <LevelDot level={l.level} />
                   <span class="min-w-0 flex-1 truncate">{l.label}</span>
-                  <span class="tabular-nums text-white/50">{counts().out[l.level]}</span>
+                  <span class="tabular-nums text-faint">{counts().out[l.level]}</span>
                 </li>
               )}
             </For>
@@ -406,29 +413,29 @@ export default function GraphPage() {
                     {LEVEL[c().level].label}
                   </span>
                   <Show when={c().score != null}>
-                    <span class="text-white/50">{Math.round(c().score! * 100)}%</span>
+                    <span class="text-faint">{Math.round(c().score! * 100)}%</span>
                   </Show>
                   <Show when={c().review_due}>
-                    <span class="rounded-full bg-amber-400/15 px-2 py-0.5 text-amber-300">Due for review</span>
+                    <span class="rounded-md bg-warning-soft px-2 py-0.5 text-warning">Due for review</span>
                   </Show>
                 </div>
               </div>
-              <button type="button" class="-mr-1 -mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-white/55 hover:bg-white/10 hover:text-white" aria-label="Close" onClick={() => setSelected(null)}>
+              <button type="button" class="-mr-1 -mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-muted hover:bg-hover hover:text-fg" aria-label="Close" onClick={() => setSelected(null)}>
                 <X size={16} stroke-width={1.8} />
               </button>
             </div>
 
             <Show when={c().summary}>
-              <p class="mt-3 text-[14px] leading-snug text-white/80">{c().summary}</p>
+              <p class="mt-3 text-[14px] leading-snug text-fg/80">{c().summary}</p>
             </Show>
 
-            <p class="mt-3 text-[13px] text-white/55">
+            <p class="mt-3 text-[13px] text-muted">
               <Show
                 when={!c().prior}
                 fallback="Background knowledge the lectures build on."
               >
                 <Show when={c().lecture} fallback="Not tied to a lecture section.">
-                  <A href={materialPath(courseId(), c().lecture!)} class="text-white/80 underline decoration-white/25 underline-offset-2 hover:decoration-white">
+                  <A href={materialPath(courseId(), c().lecture!)} class="text-fg/80 underline decoration-fg/25 underline-offset-2 hover:decoration-accent">
                     {lectureTitle(c().lecture)}
                   </A>
                   <Show when={c().sections.length}>{`, section ${c().sections.join(', ')}`}</Show>
@@ -437,8 +444,8 @@ export default function GraphPage() {
               <Show when={c().checks > 0}>{` · checked ${c().checks}×`}</Show>
             </p>
 
-            <Issues title="Misconceptions" items={c().misconceptions} tone="text-rose-300" />
-            <Issues title="Missing pieces" items={c().gaps} tone="text-amber-200" />
+            <Issues title="Misconceptions" items={c().misconceptions} tone="text-danger" />
+            <Issues title="Missing pieces" items={c().gaps} tone="text-warning" />
             <Related title="Builds on" items={related(c(), 'requires')} onSelect={select} />
             <Related title="Needed for" items={related(c(), 'requiredBy')} onSelect={select} />
           </aside>
@@ -452,7 +459,7 @@ export default function GraphPage() {
 function ViewToggle(props: { dims: 2 | 3; onChange: (d: 2 | 3) => void; dark?: boolean; class?: string }) {
   return (
     <div
-      class={`flex shrink-0 rounded-full p-1 ${props.dark ? 'border border-white/10 bg-[#0b0f1a]/75 backdrop-blur-md' : 'bg-soft'} ${props.class ?? ''}`}
+      class={`flex shrink-0 rounded-lg p-1 ${props.dark ? 'oyl-glass' : 'bg-soft'} ${props.class ?? ''}`}
       role="group"
       aria-label="View"
     >
@@ -462,10 +469,10 @@ function ViewToggle(props: { dims: 2 | 3; onChange: (d: 2 | 3) => void; dark?: b
             type="button"
             aria-pressed={props.dims === d}
             onClick={() => props.onChange(d)}
-            class={`flex h-8 items-center gap-1.5 rounded-full px-2.5 text-[12px] font-medium transition-colors ${
+            class={`flex h-8 items-center gap-1.5 rounded-md px-2.5 text-[12px] font-medium transition-colors ${
               props.dims === d
-                ? props.dark ? 'bg-white/15 text-white' : 'bg-surface text-fg shadow-card'
-                : props.dark ? 'text-white/55 hover:text-white' : 'text-muted hover:text-fg'
+                ? props.dark ? 'bg-hover text-fg' : 'bg-surface text-fg shadow-card'
+                : 'text-muted hover:text-fg'
             }`}
           >
             {d === 3 ? <Box size={14} stroke-width={1.8} /> : <Square size={13} stroke-width={1.8} />}
@@ -505,7 +512,7 @@ function Issues(props: { title: string; items: string[]; tone: string }) {
   return (
     <Show when={props.items.length}>
       <div class="mt-4">
-        <h3 class="text-[12px] font-medium uppercase tracking-wide text-white/45">{props.title}</h3>
+        <h3 class="text-[12px] font-medium uppercase tracking-wide text-faint">{props.title}</h3>
         <ul class="mt-1.5 space-y-1">
           <For each={props.items}>{(i) => <li class={`text-[13px] leading-snug ${props.tone}`}>{i}</li>}</For>
         </ul>
@@ -518,13 +525,13 @@ function Related(props: { title: string; items: GraphConcept[]; onSelect: (id: s
   return (
     <Show when={props.items.length}>
       <div class="mt-4">
-        <h3 class="text-[12px] font-medium uppercase tracking-wide text-white/45">{props.title}</h3>
+        <h3 class="text-[12px] font-medium uppercase tracking-wide text-faint">{props.title}</h3>
         <div class="mt-1.5 flex flex-wrap gap-1.5">
           <For each={props.items}>
             {(c) => (
               <button
                 type="button"
-                class="flex max-w-full items-center gap-1.5 rounded-full bg-white/8 px-2.5 py-1 text-[12px] text-white/85 hover:bg-white/15"
+                class="flex max-w-full items-center gap-1.5 rounded-md bg-soft px-2.5 py-1 text-[12px] text-fg/85 hover:bg-hover"
                 onClick={() => props.onSelect(c.id)}
               >
                 <LevelDot level={c.level} />
@@ -545,10 +552,10 @@ const endId = (v: string | Node) => (typeof v === 'object' ? v.id : v);
 const touches = (l: Link, id: string | null) => !!id && (endId(l.source) === id || endId(l.target) === id);
 
 function linkColor(l: Link, selected: string | null): string {
-  if (l.kind !== 'requires') return 'rgba(148,163,184,0.25)';
-  if (touches(l, selected)) return '#ffffff';
+  if (l.kind !== 'requires') return 'rgba(237,236,234,0.16)';
+  if (touches(l, selected)) return '#e9b76a';
   const base = end(l.target)?.concept;
-  return base && LEARNED.has(base.level) ? 'rgba(52,211,153,0.55)' : 'rgba(148,163,184,0.4)';
+  return base && LEARNED.has(base.level) ? 'rgba(116,209,155,0.5)' : 'rgba(237,236,234,0.28)';
 }
 
 /** A soft round glow for halos. */
@@ -611,14 +618,14 @@ function nodeObject(n: Node, glow: THREE.Texture, rings: Map<string, THREE.Objec
   }
 
   if (n.concept?.misconceptions.length) {
-    const ring = new THREE.Mesh(RING, new THREE.MeshBasicMaterial({ color: '#fb7185', side: THREE.DoubleSide, transparent: true, opacity: 0.9 * dim }));
+    const ring = new THREE.Mesh(RING, new THREE.MeshBasicMaterial({ color: '#ff7b72', side: THREE.DoubleSide, transparent: true, opacity: 0.9 * dim }));
     ring.scale.setScalar(r);
     ring.onBeforeRender = (_renderer, _scene, camera) => ring.quaternion.copy(camera.quaternion);
     group.add(ring);
   }
 
   if (!hub) {
-    const sel = new THREE.Mesh(RING, new THREE.MeshBasicMaterial({ color: '#ffffff', side: THREE.DoubleSide, transparent: true, opacity: 0.95, depthWrite: false }));
+    const sel = new THREE.Mesh(RING, new THREE.MeshBasicMaterial({ color: '#e9b76a', side: THREE.DoubleSide, transparent: true, opacity: 0.95, depthWrite: false }));
     sel.onBeforeRender = (_renderer, _scene, camera) => sel.quaternion.copy(camera.quaternion);
     const holder = new THREE.Group();
     holder.add(sel);
@@ -628,8 +635,8 @@ function nodeObject(n: Node, glow: THREE.Texture, rings: Map<string, THREE.Objec
     group.add(holder);
   }
 
-  const label = new SpriteText(n.name.length > 34 ? `${n.name.slice(0, 33)}…` : n.name, hub ? 4.6 : 3.2, hub ? '#e9e5ff' : 'rgba(255,255,255,0.82)');
-  label.fontFace = '-apple-system, BlinkMacSystemFont, Inter, system-ui, sans-serif';
+  const label = new SpriteText(n.name.length > 34 ? `${n.name.slice(0, 33)}…` : n.name, hub ? 4.6 : 3.2, hub ? '#f3dcb4' : 'rgba(237,236,234,0.82)');
+  label.fontFace = '-apple-system, BlinkMacSystemFont, system-ui, sans-serif';
   label.fontWeight = hub ? '600' : '500';
   label.material.depthWrite = false;
   label.material.opacity = (n.kind === 'concept' && (level === 'unseen' || n.outside) ? 0.55 : 1);

@@ -24,13 +24,13 @@ const GraphPage = lazy(() => import('./routes/Graph'));
 const DocumentPage = lazy(() => import('./routes/Document'));
 const SitePage = lazy(() => import('./routes/Site'));
 
-/** The app window: top bar, sidebar, content, on the gray canvas. */
+/** The app window: top bar, sidebar, content, one pane of glass on the canvas. */
 function Layout(props: RouteSectionProps) {
   const auth = useAuth();
   return (
     <Show when={auth.userId()} fallback={<AuthScreen />}>
       <div class="app-viewport h-dvh">
-        <div class="flex h-full flex-col overflow-hidden bg-surface md:rounded-[22px] md:border md:border-line md:shadow-frame">
+        <div class="oyl-window flex h-full flex-col overflow-hidden">
           <ChatGPTGuideProvider>
             <HeaderSlotProvider>
               <Frame>{props.children}</Frame>
