@@ -1,6 +1,9 @@
-//! The background loop of one open paper: pull when it opens and every
-//! 30 seconds, push a few seconds after the last save, both at once on
-//! demand. While the cloud cannot be reached nothing local is held up;
+//! The background loop of one open paper: pull when it opens and when the
+//! paper's head moves in the cloud ([`Runner::remote_head`], from the live
+//! paper list), push a few seconds after the last save, both at once on
+//! demand. Without the live list (a cloud that does not offer it) it asks
+//! every 30 seconds instead; with it, only every 10 minutes, as a safety
+//! net. While the cloud cannot be reached nothing local is held up;
 //! attempts back off from 5 seconds, doubling, to 5 minutes.
 
 use std::sync::mpsc;
@@ -17,8 +20,10 @@ use crate::error::SyncError;
 pub struct Timing {
     /// How long after the last save a push starts.
     pub push_delay: Duration,
-    /// How often the cloud is asked for changes.
+    /// How often the cloud is asked for changes without a live paper list.
     pub pull_every: Duration,
+    /// How often it is asked anyway while the live list reports heads.
+    pub live_pull_every: Duration,
     /// The first wait after a failure; doubled after each further one.
     pub backoff_min: Duration,
     /// The longest wait after failures.
@@ -30,6 +35,7 @@ impl Default for Timing {
         Timing {
             push_delay: Duration::from_secs(5),
             pull_every: Duration::from_secs(30),
+            live_pull_every: Duration::from_secs(600),
             backoff_min: Duration::from_secs(5),
             backoff_max: Duration::from_secs(300),
         }
@@ -104,6 +110,8 @@ pub enum Event {
 enum Command {
     Saved,
     SyncNow,
+    RemoteHead(Option<String>),
+    LiveEnded,
     Apply(Resolution),
     Discard,
     Stop,
@@ -139,6 +147,20 @@ impl Runner {
         let _ = self.commands.send(Command::SyncNow);
     }
 
+    /// The live paper list says the paper's head in the cloud is `head`:
+    /// pull when that is not the revision this Mac last agreed on (after
+    /// the backoff, if failing). From now on the loop relies on these and
+    /// asks the cloud by itself only every [`Timing::live_pull_every`].
+    pub fn remote_head(&self, head: Option<String>) {
+        let _ = self.commands.send(Command::RemoteHead(head));
+    }
+
+    /// The live paper list is gone (signed out, closed): ask the cloud every
+    /// [`Timing::pull_every`] again.
+    pub fn live_ended(&self) {
+        let _ = self.commands.send(Command::LiveEnded);
+    }
+
     /// Apply the waiting review with `resolution`.
     pub fn apply_review(&self, resolution: Resolution) {
         let _ = self.commands.send(Command::Apply(resolution));
@@ -163,6 +185,8 @@ struct Loop {
     events: async_channel::Sender<Event>,
     status: Option<Status>,
     next_pull: Instant,
+    /// The live paper list reports this paper's head.
+    live: bool,
     push_at: Option<Instant>,
     /// After failures: no attempt before this.
     retry_at: Option<Instant>,
@@ -186,6 +210,7 @@ impl Loop {
             events,
             status: None,
             next_pull: now,
+            live: false,
             push_at: Some(now),
             retry_at: None,
             failures: 0,
@@ -264,6 +289,18 @@ impl Loop {
                     self.retry_at = None;
                     self.attempt(true, true);
                 }
+                Some(Command::RemoteHead(head)) => {
+                    self.live = true;
+                    if self.sync.state().synced_revision != head {
+                        self.next_pull = Instant::now();
+                    }
+                    continue;
+                }
+                Some(Command::LiveEnded) => {
+                    self.live = false;
+                    self.next_pull = self.next_pull.min(Instant::now() + self.timing.pull_every);
+                    continue;
+                }
                 Some(Command::Apply(resolution)) => {
                     let settled = self.sync.apply_review(&resolution);
                     self.settled(settled);
@@ -305,7 +342,12 @@ impl Loop {
         let result = self.sync.sync(pull, push);
         let now = Instant::now();
         if pull {
-            self.next_pull = now + self.timing.pull_every;
+            let every = if self.live {
+                self.timing.live_pull_every
+            } else {
+                self.timing.pull_every
+            };
+            self.next_pull = now + every;
         }
         match result {
             Ok(outcome) => {

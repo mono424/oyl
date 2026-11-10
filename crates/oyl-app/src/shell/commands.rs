@@ -211,6 +211,7 @@ impl Shell {
     /// content when nothing is open. `form` opens the new-paper form.
     pub(crate) fn show_library(&mut self, form: bool, window: &mut Window, cx: &mut Context<Self>) {
         self.refresh_library(cx);
+        self.connect_live(window, cx);
         self.refresh_cloud_papers(cx);
         self.library_view.update(cx, |view, cx| {
             view.reset(window, cx);

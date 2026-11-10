@@ -123,9 +123,12 @@ fn cloud_options(
         timing: oyl_sync::Timing {
             push_delay: Duration::from_millis(300),
             pull_every: Duration::from_secs(1),
+            live_pull_every: Duration::from_secs(1),
             backoff_min: Duration::from_millis(200),
             backoff_max: Duration::from_secs(2),
         },
+        // The mock cloud has no database; never open one of the user's.
+        live: false,
     }
 }
 

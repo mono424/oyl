@@ -18,6 +18,15 @@ ureq = "3.4"
 unicode-normalization = "0.1"
 percent-encoding = "2"
 sha2 = "0.10.9"
+futures.workspace = true
+smol.workspace = true
+base64 = "0.22"
+# The sp00ky client: the account's papers live from Oyl Cloud's database.
+spooky-core = { git = "https://github.com/mono424/sp00ky", rev = "0bfbe772b3b6a6c0500647693882f94c8126c367" }
+
+[build-dependencies]
+# Rust types and the client config from schema/src/schema.surql (build.rs).
+spooky-core = { git = "https://github.com/mono424/sp00ky", rev = "0bfbe772b3b6a6c0500647693882f94c8126c367", default-features = false, features = ["codegen"] }
 
 [target.'cfg(target_os = "macos")'.dependencies]
 security-framework = { version = "3", default-features = false }

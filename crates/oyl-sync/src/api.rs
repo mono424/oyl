@@ -470,6 +470,19 @@ impl Client {
         }
     }
 
+    // -- The database -------------------------------------------------------
+
+    /// Where the account's database is, for the live reads
+    /// ([`crate::LiveCloud`]); `None` from a cloud that does not offer it.
+    pub fn database(&self) -> Result<Option<crate::live::Database>> {
+        let reply = self.exchange(Method::Get, "/database", None, true)?;
+        match reply.status {
+            404 => Ok(None),
+            _ if reply.ok() => reply.json().map(Some),
+            _ => Err(reply.error()),
+        }
+    }
+
     // -- Papers ------------------------------------------------------------
 
     /// The account's papers, removed ones included, latest change first.

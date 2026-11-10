@@ -50,6 +50,10 @@ pub enum SyncError {
     /// The Keychain refused to store or read the key.
     #[error("the Keychain: {0}")]
     Keychain(String),
+    /// Oyl Cloud's database (the live reads) failed for another reason than
+    /// the network or the key.
+    #[error("Oyl Cloud's database: {0}")]
+    Database(String),
 }
 
 impl SyncError {

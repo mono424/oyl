@@ -3,9 +3,11 @@
 Oyl is offline-first: a paper is a folder on the user's disk and the desktop
 app works fully without a network. Sync copies papers to the user's Oyl Cloud
 account so they are backed up, open on other machines and show up in the web
-app. v1 runs over a small HTTP API on the Oyl API Worker. The data lives in
-SurrealDB tables shaped so that a later version can let **sp00ky** sync them
-to clients directly; the HTTP API is the transport for now, not the model.
+app. Writes (commits, blobs) go through a small HTTP API on the Oyl API Worker,
+which checks every commit against the head and every blob against its hash.
+Reads are live: the desktop app holds a **sp00ky** live query on the account's
+`paper_sync` rows (the Rust client, `spooky-core`), like the web app, so it
+hears of a new paper or a moved head at once instead of polling.
 
 The server side is `apps/api/src/sync.ts` (papers, revisions, blobs) and
 `apps/api/src/sync-device.ts` (sign-in), tested in `apps/api/test/sync.test.ts`.
@@ -87,12 +89,24 @@ with a device flow (in the style of RFC 8628):
    The token is a sync key: `oyl_sync_` followed by 43 base64url characters.
    Store it in the macOS Keychain. It does not expire.
 
-The key opens `/api/sync/*` and nothing else: not the MCP server, not the
-other API routes, and it cannot sign in to SurrealDB. On the server it is an
-`api_key` row "Oyl on <device name>" (listed under Connections in Settings,
-where the user revokes it) plus a server-only `sync_device` row with the key's
-SHA-256. Revoking takes effect on the next request: every endpoint then answers
-`401`, and the app should drop the key and offer to sign in again.
+The key opens `/api/sync/*` and, for the live reads, a SurrealDB session: not
+the MCP server and not the other API routes. On the server it is an `api_key`
+row "Oyl on <device name>" (listed under Connections in Settings, where the
+user revokes it) plus a server-only `sync_device` row with the key's SHA-256.
+Revoking takes effect on the next request: every endpoint then answers `401`,
+and the app should drop the key and offer to sign in again.
+
+### The database session
+
+The key signs in to SurrealDB through the `device` record access
+(`schema/src/schema.surql`): `signin { ns, db, ac: "device", key }`. Its SIGNIN
+accepts a key whose `sync_device` row has a connection that is not revoked,
+and the session is the key's owner, so the tables' permissions apply as for
+the web app (record users read their own papers and revisions and write
+none). Sessions last a day; the app signs in again with the key well before
+that and whenever the session is gone. A revoked key is refused at its next
+sign-in ("No record was returned"); the app then asks the API, and a `401`
+there signs it out.
 
 ## Endpoints (all JSON unless noted, all under `/api/sync`)
 
@@ -106,6 +120,7 @@ the colon.
 
 | Method & path | Does |
 | --- | --- |
+| `GET /database` | Where the live reads go: `{ endpoint, namespace, database }`, `endpoint` the SurrealDB RPC socket (`wss://host/rpc`). The Worker's own database address unless `DB_PUBLIC_URL` is set. Keep the answer for offline starts |
 | `GET /papers` | List the caller's papers, removed ones included: `[{ id, name, engine, main, head, updated_by, created, updated, deleted }]`, latest change first |
 | `POST /papers` | Create `{ name, engine, main, id? }` → `201` with the paper (as in the list). `id` is optional: one the client makes up (`paper_sync:k` + 32 lowercase hex digits) makes a retry safe, answering `200` with the paper already made (`409` if another account has it) |
 | `PATCH /papers/:id` | Any of `{ name, main, engine, deleted }` → the paper. `deleted: true` soft-deletes, `false` restores |
@@ -155,7 +170,9 @@ synced_files }`, the last revision both sides agree on (the merge base).
   → commit with `parent = synced_revision`. `201` (or `200 unchanged`) →
   record it. `409` → pull first (from the `head` in the answer), then push
   again.
-- **Pull** (on open, every 30 s while online, after a 409): read head; if it
+- **Pull** (on open, when the live `paper_sync` row's `head` is not
+  `synced_revision`, after a 409, and every 10 minutes as a safety net; every
+  30 s when the cloud offers no database): read head over the API; if it
   differs from `synced_revision`, download missing blobs into a private
   working copy and treat the remote revision like an agent branch: files the
   user did not change since `synced_files` are applied directly; files both
@@ -179,10 +196,19 @@ and `paper_revision` live through sp00ky and the bytes through
 `GET /blobs/:sha256`. In v1.1 it edits the entry file through a commit
 (author `web`), which reaches the desktop as a pull.
 
-## Path to sp00ky
+## Live reads (sp00ky)
 
 `paper_sync` and `paper_revision` are ordinary SurrealDB tables with
-per-owner permissions (record users read their own rows and write none), so a
-later version can subscribe to them through sp00ky instead of polling; blobs
-stay content-addressed. Clients keep the same merge logic; only the transport
-changes.
+per-owner permissions (record users read their own rows and write none), so
+both clients read them through sp00ky. The desktop app
+(`crates/oyl-sync/src/live.rs`) keeps a replica of the account's rows in the
+app's data folder (`cloud/<hash of cloud and account>/`), so the library lists
+cloud papers offline too, and feeds each open paper's sync loop the head the
+live row reports. The pull itself, the merge and the review are unchanged:
+the live row only says when to pull, and the pull reads the head over the API,
+so a row that lags behind a commit this Mac just made costs one request and
+never a wrong merge. Blobs stay content-addressed over the API.
+
+`crates/oyl-sync/tests/live.rs` runs this against a local stack with the
+schema and migrations (`spky dev --apply-migrations` on a project holding
+`schema/`), with `OYL_LIVE_ENDPOINT=ws://127.0.0.1:8666/rpc`.

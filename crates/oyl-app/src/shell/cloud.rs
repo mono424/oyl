@@ -2,6 +2,12 @@
 //! open paper's background sync, its reviews in the Agent tab, and papers
 //! opened from the cloud. Nothing leaves the Mac until the user signs in
 //! and turns sync on for a paper.
+//!
+//! While signed in, the account's papers are read live from Oyl Cloud's
+//! database ([`oyl_sync::LiveCloud`]): the library lists them as they change
+//! and the open paper pulls the moment its head moves. A cloud without a
+//! database for the app (the self-test's mock) is listed and polled over
+//! the API instead.
 
 use std::path::PathBuf;
 use std::rc::Rc;
@@ -14,8 +20,8 @@ use oyl_chat::ReviewChoice;
 use oyl_core::{CloudAccount, LayoutMode};
 use oyl_sync::sign_in::{self, Finished};
 use oyl_sync::{
-    Client, Event, Keychain, PaperInfo, PaperSync, RemotePaper, Runner, Status, SyncState, Timing,
-    TokenStore,
+    Client, Database, Event, Keychain, LiveCloud, PaperInfo, PaperSync, RemotePaper, Runner,
+    Status, SyncError, SyncState, Timing, TokenStore,
 };
 use oyl_ui::ActiveTokens as _;
 
@@ -36,6 +42,9 @@ pub struct CloudOptions {
     pub tokens: Arc<dyn TokenStore>,
     /// The background loop's timing.
     pub timing: Timing,
+    /// Read the account's papers live from the cloud's database when it
+    /// offers one.
+    pub live: bool,
 }
 
 impl Default for CloudOptions {
@@ -44,6 +53,7 @@ impl Default for CloudOptions {
             url: None,
             tokens: Arc::new(Keychain),
             timing: Timing::default(),
+            live: true,
         }
     }
 }
@@ -60,6 +70,15 @@ pub(crate) struct CloudState {
     /// A paper being downloaded.
     pub(crate) downloading: Option<String>,
     pub(crate) remote_task: Option<Task<()>>,
+    /// The live link to the account's database, once open.
+    pub(crate) live: Option<Arc<LiveCloud>>,
+    /// Opens the live link, then follows the live paper list.
+    pub(crate) live_task: Option<Task<()>>,
+    /// Every paper of the account from the live list; `None` until it
+    /// answers (the API's list stands in until then).
+    pub(crate) live_papers: Option<Vec<RemotePaper>>,
+    /// Counts live links, so a late answer of a closed one is ignored.
+    pub(crate) live_epoch: u64,
     /// The sign-in card.
     pub(crate) card: Entity<CloudSignInView>,
 }
@@ -73,6 +92,10 @@ impl CloudState {
             remote: Vec::new(),
             downloading: None,
             remote_task: None,
+            live: None,
+            live_task: None,
+            live_papers: None,
+            live_epoch: 0,
             card,
         }
     }
@@ -150,6 +173,7 @@ impl Shell {
                     Some(token) => {
                         this.cloud.token = Some(token);
                         this.start_paper_sync(window, cx);
+                        this.connect_live(window, cx);
                         this.refresh_cloud_papers(cx);
                     }
                     None => {
@@ -288,6 +312,7 @@ impl Shell {
                     .update(cx, |host, cx| host.dismiss_if(SIGN_IN, window, cx));
                 self.toast(ToastKind::Success, line, window, cx);
                 self.start_paper_sync(window, cx);
+                self.connect_live(window, cx);
                 self.refresh_cloud_papers(cx);
                 self.sync_library(cx);
                 cx.notify();
@@ -340,7 +365,7 @@ impl Shell {
         let Some(account) = self.settings.cloud_account.take() else {
             return;
         };
-        self.forget_cloud_key(&account.url, cx);
+        self.forget_cloud_key(&account.url, &account.id, cx);
         self.save_settings(cx);
         self.stop_paper_sync(cx);
         self.cloud.remote.clear();
@@ -354,7 +379,8 @@ impl Shell {
         cx.notify();
     }
 
-    fn forget_cloud_key(&mut self, url: &str, cx: &mut Context<Self>) {
+    fn forget_cloud_key(&mut self, url: &str, account: &str, cx: &mut Context<Self>) {
+        self.disconnect_live(Some((url, account)), cx);
         self.cloud.token = None;
         let tokens = self.cloud.options.tokens.clone();
         let key = oyl_sync::token_key(url);
@@ -364,6 +390,210 @@ impl Shell {
             }
         })
         .detach();
+    }
+
+    // -- The live link ----------------------------------------------------------
+
+    /// Opens the live link of the signed-in account: where its database is
+    /// (from the API, or kept from last time when offline), the replica on
+    /// this Mac, a database session kept fresh with the key, and the live
+    /// paper list. Nothing when it is open already or the cloud offers no
+    /// database.
+    pub(crate) fn connect_live(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if !self.cloud.options.live || self.cloud.live_task.is_some() {
+            return;
+        }
+        let Some(client) = self.cloud_client() else {
+            return;
+        };
+        let (Some(account), Some(key)) = (
+            self.cloud_account().map(|account| account.id.clone()),
+            self.cloud.token.clone(),
+        ) else {
+            return;
+        };
+        let dir = LiveCloud::folder(&self.paths.data_dir, &self.cloud_url(), &account);
+        self.cloud.live_epoch += 1;
+        let epoch = self.cloud.live_epoch;
+        self.cloud.live_task = Some(cx.spawn_in(window, async move |this, cx| {
+            let database = cx
+                .background_spawn({
+                    let (client, dir) = (client.clone(), dir.clone());
+                    async move { locate_database(&client, &dir) }
+                })
+                .await;
+            // Not now: a later connect_live (the library, "Sync now") tries
+            // again. Cleared from a task of its own, as this task is the one
+            // it drops.
+            let again_later = |this: gpui_kit::WeakEntity<Shell>, cx: &mut gpui_kit::AsyncWindowContext| {
+                cx.spawn(async move |cx| {
+                    let _ = this.update(cx, |this, _| {
+                        if this.cloud.live_epoch == epoch {
+                            this.cloud.live_task = None;
+                        }
+                    });
+                })
+                .detach();
+            };
+            let Some(database) = database else {
+                again_later(this, cx);
+                return;
+            };
+            let cloud = match LiveCloud::open(&database, &dir).await {
+                Ok(cloud) => Arc::new(cloud),
+                Err(err) => {
+                    log::warn!("sync: the live paper list could not open: {err}");
+                    again_later(this, cx);
+                    return;
+                }
+            };
+            let current = this
+                .update(cx, |this, _| {
+                    let current = this.cloud.live_epoch == epoch;
+                    if current {
+                        this.cloud.live = Some(cloud.clone());
+                    }
+                    current
+                })
+                .unwrap_or(false);
+            if !current {
+                cloud.close().await;
+                return;
+            }
+            let keeper = cx.background_spawn({
+                let (cloud, account) = (cloud.clone(), account.clone());
+                async move { cloud.keep_session(key, account).await }
+            });
+            let mut papers = match cloud.papers(&account).await {
+                Ok(papers) => papers,
+                Err(err) => {
+                    log::warn!("sync: the live paper list could not start: {err}");
+                    return;
+                }
+            };
+            if papers.is_authoritative() || !papers.current().is_empty() {
+                let list = papers.current();
+                let _ = this.update(cx, |this, cx| this.live_papers_changed(epoch, list, cx));
+            }
+            let mut keeper = Box::pin(keeper);
+            loop {
+                let next = Box::pin(papers.changed());
+                match futures::future::select(keeper, next).await {
+                    futures::future::Either::Left((ended, _)) => {
+                        if let Err(SyncError::SignedOut) = ended {
+                            let _ = this.update_in(cx, |this, window, cx| {
+                                this.live_key_refused(epoch, client, window, cx)
+                            });
+                        }
+                        return;
+                    }
+                    futures::future::Either::Right((list, still)) => {
+                        keeper = still;
+                        let Some(list) = list else {
+                            return;
+                        };
+                        let alive = this
+                            .update(cx, |this, cx| this.live_papers_changed(epoch, list, cx))
+                            .is_ok();
+                        if !alive {
+                            return;
+                        }
+                    }
+                }
+            }
+        }));
+    }
+
+    /// Closes the live link. `signed_out` (the cloud's address and the
+    /// account) also ends its database session and removes the replica.
+    fn disconnect_live(&mut self, signed_out: Option<(&str, &str)>, cx: &mut Context<Self>) {
+        self.cloud.live_epoch += 1;
+        self.cloud.live_task = None;
+        self.cloud.live_papers = None;
+        if let Some(cloud) = self.paper.as_ref().and_then(|paper| paper.cloud.as_ref()) {
+            cloud.runner.live_ended();
+        }
+        let dir = signed_out
+            .map(|(url, account)| LiveCloud::folder(&self.paths.data_dir, url, account));
+        let cloud = self.cloud.live.take();
+        if cloud.is_none() && dir.is_none() {
+            return;
+        }
+        cx.background_spawn(async move {
+            if let Some(cloud) = cloud {
+                if dir.is_some() {
+                    cloud.sign_out().await;
+                }
+                cloud.close().await;
+            }
+            if let Some(dir) = dir
+                && dir.exists()
+                && let Err(err) = std::fs::remove_dir_all(&dir)
+            {
+                log::warn!("sync: removing {}: {err}", dir.display());
+            }
+        })
+        .detach();
+    }
+
+    /// The live list changed: the library's cloud papers follow, and the
+    /// open paper hears of its head.
+    fn live_papers_changed(&mut self, epoch: u64, papers: Vec<RemotePaper>, cx: &mut Context<Self>) {
+        if epoch != self.cloud.live_epoch {
+            return;
+        }
+        self.cloud.live_papers = Some(papers);
+        self.report_live_head();
+        self.refresh_cloud_papers(cx);
+    }
+
+    /// Tells the open paper's sync where its head is in the cloud, as the
+    /// live list has it.
+    fn report_live_head(&self) {
+        let Some(papers) = self.cloud.live_papers.as_ref() else {
+            return;
+        };
+        let Some(paper) = self.paper.as_ref() else {
+            return;
+        };
+        let Some(cloud) = paper.cloud.as_ref() else {
+            return;
+        };
+        let Some(id) = SyncState::paper_id_of(paper.root()) else {
+            return;
+        };
+        if let Some(remote) = papers.iter().find(|remote| remote.id == id) {
+            cloud.runner.remote_head(remote.head.clone());
+        }
+    }
+
+    /// The database refused the key. The API decides: refused there too
+    /// means this Mac was disconnected; otherwise only the live list stops
+    /// (the database may not offer the `device` access yet) and the papers
+    /// are polled over the API again.
+    fn live_key_refused(
+        &mut self,
+        epoch: u64,
+        client: Client,
+        window: &mut Window,
+        cx: &mut Context<Self>,
+    ) {
+        if epoch != self.cloud.live_epoch {
+            return;
+        }
+        self.disconnect_live(None, cx);
+        cx.spawn_in(window, async move |this, cx| {
+            let answer = cx.background_spawn(async move { client.database() }).await;
+            let _ = this.update_in(cx, |this, window, cx| match answer {
+                Err(SyncError::SignedOut) => this.cloud_signed_out(window, cx),
+                _ => log::warn!(
+                    "sync: the database refused this Mac's key while the API takes it; \
+                     the papers are polled instead"
+                ),
+            });
+        })
+        .detach();
+        self.refresh_cloud_papers(cx);
     }
 
     // -- The open paper's sync ------------------------------------------------
@@ -477,6 +707,7 @@ impl Shell {
             status: Some(Status::Syncing),
             _events: task,
         });
+        self.report_live_head();
         cx.notify();
     }
 
@@ -500,6 +731,7 @@ impl Shell {
 
     /// Pull and push now.
     pub(crate) fn sync_now(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        self.connect_live(window, cx);
         match self.paper.as_ref().and_then(|paper| paper.cloud.as_ref()) {
             Some(cloud) => cloud.runner.sync_now(),
             None => self.toggle_cloud_sync(window, cx),
@@ -560,34 +792,38 @@ impl Shell {
                 self.request_compile(window, cx);
             }
             Event::Pushed(n) => log::info!("sync: pushed revision {n}"),
-            Event::SignedOut => {
-                if let Some(account) = self.settings.cloud_account.take() {
-                    self.forget_cloud_key(&account.url, cx);
-                    self.save_settings(cx);
-                }
-                // Stopped from a task of its own: this event arrives
-                // through the sync's own task, which stopping drops.
-                cx.spawn(async move |this, cx| {
-                    let _ = this.update(cx, |this, cx| this.stop_paper_sync(cx));
-                })
-                .detach();
-                self.cloud.remote.clear();
-                self.sync_library(cx);
-                let action: ToastAction = Rc::new(
-                    |shell: &mut Shell, window: &mut Window, cx: &mut Context<Shell>| {
-                        shell.start_cloud_sign_in(window, cx)
-                    },
-                );
-                self.toast_with_action(
-                    ToastKind::Error,
-                    "Signed out of Oyl Cloud: this Mac was disconnected. Sign in again to sync.",
-                    "Sign in",
-                    action,
-                    window,
-                    cx,
-                );
-            }
+            Event::SignedOut => self.cloud_signed_out(window, cx),
         }
+    }
+
+    /// The key was refused: forget it and the account, stop syncing, and
+    /// offer to sign in again.
+    fn cloud_signed_out(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        if let Some(account) = self.settings.cloud_account.take() {
+            self.forget_cloud_key(&account.url, &account.id, cx);
+            self.save_settings(cx);
+        }
+        // Stopped from a task of its own: this can arrive through the sync's
+        // own task, which stopping drops.
+        cx.spawn(async move |this, cx| {
+            let _ = this.update(cx, |this, cx| this.stop_paper_sync(cx));
+        })
+        .detach();
+        self.cloud.remote.clear();
+        self.sync_library(cx);
+        let action: ToastAction = Rc::new(
+            |shell: &mut Shell, window: &mut Window, cx: &mut Context<Shell>| {
+                shell.start_cloud_sign_in(window, cx)
+            },
+        );
+        self.toast_with_action(
+            ToastKind::Error,
+            "Signed out of Oyl Cloud: this Mac was disconnected. Sign in again to sync.",
+            "Sign in",
+            action,
+            window,
+            cx,
+        );
     }
 
     /// The user applies the review of changes from Oyl Cloud.
@@ -686,7 +922,8 @@ impl Shell {
     }
 
     /// Re-reads the account's papers that are not on this Mac (for the
-    /// library), off the main thread.
+    /// library), off the main thread: from the live list when there is one,
+    /// else from the API.
     pub(crate) fn refresh_cloud_papers(&mut self, cx: &mut Context<Self>) {
         let Some(client) = self.cloud_client() else {
             self.cloud.remote.clear();
@@ -698,6 +935,7 @@ impl Shell {
             .iter()
             .map(|entry| entry.path.clone())
             .collect();
+        let live = self.cloud.live_papers.clone();
         self.cloud.remote_task = Some(cx.spawn(async move |this, cx| {
             let listed = cx
                 .background_spawn(async move {
@@ -705,7 +943,11 @@ impl Shell {
                         .iter()
                         .filter_map(|path| SyncState::paper_id_of(path))
                         .collect();
-                    client.papers().map(|papers| {
+                    let papers = match live {
+                        Some(papers) => Ok(papers),
+                        None => client.papers(),
+                    };
+                    papers.map(|papers| {
                         papers
                             .into_iter()
                             .filter(|paper| !paper.deleted && !here.contains(&paper.id))
@@ -816,6 +1058,25 @@ impl Shell {
             });
         })
         .detach();
+    }
+}
+
+/// Where the account's database is: the API's answer (kept for the next
+/// offline start), or the one kept from last time when the API cannot be
+/// reached. `None` when the cloud offers no database for the app.
+fn locate_database(client: &Client, dir: &std::path::Path) -> Option<Database> {
+    match client.database() {
+        Ok(Some(database)) => {
+            if let Err(err) = database.save(dir) {
+                log::warn!("sync: keeping the database's address: {err}");
+            }
+            Some(database)
+        }
+        Ok(None) => None,
+        Err(err) => {
+            log::info!("sync: asking where the database is: {err}");
+            Database::load(dir)
+        }
     }
 }
 

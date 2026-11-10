@@ -16,9 +16,13 @@
 //!   directly, files changed on both sides are merged and, when they
 //!   overlap, reviewed like an agent's work.
 //! - [`Runner`]: the background loop of one open paper (push a few seconds
-//!   after saves, pull on open and every 30 s, back off while offline).
+//!   after saves, pull on open and when the live list moves the head,
+//!   back off while offline).
 //! - [`download_paper`]: "Open from Oyl Cloud", a paper's latest revision
 //!   into a new folder.
+//! - [`LiveCloud`]: the account's papers live from Oyl Cloud's database
+//!   through sp00ky, so the library and open papers hear of changes at
+//!   once. Commits and blobs stay on the API.
 //! - [`mock::MockCloud`]: an in-process server speaking the protocol, for
 //!   tests and the app's self-test.
 
@@ -29,6 +33,7 @@ mod engine;
 mod error;
 mod files;
 mod keychain;
+mod live;
 pub mod mock;
 mod runner;
 pub mod sign_in;
@@ -42,6 +47,7 @@ pub use engine::{Applied, Outcome, PaperInfo, PaperSync, download_paper, pull_la
 pub use error::{Result, SyncError};
 pub use files::{MAX_BLOB_BYTES, nfc_key};
 pub use keychain::{Keychain, MemoryTokens, TokenStore, token_key};
+pub use live::{ACCESS, Database, LiveCloud, LivePapers};
 pub use runner::{Event, Runner, Status, Timing};
 pub use state::{PendingReview, STATE_FILE, SyncState};
 

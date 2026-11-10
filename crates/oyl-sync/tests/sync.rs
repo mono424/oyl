@@ -482,6 +482,7 @@ fn the_loop_pulls_pushes_backs_off_and_settles_reviews() {
     let timing = Timing {
         push_delay: Duration::from_millis(50),
         pull_every: Duration::from_millis(200),
+        live_pull_every: Duration::from_secs(60),
         backoff_min: Duration::from_millis(50),
         backoff_max: Duration::from_millis(400),
     };
@@ -557,6 +558,56 @@ fn the_loop_pulls_pushes_backs_off_and_settles_reviews() {
         "{seen:?}"
     );
     drop(runner);
+}
+
+#[test]
+fn a_head_from_the_live_list_pulls_at_once_and_the_same_head_does_not() {
+    let cloud = MockCloud::start().unwrap();
+    let (token, account) = cloud.add_account("Student", "MacBook Pro");
+    let desk = Desk::new();
+    // Far apart: a pull within the test can only come from the live head.
+    let timing = Timing {
+        push_delay: Duration::from_millis(50),
+        pull_every: Duration::from_secs(600),
+        live_pull_every: Duration::from_secs(600),
+        backoff_min: Duration::from_millis(50),
+        backoff_max: Duration::from_millis(400),
+    };
+    let (runner, events) = Runner::start(desk.sync(client(&cloud, &token), &account), timing);
+    let mut seen = Vec::new();
+    assert!(
+        wait_for(&events, &mut seen, |e| *e == Event::Status(Status::Synced)),
+        "{seen:?}"
+    );
+    let paper = desk.state().paper_id.unwrap();
+    let synced = desk.state().synced_revision;
+    runner.remote_head(synced);
+    let reads = |cloud: &MockCloud| {
+        cloud
+            .requests()
+            .iter()
+            .filter(|r| r.starts_with("GET") && r.ends_with("/head"))
+            .count()
+    };
+    let before = reads(&cloud);
+    std::thread::sleep(Duration::from_millis(300));
+    assert_eq!(reads(&cloud), before, "the head this Mac has: no request");
+
+    let head = cloud.web_commit(&paper, &[("notes.md", Some(b"from the web\n"))]);
+    runner.remote_head(head);
+    assert!(
+        wait_for(&events, &mut seen, |e| matches!(e, Event::Applied(_))),
+        "{seen:?}"
+    );
+    assert_eq!(desk.read("notes.md").as_deref(), Some("from the web\n"));
+    drop(runner);
+}
+
+#[test]
+fn a_cloud_without_a_live_database_says_so() {
+    let cloud = MockCloud::start().unwrap();
+    let (token, _) = cloud.add_account("Student", "MacBook Pro");
+    assert_eq!(client(&cloud, &token).database().unwrap(), None);
 }
 
 #[test]

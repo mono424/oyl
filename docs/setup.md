@@ -271,10 +271,14 @@ server-only). A commit is a compare-and-set on the paper's head.
 
 The desktop signs in with a device flow: it gets a code, the user approves
 "Oyl on <device>" on the web app's `/connect?code=` page, and the app collects a
-sync key (`oyl_sync_...`) that opens `/api/sync` only. Each key is a connection
-under **Connections** in Settings, where revoking it stops it at once
-(`sync_device` holds the key's hash, `apps/api/src/sync-device.ts`). The web app
-lists synced papers under **Papers** and shows a revision's files read-only.
+sync key (`oyl_sync_...`) that opens `/api/sync` and, through the `device`
+record access, a database session for its live reads of `paper_sync`. Each key
+is a connection under **Connections** in Settings, where revoking it stops it
+at once on the API and at its next database sign-in (`sync_device` holds the
+key's hash, `apps/api/src/sync-device.ts`). `GET /api/sync/database` tells the
+app where the database is: the Worker's own address as `wss://.../rpc`, or
+`DB_PUBLIC_URL` when clients reach it elsewhere. The web app lists synced
+papers under **Papers** and shows a revision's files read-only.
 
 `apps/api/test/sync.test.ts` covers every endpoint; its database half runs with
 `OYL_TEST_SURREAL=1` against the local SurrealDB, like the other tests.
