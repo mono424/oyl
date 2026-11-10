@@ -29,12 +29,12 @@ pub(crate) fn protected_tokens(text: &str, engine: Option<Engine>) -> Vec<String
             i += 2;
             continue;
         }
-        if c == '$' {
-            if let Some(end) = dollar_math_end(&chars, i) {
-                tokens.push(chars[i..end].iter().collect());
-                i = end;
-                continue;
-            }
+        if c == '$'
+            && let Some(end) = dollar_math_end(&chars, i)
+        {
+            tokens.push(chars[i..end].iter().collect());
+            i = end;
+            continue;
         }
         if c == '@' && (i == 0 || !chars[i - 1].is_alphanumeric()) {
             let end = key_end(&chars, i + 1);
@@ -59,7 +59,11 @@ pub(crate) fn protected_tokens(text: &str, engine: Option<Engine>) -> Vec<String
 
 /// The protected tokens of `original` that `rewritten` lost or changed
 /// (counting repeats), in their first order.
-pub(crate) fn missing_tokens(original: &str, rewritten: &str, engine: Option<Engine>) -> Vec<String> {
+pub(crate) fn missing_tokens(
+    original: &str,
+    rewritten: &str,
+    engine: Option<Engine>,
+) -> Vec<String> {
     let mut available: HashMap<String, usize> = HashMap::new();
     for token in protected_tokens(rewritten, engine) {
         *available.entry(token).or_default() += 1;
@@ -81,16 +85,20 @@ pub(crate) fn cited_keys(text: &str, engine: Option<Engine>) -> Vec<String> {
     for token in protected_tokens(text, engine) {
         if let Some(rest) = token.strip_prefix('@') {
             keys.push(rest.to_owned());
-        } else if token.starts_with('\\') && token[1..].split(['{', '[', '*']).next().is_some_and(|name| name.contains("cite")) {
-            if let (Some(open), Some(close)) = (token.rfind('{'), token.rfind('}')) {
-                keys.extend(
-                    token[open + 1..close]
-                        .split(',')
-                        .map(str::trim)
-                        .filter(|key| !key.is_empty())
-                        .map(str::to_owned),
-                );
-            }
+        } else if token.starts_with('\\')
+            && token[1..]
+                .split(['{', '[', '*'])
+                .next()
+                .is_some_and(|name| name.contains("cite"))
+            && let (Some(open), Some(close)) = (token.rfind('{'), token.rfind('}'))
+        {
+            keys.extend(
+                token[open + 1..close]
+                    .split(',')
+                    .map(str::trim)
+                    .filter(|key| !key.is_empty())
+                    .map(str::to_owned),
+            );
         }
     }
     keys.dedup();
@@ -157,7 +165,17 @@ fn protected_command_end(chars: &[char], start: usize) -> Option<usize> {
     let protected = name.to_ascii_lowercase().contains("cite")
         || matches!(
             name.as_str(),
-            "ref" | "eqref" | "autoref" | "cref" | "Cref" | "pageref" | "nameref" | "vref" | "label" | "href" | "url"
+            "ref"
+                | "eqref"
+                | "autoref"
+                | "cref"
+                | "Cref"
+                | "pageref"
+                | "nameref"
+                | "vref"
+                | "label"
+                | "href"
+                | "url"
         );
     if !protected {
         return None;
@@ -216,7 +234,10 @@ mod tests {
                 "$$z$$",
             ]
         );
-        assert_eq!(cited_keys(text, Some(Engine::Latex)), vec!["smith2020", "doe21"]);
+        assert_eq!(
+            cited_keys(text, Some(Engine::Latex)),
+            vec!["smith2020", "doe21"]
+        );
     }
 
     #[test]
@@ -226,15 +247,35 @@ mod tests {
             protected_tokens(text, Some(Engine::Typst)),
             vec!["@konishi1973", "@fig:owl", "$f(x) = x^2$", "<eq:f>"]
         );
-        assert_eq!(cited_keys(text, Some(Engine::Typst)), vec!["konishi1973", "fig:owl"]);
+        assert_eq!(
+            cited_keys(text, Some(Engine::Typst)),
+            vec!["konishi1973", "fig:owl"]
+        );
     }
 
     #[test]
     fn missing_counts_repeats_and_changes() {
         let original = r"\cite{a} and \cite{a}, $x$.";
-        assert!(missing_tokens(original, r"\cite{a}, \cite{a} and $x$.", Some(Engine::Latex)).is_empty());
-        assert_eq!(missing_tokens(original, r"\cite{a} and $x$.", Some(Engine::Latex)), vec![r"\cite{a}"]);
-        assert_eq!(missing_tokens(original, r"\cite{a} and \cite{b}, $y$.", Some(Engine::Latex)), vec![r"\cite{a}", "$x$"]);
+        assert!(
+            missing_tokens(
+                original,
+                r"\cite{a}, \cite{a} and $x$.",
+                Some(Engine::Latex)
+            )
+            .is_empty()
+        );
+        assert_eq!(
+            missing_tokens(original, r"\cite{a} and $x$.", Some(Engine::Latex)),
+            vec![r"\cite{a}"]
+        );
+        assert_eq!(
+            missing_tokens(
+                original,
+                r"\cite{a} and \cite{b}, $y$.",
+                Some(Engine::Latex)
+            ),
+            vec![r"\cite{a}", "$x$"]
+        );
         assert!(missing_tokens("plain text", "Plain text.", None).is_empty());
     }
 }

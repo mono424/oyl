@@ -97,7 +97,9 @@ pub fn bind_keys(cx: &mut App) {
     cx.bind_keys([
         KeyBinding::new("cmd-k", CommandPalette, None),
         KeyBinding::new("cmd-o", OpenLibrary, None),
-        KeyBinding::new("cmd-n", NewPaper, None),
+        // In the shell's context rather than global, so that the Agent
+        // tab's ⌘N (a new thread, bound deeper) wins inside it.
+        KeyBinding::new("cmd-n", NewPaper, Some(SHELL_CONTEXT)),
         KeyBinding::new("cmd-1", WriteMode, None),
         KeyBinding::new("cmd-2", SplitMode, None),
         KeyBinding::new("cmd-3", ReadMode, None),
@@ -117,8 +119,6 @@ pub fn bind_keys(cx: &mut App) {
         KeyBinding::new("cmd-shift-h", ShowHistory, None),
         KeyBinding::new("cmd-shift-o", ShowOutline, None),
         KeyBinding::new("cmd-shift-f", ShowFigures, None),
-        // Text fields bind ⇧⌘F to their replace bar; the figures win.
-        KeyBinding::new("cmd-shift-f", ShowFigures, Some("Input")),
         KeyBinding::new("cmd-shift-m", ShowProblems, None),
         KeyBinding::new("escape", DismissOverlay, Some(OVERLAY_CONTEXT)),
         // Inside the Agent tab ⌘N starts a thread, not a paper.

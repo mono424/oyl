@@ -2,13 +2,15 @@
 
 use std::{path::PathBuf, sync::Arc};
 
-use oyl_model::agent::{Harness, HarnessId, HarnessInfo, Readiness};
+use oyl_model::agent::{FactChecker, Harness, HarnessId, HarnessInfo, Readiness, Rewriter};
 use parking_lot::RwLock;
 
 use crate::{
     claude::ClaudeCodeHarness,
     codex::CodexHarness,
     detect::{Detection, Setup},
+    factcheck::{ClaudeFactChecker, CodexFactChecker},
+    rewrite::{ClaudeRewriter, CodexRewriter},
     sorcar::SorcarHarness,
 };
 
@@ -123,6 +125,48 @@ impl Registry {
     pub fn setup(&self) -> &Arc<Setup> {
         &self.setup
     }
+
+    /// What polishes a selection (⌘B): Claude Code when it is installed,
+    /// else Codex, else nothing ([`Registry::rewriter_status`] says why).
+    pub fn rewriter(&self) -> Option<Arc<dyn Rewriter>> {
+        let detection = self.setup.detection();
+        if detection.claude.is_some() {
+            Some(Arc::new(ClaudeRewriter::new(Arc::clone(&self.setup))))
+        } else if detection.codex.is_some() {
+            Some(Arc::new(CodexRewriter::new(Arc::clone(&self.setup))))
+        } else {
+            None
+        }
+    }
+
+    /// One line on [`Registry::rewriter`], for the UI.
+    pub fn rewriter_status(&self) -> String {
+        match self.rewriter() {
+            Some(rewriter) => format!("Polishes text with {}", rewriter.name()),
+            None => "Install Claude Code or Codex to polish text with ⌘B".into(),
+        }
+    }
+
+    /// What fact-checks a selection (⇧⌘B): Claude Code with web search when
+    /// it is installed, else Codex, else nothing.
+    pub fn fact_checker(&self) -> Option<Arc<dyn FactChecker>> {
+        let detection = self.setup.detection();
+        if detection.claude.is_some() {
+            Some(Arc::new(ClaudeFactChecker::new(Arc::clone(&self.setup))))
+        } else if detection.codex.is_some() {
+            Some(Arc::new(CodexFactChecker::new(Arc::clone(&self.setup))))
+        } else {
+            None
+        }
+    }
+
+    /// One line on [`Registry::fact_checker`], for the UI.
+    pub fn fact_checker_status(&self) -> String {
+        match self.fact_checker() {
+            Some(checker) => format!("Checks facts with {}", checker.name()),
+            None => "Install Claude Code or Codex to fact-check text with ⇧⌘B".into(),
+        }
+    }
 }
 
 #[cfg(test)]
@@ -196,6 +240,44 @@ mod tests {
         assert_eq!(registry.harnesses().len(), 4);
         // Nothing built in can run, the scripted one can.
         assert_eq!(registry.default_id(), HarnessId::new("scripted"));
+    }
+
+    #[test]
+    fn rewriter_and_fact_checker_follow_what_is_installed() {
+        let (_t, claude) = registry(Detection {
+            claude: tool("/x/claude"),
+            codex: tool("/x/codex"),
+            ..Detection::default()
+        });
+        assert_eq!(
+            claude.rewriter().map(|r| r.name()).as_deref(),
+            Some("Claude Code (Sonnet)")
+        );
+        assert_eq!(
+            claude.fact_checker().map(|c| c.name()).as_deref(),
+            Some("Claude Code (Sonnet, web search)")
+        );
+        assert_eq!(
+            claude.rewriter_status(),
+            "Polishes text with Claude Code (Sonnet)"
+        );
+        let (_t, codex) = registry(Detection {
+            codex: tool("/x/codex"),
+            ..Detection::default()
+        });
+        assert_eq!(codex.rewriter().map(|r| r.name()).as_deref(), Some("Codex"));
+        assert_eq!(
+            codex.fact_checker().map(|c| c.name()).as_deref(),
+            Some("Codex (web search)")
+        );
+        let (_t, nothing) = registry(Detection::default());
+        assert!(nothing.rewriter().is_none() && nothing.fact_checker().is_none());
+        assert!(
+            nothing
+                .rewriter_status()
+                .contains("Install Claude Code or Codex")
+        );
+        assert!(nothing.fact_checker_status().contains("⇧⌘B"));
     }
 
     #[test]

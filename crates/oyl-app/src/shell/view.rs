@@ -5,10 +5,10 @@ use std::time::{Duration, Instant};
 
 use gpui_kit::component::button::{Button, ButtonVariants as _};
 use gpui_kit::component::tooltip::Tooltip;
-use gpui_kit::component::{Icon, IconName, Sizable as _, StyledExt as _};
+use gpui_kit::component::{IconName, Sizable as _, StyledExt as _};
 use gpui_kit::prelude::*;
 use gpui_kit::{
-    AnimationExt as _, AnyElement, Bounds, Context, DispatchPhase, MouseButton, MouseDownEvent,
+    AnimationExt as _, AnyElement, Context, DispatchPhase, MouseButton, MouseDownEvent,
     MouseMoveEvent, MouseUpEvent, Pixels, Point, Render, SharedString, Window, canvas,
     div, px, relative,
 };
@@ -618,6 +618,7 @@ impl Render for Shell {
             .on_action(cx.listener(Self::on_write_mode))
             .on_action(cx.listener(Self::on_split_mode))
             .on_action(cx.listener(Self::on_read_mode))
+            .on_action(cx.listener(Self::on_agent_mode))
             .on_action(cx.listener(Self::on_toggle_appearance))
             .on_action(cx.listener(Self::on_light))
             .on_action(cx.listener(Self::on_dark))

@@ -6,7 +6,6 @@ use std::path::PathBuf;
 
 use gpui_kit::prelude::*;
 use gpui_kit::{Context, Entity, Focusable as _, Pixels, Subscription, Window, px};
-use oyl_core::LayoutMode;
 use oyl_model::{Diagnostic, Engine};
 use oyl_panels::{
     FiguresEvent, FiguresPanel, HistoryEvent, HistoryPanel, OutlineEvent, OutlinePanel,

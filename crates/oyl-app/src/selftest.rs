@@ -194,12 +194,13 @@ impl SelfTest {
         };
         self.typing(report, &article, cx).await;
         self.modes(report, cx).await;
-        self.slides(report, cx).await;
+        self.agent_tab(report, cx).await;
         self.agent_turn(report, harness, &article, cx).await;
         self.media(report, &article, cx).await;
         self.exports(report, cx).await;
         self.palette(report, &article, cx).await;
         self.panels(report, &article, cx).await;
+        self.threads(report, cx).await;
         self.reopen(report, &article, cx).await;
     }
 
@@ -572,10 +573,11 @@ impl SelfTest {
     // -- 3. Modes and appearance ----------------------------------------------
 
     async fn modes(&self, report: &mut Report, cx: &mut AsyncApp) {
-        report.step("3. Write, Read, Split; dark and light");
-        let checks: [(Box<dyn gpui_kit::Action>, LayoutMode); 3] = [
+        report.step("3. Write, Read, Agent, Split; dark and light");
+        let checks: [(Box<dyn gpui_kit::Action>, LayoutMode); 4] = [
             (Box::new(actions::WriteMode), LayoutMode::Write),
             (Box::new(actions::ReadMode), LayoutMode::Read),
+            (Box::new(actions::AgentMode), LayoutMode::Agent),
             (Box::new(actions::SplitMode), LayoutMode::Split),
         ];
         for (action, mode) in checks {
@@ -670,99 +672,46 @@ impl SelfTest {
         report.check(back == dark, "and back");
     }
 
-    // -- 3b. The card: Source and Agent slides, the picker ----------------------
+    // -- 3b. The Agent tab, the cards, the picker --------------------------------
 
-    /// The slide shown, whether it settled, and where focus is.
-    fn slide_state(&self, cx: &mut AsyncApp) -> (crate::shell::Slide, bool, bool, bool) {
+    /// The tab on screen, and whether the composer or the tab's content has
+    /// focus.
+    fn tab_state(&self, cx: &mut AsyncApp) -> (LayoutMode, bool, bool) {
         self.with_shell(cx, |shell, window, cx| {
-            let settled = !shell.slides.progress.is_animating(std::time::Instant::now());
+            use gpui_kit::Focusable as _;
             let chat = shell.chat_has_focus(window, cx);
             let content = match shell.mode {
-                LayoutMode::Read => {
-                    use gpui_kit::Focusable as _;
-                    shell.preview.focus_handle(cx).is_focused(window)
-                }
-                _ => {
-                    use gpui_kit::Focusable as _;
+                LayoutMode::Read => shell.preview.focus_handle(cx).is_focused(window),
+                LayoutMode::Agent => chat,
+                LayoutMode::Write | LayoutMode::Split => {
                     shell.editor.focus_handle(cx).is_focused(window)
                 }
             };
-            (shell.slides.shown, settled, chat, content)
+            (shell.mode, chat, content)
         })
-        .unwrap_or((crate::shell::Slide::Source, false, false, false))
+        .unwrap_or((LayoutMode::Split, false, false))
     }
 
     async fn settle(&self, cx: &mut AsyncApp) {
-        self.wait(cx, Duration::from_millis(400), |_| false).await;
+        self.wait(cx, Duration::from_millis(250), |_| false).await;
     }
 
-    /// The agent's card where the mode puts it: over the paper column in
-    /// Split, 440 px against the right edge in Read and Write.
-    fn check_agent_card(&self, report: &mut Report, mode: LayoutMode, cx: &mut AsyncApp) {
-        let measured = self.with_shell(cx, |shell, window, _| {
-            (
-                shell.slides.agent_bounds.get(),
-                shell.content_bounds.get(),
-                window.viewport_size(),
-                shell.settings.split_ratio,
-            )
-        });
-        let Some((card, content, viewport, ratio)) = measured else {
-            return;
-        };
-        let near = |a: f32, b: f32| (a - b).abs() < 1.5;
-        let gap = crate::layout::CARD_GAP;
-        let left = f32::from(card.origin.x);
-        let top = f32::from(card.origin.y);
-        let right = left + f32::from(card.size.width);
-        let bottom = top + f32::from(card.size.height);
-        let (expected_left, width) =
-            crate::layout::agent_card(mode, f32::from(content.size.width), ratio);
-        let expected_left = f32::from(content.origin.x) + expected_left;
-        report.check(
-            near(left, expected_left)
-                && near(right, expected_left + width)
-                && near(right, f32::from(viewport.width) - gap)
-                && near(top, crate::layout::HEADER_HEIGHT + gap)
-                && near(bottom, f32::from(viewport.height) - gap),
-            format!(
-                "{}: the agent's card sits at ({left:.0},{top:.0})–({right:.0},{bottom:.0}){}",
-                crate::layout::mode_label(mode),
-                match mode {
-                    LayoutMode::Split => ", over the paper column".to_string(),
-                    _ => format!(", {:.0} px wide on the right", right - left),
-                }
-            ),
-        );
-    }
-
-    /// In Split, the handle still resizes while the agent's card is open:
-    /// code on the left, the agent's card on the right.
-    async fn drag_split_while_agent_open(&self, report: &mut Report, cx: &mut AsyncApp) {
+    /// The handle dragged `dx` points, as a user would.
+    fn drag_handle(&self, dx: f32, cx: &mut AsyncApp) {
         self.frame(cx);
-        let (handle, before, card_before) = cx.update(|cx| {
-            let shell = self.shell.read(cx);
-            (
-                shell.handle.hit_bounds.get(),
-                shell.settings.split_ratio,
-                shell.slides.agent_bounds.get(),
-            )
-        });
+        let handle = cx.update(|cx| self.shell.read(cx).handle.hit_bounds.get());
         let from = point(
             handle.origin.x + handle.size.width / 2.,
             handle.origin.y + handle.size.height / 2.,
         );
-        let to = point(from.x - gpui_kit::px(120.), from.y);
+        let to = point(from.x + gpui_kit::px(dx), from.y);
         let _ = self.window.update(cx, move |_, window, cx| {
-            window.dispatch_event(
+            for event in [
                 PlatformInput::MouseMove(MouseMoveEvent {
                     position: from,
                     pressed_button: None,
                     modifiers: Modifiers::default(),
                 }),
-                cx,
-            );
-            window.dispatch_event(
                 PlatformInput::MouseDown(MouseDownEvent {
                     button: MouseButton::Left,
                     position: from,
@@ -770,112 +719,80 @@ impl SelfTest {
                     click_count: 1,
                     first_mouse: false,
                 }),
-                cx,
-            );
-            window.dispatch_event(
                 PlatformInput::MouseMove(MouseMoveEvent {
                     position: to,
                     pressed_button: Some(MouseButton::Left),
                     modifiers: Modifiers::default(),
                 }),
-                cx,
-            );
-            window.dispatch_event(
                 PlatformInput::MouseUp(MouseUpEvent {
                     button: MouseButton::Left,
                     position: to,
                     modifiers: Modifiers::default(),
                     click_count: 1,
                 }),
-                cx,
-            );
+            ] {
+                window.dispatch_event(event, cx);
+            }
         });
-        self.settle(cx).await;
-        let (after, card_after) = cx.update(|cx| {
-            let shell = self.shell.read(cx);
-            (shell.settings.split_ratio, shell.slides.agent_bounds.get())
-        });
-        let moved = f32::from(card_before.origin.x) - f32::from(card_after.origin.x);
-        report.check(
-            after < before - 0.05 && (moved - 120.).abs() < 2.,
-            format!(
-                "Split: dragging the handle with the agent open resizes code vs agent ({before:.2} → {after:.2}, card moved {moved:.0} px)"
-            ),
-        );
-        self.with_shell(cx, move |shell, _, cx| shell.set_split_ratio(before, cx));
-        self.settle(cx).await;
+        self.frame(cx);
     }
 
-    async fn slides(&self, report: &mut Report, cx: &mut AsyncApp) {
-        use crate::shell::Slide;
-        report.step("3b. The source card, the agent's card, the picker");
-        let modes: [(Box<dyn gpui_kit::Action>, LayoutMode); 3] = [
+    async fn agent_tab(&self, report: &mut Report, cx: &mut AsyncApp) {
+        report.step("3b. The Agent tab, the cards, the picker");
+        let origins: [(Box<dyn gpui_kit::Action>, LayoutMode); 3] = [
             (Box::new(actions::SplitMode), LayoutMode::Split),
             (Box::new(actions::WriteMode), LayoutMode::Write),
             (Box::new(actions::ReadMode), LayoutMode::Read),
         ];
-        for (action, mode) in modes {
-            let name = crate::layout::mode_label(mode);
+        for (action, origin) in origins {
+            let name = crate::layout::mode_label(origin);
             self.dispatch(action, cx);
             self.settle(cx).await;
             self.dispatch(Box::new(actions::FocusAgent), cx);
             self.settle(cx).await;
-            let (slide, settled, chat, _) = self.slide_state(cx);
+            let (mode, chat, _) = self.tab_state(cx);
             report.check(
-                slide == Slide::Agent && settled && chat,
-                format!("{name}: ⌘L slides the agent's card in, caret in the composer"),
+                mode == LayoutMode::Agent && chat,
+                format!("from {name}: ⌘L goes to the Agent tab, caret in the composer"),
             );
-            self.check_agent_card(report, mode, cx);
-            if mode == LayoutMode::Split {
-                self.drag_split_while_agent_open(report, cx).await;
-            }
+            self.dispatch(Box::new(actions::FocusAgent), cx);
+            self.settle(cx).await;
+            let (mode, _, content) = self.tab_state(cx);
+            report.check(
+                mode == origin && content,
+                format!("⌘L again goes back to {name}, focus on its content"),
+            );
+            self.dispatch(Box::new(actions::FocusAgent), cx);
             self.press("escape", cx);
             self.settle(cx).await;
-            let away = cx.update(|cx| self.shell.read(cx).slides.agent_bounds.get());
+            let (mode, _, content) = self.tab_state(cx);
             report.check(
-                away.size.width == Pixels::default(),
-                format!("{name}: closed, the agent's card is off screen"),
+                mode == origin && content,
+                format!("Esc in the composer goes back to {name}"),
             );
-            let (slide, settled, _, content) = self.slide_state(cx);
-            report.check(
-                slide == Slide::Source && settled && content,
-                format!(
-                    "{name}: Esc in the composer slides back to the {}",
-                    if mode == LayoutMode::Read { "paper" } else { "source" }
-                ),
-            );
-            let button = cx.update(|cx| self.shell.read(cx).agent_button_bounds.get());
-            self.click(button, cx);
-            self.settle(cx).await;
-            let (shown, ..) = self.slide_state(cx);
-            self.click(button, cx);
-            self.settle(cx).await;
-            let (back, ..) = self.slide_state(cx);
-            report.check(
-                shown == Slide::Agent && back == Slide::Source,
-                format!("{name}: the header's Agent button toggles the slides"),
-            );
-            self.dispatch(Box::new(actions::FocusAgent), cx);
-            self.dispatch(Box::new(actions::FocusAgent), cx);
-            self.settle(cx).await;
-            let (slide, ..) = self.slide_state(cx);
-            report.check(slide == Slide::Source, format!("{name}: ⌘L twice is back on the source"));
         }
 
-        // The editor's scroll area ends inside the card, in Split and Write.
+        // The editor's scroll viewport ends inside the card, in Split and Write;
+        // the cards keep their gaps.
         for (action, mode) in [
             (Box::new(actions::SplitMode) as Box<dyn gpui_kit::Action>, LayoutMode::Split),
             (Box::new(actions::WriteMode), LayoutMode::Write),
+            (Box::new(actions::AgentMode), LayoutMode::Agent),
         ] {
             self.dispatch(action, cx);
             self.settle(cx).await;
             let measured = self.with_shell(cx, |shell, window, cx| {
-                let card = shell.slides.source_bounds.get();
+                let card = shell.card_bounds.get();
                 let text = shell.editor.read(cx).text_bounds(cx);
-                (card, text, window.viewport_size(), shell.content_bounds.get())
+                (
+                    card,
+                    text,
+                    window.viewport_size(),
+                    shell.content_bounds.get(),
+                    shell.settings.split_ratio,
+                )
             });
-            let Some((card, Some(text), viewport, content)) = measured else {
-                report.check(false, "the editor's text area was laid out");
+            let Some((card, text, viewport, content, ratio)) = measured else {
                 continue;
             };
             let edges = |b: Bounds<Pixels>| {
@@ -887,70 +804,92 @@ impl SelfTest {
                 )
             };
             let (cl, ct, cr, cb) = edges(card);
-            let (tl, tt, tr, tb) = edges(text);
-            // The editor's own padding (oyl-editor): top, right, bottom,
-            // left; the scroll viewport (and its clip) starts inside it.
-            let (pt, pr, pb, pl) = match mode {
-                LayoutMode::Write => (20., 32., 20., 32.),
-                _ => (16., 20., 16., 12.),
-            };
-            let inside = tl >= cl + pl - 0.5
-                && tt >= ct + pt - 0.5
-                && tr <= cr - pr + 0.5
-                && tb <= cb - pb + 0.5;
-            report.check(
-                inside && tr > tl && tb > tt,
-                format!(
-                    "{}: the editor's scroll viewport ({tl:.0},{tt:.0})–({tr:.0},{tb:.0}) is inside the card's inner rect ({cl:.0},{ct:.0})–({cr:.0},{cb:.0}) by its padding",
-                    crate::layout::mode_label(mode)
-                ),
-            );
+            if mode != LayoutMode::Agent {
+                let Some(text) = text else {
+                    report.check(false, "the editor's text area was laid out");
+                    continue;
+                };
+                let (tl, tt, tr, tb) = edges(text);
+                // The editor's own padding (oyl-editor): top, right, bottom,
+                // left; the scroll viewport (and its clip) starts inside it.
+                let (pt, pr, pb, pl) = match mode {
+                    LayoutMode::Write => (20., 32., 20., 32.),
+                    _ => (16., 20., 16., 12.),
+                };
+                let inside = tl >= cl + pl - 0.5
+                    && tt >= ct + pt - 0.5
+                    && tr <= cr - pr + 0.5
+                    && tb <= cb - pb + 0.5;
+                report.check(
+                    inside && tr > tl && tb > tt,
+                    format!(
+                        "{}: the editor's scroll viewport ({tl:.0},{tt:.0})–({tr:.0},{tb:.0}) is inside the card's inner rect ({cl:.0},{ct:.0})–({cr:.0},{cb:.0}) by its padding",
+                        crate::layout::mode_label(mode)
+                    ),
+                );
+            }
             let gap = crate::layout::CARD_GAP;
-            let right_edge = match mode {
-                LayoutMode::Split => {
-                    let ratio = cx.update(|cx| self.shell.read(cx).settings.split_ratio);
-                    f32::from(content.origin.x)
-                        + crate::layout::clamp_split(ratio, f32::from(content.size.width))
-                            * f32::from(content.size.width)
-                        - gap
-                }
-                _ => f32::from(viewport.width) - gap,
+            let width = f32::from(content.size.width);
+            let boundary =
+                f32::from(content.origin.x) + crate::layout::clamp_columns(mode, ratio, width) * width;
+            let (left, right) = match mode {
+                LayoutMode::Write => (gap, f32::from(viewport.width) - gap),
+                LayoutMode::Agent => (gap + crate::layout::SIDEBAR_WIDTH + gap, boundary - gap),
+                _ => (gap, boundary - gap),
             };
             let near = |a: f32, b: f32| (a - b).abs() < 1.5;
             report.check(
-                near(cl, gap)
+                near(cl, left)
                     && near(ct, crate::layout::HEADER_HEIGHT + gap)
                     && near(cb, f32::from(viewport.height) - gap)
-                    && near(cr, right_edge),
+                    && near(cr, right),
                 format!(
-                    "{}: the card keeps {gap:.0}px from the edges, the header and the column boundary",
-                    crate::layout::mode_label(mode)
+                    "{}: the card ({cl:.0},{ct:.0})–({cr:.0},{cb:.0}) keeps {gap:.0}px from the edges, the header{}",
+                    crate::layout::mode_label(mode),
+                    match mode {
+                        LayoutMode::Agent => ", the sidebar and the column boundary",
+                        LayoutMode::Split => " and the column boundary",
+                        _ => "",
+                    }
                 ),
             );
         }
 
-        // The picker opens on a click; a model picked there is used.
-        self.dispatch(Box::new(actions::SplitMode), cx);
-        self.dispatch(Box::new(actions::FocusAgent), cx);
+        // In the Agent tab the handle sizes the agent against the paper.
+        let (before, card_before) = cx.update(|cx| {
+            let shell = self.shell.read(cx);
+            (shell.settings.split_ratio, shell.card_bounds.get())
+        });
+        self.drag_handle(120., cx);
         self.settle(cx).await;
+        let (after, card_after) = cx.update(|cx| {
+            let shell = self.shell.read(cx);
+            (shell.settings.split_ratio, shell.card_bounds.get())
+        });
+        let grew = f32::from(card_after.size.width) - f32::from(card_before.size.width);
+        report.check(
+            after > before + 0.05 && (grew - 120.).abs() < 2.,
+            format!(
+                "Agent tab: dragging the handle resizes the agent vs the paper ({before:.2} → {after:.2}, card {grew:+.0} px)"
+            ),
+        );
+        self.with_shell(cx, move |shell, _, cx| shell.set_split_ratio(before, cx));
+        self.settle(cx).await;
+
+        // The picker opens on a click; a model picked there is used.
         let chat = cx.update(|cx| self.shell.read(cx).chat.clone());
         let chip = cx.update(|cx| chat.read(cx).picker_bounds());
         self.click(chip, cx);
         let opened = cx.update(|cx| chat.read(cx).open_popover());
         report.check(
             opened == Some("agent"),
-            format!(
-                "a click on the composer's chip ({:.0},{:.0} {:.0}×{:.0}) opens the picker",
-                f32::from(chip.origin.x),
-                f32::from(chip.origin.y),
-                f32::from(chip.size.width),
-                f32::from(chip.size.height)
-            ),
+            "a click on the composer's chip opens the picker",
         );
         let before = cx.update(|cx| chat.read(cx).selection());
         self.dispatch(Box::new(oyl_chat::PopoverDown), cx);
         self.dispatch(Box::new(oyl_chat::PopoverConfirm), cx);
-        let (after, open) = cx.update(|cx| (chat.read(cx).selection(), chat.read(cx).open_popover()));
+        let (after, open) =
+            cx.update(|cx| (chat.read(cx).selection(), chat.read(cx).open_popover()));
         let model = after.as_ref().and_then(|(_, model)| model.clone());
         report.check(
             open.is_none() && model.as_deref() == Some("script-careful") && before != after,
@@ -973,15 +912,18 @@ impl SelfTest {
         self.click(chip, cx);
         self.press("escape", cx);
         let open = cx.update(|cx| chat.read(cx).open_popover());
-        let (slide, ..) = self.slide_state(cx);
+        let (mode, ..) = self.tab_state(cx);
         report.check(
-            open.is_none() && slide == crate::shell::Slide::Agent,
-            "Esc closes the picker first, the agent stays",
+            open.is_none() && mode == LayoutMode::Agent,
+            "Esc closes the picker first, the Agent tab stays",
         );
         self.press("escape", cx);
         self.settle(cx).await;
-        let (slide, ..) = self.slide_state(cx);
-        report.check(slide == crate::shell::Slide::Source, "a second Esc goes back to the source");
+        let (mode, ..) = self.tab_state(cx);
+        report.check(
+            mode == LayoutMode::Write,
+            "a second Esc goes back to the tab it came from (Write)",
+        );
     }
 
     // -- 4. An agent turn ------------------------------------------------------
@@ -1536,11 +1478,8 @@ impl SelfTest {
             prompt.is_some() && started && !self.showing("problems", cx),
             "Fix with agent started a turn with the errors",
         );
-        let (slide, ..) = self.slide_state(cx);
-        report.check(
-            slide == crate::shell::Slide::Agent,
-            "and switched the card to the agent",
-        );
+        let (mode, ..) = self.tab_state(cx);
+        report.check(mode == LayoutMode::Agent, "and switched to the Agent tab");
         let done = self
             .wait_app(cx, Duration::from_secs(20), |cx| {
                 !self.shell.read(cx).chat.read(cx).is_running()
@@ -1592,11 +1531,123 @@ impl SelfTest {
         self.dismiss_overlay(cx);
     }
 
+    // -- 8b. Two threads at once ----------------------------------------------------
+
+    async fn threads(&self, report: &mut Report, cx: &mut AsyncApp) {
+        report.step("8b. Two threads run at once; the sidebar lists them; delete");
+        let chat = cx.update(|cx| self.shell.read(cx).chat.clone());
+        let sidebar = cx.update(|cx| self.shell.read(cx).sidebar.clone());
+        const FIRST: &str = "First thread: tighten the abstract.";
+        const SECOND: &str = "Second thread: shorten the introduction.";
+        self.dispatch(Box::new(actions::AgentMode), cx);
+        self.settle(cx).await;
+        // ⌘N inside the Agent tab starts a thread.
+        self.press("cmd-n", cx);
+        let fresh = cx.update(|cx| chat.read(cx).thread().is_empty());
+        report.check(
+            fresh && !self.showing("library", cx),
+            "⌘N in the Agent tab starts a new thread (not a paper)",
+        );
+        cx.update(|cx| chat.update(cx, |chat, cx| chat.send(FIRST, cx)));
+        self.settle(cx).await;
+        let first = cx.update(|cx| chat.read(cx).thread().id.clone());
+        self.press("cmd-n", cx);
+        cx.update(|cx| chat.update(cx, |chat, cx| chat.send(SECOND, cx)));
+        self.settle(cx).await;
+        let second = cx.update(|cx| chat.read(cx).thread().id.clone());
+        let overview = cx.update(|cx| sidebar.read(cx).overview(cx));
+        let titles: Vec<String> = overview.running.iter().map(|r| r.title.clone()).collect();
+        report.check(
+            cx.update(|cx| chat.read(cx).running_count()) == 2
+                && titles.iter().any(|t| t.starts_with("First thread"))
+                && titles.iter().any(|t| t.starts_with("Second thread")),
+            format!("two turns run at once, both under RUNNING: {titles:?}"),
+        );
+        let activity = overview
+            .running
+            .iter()
+            .map(|r| r.activity.clone())
+            .collect::<Vec<_>>();
+        report.check(
+            activity.iter().all(|a| !a.is_empty()),
+            format!("each with its live activity: {activity:?}"),
+        );
+        // Back to the first while both stream.
+        let id = first.clone();
+        self.with_shell(cx, move |shell, window, cx| {
+            shell
+                .chat
+                .update(cx, |chat, cx| chat.show_thread(&id, window, cx))
+        });
+        let (shown, live) = cx.update(|cx| {
+            let chat = chat.read(cx);
+            (chat.thread().id.clone(), chat.current_is_running())
+        });
+        report.check(
+            shown == first && live,
+            "switching to the first thread while it streams shows it live",
+        );
+        let header_dot = cx.update(|cx| self.shell.read(cx).agent.running);
+        report.check(header_dot, "the Agent tab's dot shows that turns run");
+        let done = self
+            .wait_app(cx, Duration::from_secs(20), |cx| !chat.read(cx).is_running())
+            .await;
+        report.check(done, "both turns finished");
+        let overview = cx.update(|cx| sidebar.read(cx).overview(cx));
+        let recent: Vec<&str> = overview.recent.iter().map(|r| r.id.as_str()).collect();
+        report.check(
+            overview.running.is_empty()
+                && recent.contains(&first.as_str())
+                && recent.contains(&second.as_str()),
+            format!("both are listed under RECENT ({} threads)", recent.len()),
+        );
+        let turns = cx.update(|cx| {
+            self.shell
+                .read(cx)
+                .paper
+                .as_ref()
+                .map(|p| p.turns.turns.len())
+                .unwrap_or(0)
+        });
+        report.check(turns >= 2, format!("each turn recorded its own version ({turns} turns)"));
+        // Rename and delete the second.
+        let id = second.clone();
+        cx.update(|cx| chat.update(cx, |chat, cx| chat.rename_thread(&id, "Intro pass", cx)));
+        let renamed = cx.update(|cx| {
+            sidebar
+                .read(cx)
+                .overview(cx)
+                .recent
+                .iter()
+                .any(|r| r.id == second && r.title == "Intro pass")
+        });
+        report.check(renamed, "a thread can be renamed");
+        let id = second.clone();
+        cx.update(|cx| chat.update(cx, |chat, cx| chat.delete_thread(&id, cx)));
+        let gone = cx.update(|cx| {
+            !sidebar
+                .read(cx)
+                .overview(cx)
+                .recent
+                .iter()
+                .any(|r| r.id == second)
+        });
+        let file = self
+            .snapshot(cx)
+            .root
+            .map(|root| root.join(".oyl/chat").join(format!("{second}.json")));
+        report.check(
+            gone && file.is_some_and(|file| !file.exists()),
+            "deleting a thread removes it from the list and from disk",
+        );
+        self.dispatch(Box::new(actions::SplitMode), cx);
+    }
+
     // -- 9. Reopening -------------------------------------------------------------
 
     async fn reopen(&self, report: &mut Report, article: &Path, cx: &mut AsyncApp) {
         report.step("9. Reopening from the same data folder restores the state");
-        self.dispatch(Box::new(actions::ReadMode), cx);
+        self.dispatch(Box::new(actions::AgentMode), cx);
         self.with_shell(cx, |shell, window, cx| {
             shell.set_split_ratio(0.62, cx);
             shell.save_everything(window, cx)
@@ -1627,18 +1678,11 @@ impl SelfTest {
             back && s.root.as_deref() == Some(article),
             "the last paper opens again",
         );
-        report.check(s.mode == Some(LayoutMode::Read), "in Read mode");
-        let (split, slide) = cx.update(|cx| {
-            let shell = second.shell.read(cx);
-            (shell.settings.split_ratio, shell.slides.shown)
-        });
+        report.check(s.mode == Some(LayoutMode::Agent), "on the Agent tab");
+        let split = cx.update(|cx| second.shell.read(cx).settings.split_ratio);
         report.check(
             (split - 0.62).abs() < 1e-3,
             format!("with the split at {split:.2}"),
-        );
-        report.check(
-            slide == crate::shell::Slide::Source,
-            "and the card on its Source slide",
         );
         report.check(
             WindowFrame::load(&self.paths).is_some(),

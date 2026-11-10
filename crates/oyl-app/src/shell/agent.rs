@@ -7,7 +7,6 @@ use std::sync::Arc;
 use gpui_kit::prelude::*;
 use gpui_kit::{App, Context, Entity, Focusable as _, Window};
 use oyl_chat::{BeforeTurnHook, ChatEvent, ChatPane, ContextProvider, EditorContext};
-use oyl_core::LayoutMode;
 use oyl_history::VersionId;
 use oyl_model::Author;
 use oyl_model::agent::HarnessId;

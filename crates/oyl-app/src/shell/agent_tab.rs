@@ -44,11 +44,6 @@ impl Shell {
         }
     }
 
-    /// Whether the Agent tab is on screen.
-    pub(crate) fn agent_shown(&self) -> bool {
-        self.mode == LayoutMode::Agent
-    }
-
     /// Esc came from the composer (or the chat pane): back to the tab the
     /// user came from.
     pub(crate) fn leave_chat(&mut self, window: &mut Window, cx: &mut Context<Self>) {
