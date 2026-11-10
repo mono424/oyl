@@ -17,7 +17,7 @@ import {
 import { BadRequest } from '../surreal';
 
 /**
- * What a source has to offer and what TalkToBolo imports from it, as a
+ * What a source has to offer and what Oyl imports from it, as a
  * hockeymask mapping. Connectors (canvas.ts, web.ts) only read: they list
  * every file, page or link they find as a `SourceRow`. The mapping decides
  * which of them become lecture material and in what shape (an `ImportRow`),
@@ -61,7 +61,7 @@ const field = (name: string, logicalType: 'string', nullable: boolean, descripti
   ({ name, logicalType, nullable, description });
 
 export const TARGETS = TargetSchema.parse({
-  name: 'talktobolo',
+  name: 'oyl',
   entities: [
     {
       name: 'import',

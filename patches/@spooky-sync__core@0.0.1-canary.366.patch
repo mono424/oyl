@@ -10,14 +10,14 @@ index 242b42b965a60cf5192a937eed797481f02cf880..e1674883a019d384a9565e207623307b
 +	return e.remoteArray.filter(([id, v]) => !deletes.has(id) && ((s.versions.get(id) ?? -1) < v || unverifiedBody(s, id)));
  }
 +/**
-+* studycall patch. The SSP publishes a row's new version from inside the write's
++* Oyl patch. The SSP publishes a row's new version from inside the write's
 +* still open transaction, so a client could read the old body in that window and
 +* store it under the new version, after which nothing fetched the real one. Text
 +* stored that way is read again once per session.
 +*/
 +const verifiedBodies = /* @__PURE__ */ new Set();
 +const unverifiedBody = (s, id) => /^(document|answer):/.test(id) && !verifiedBodies.has(id) && !s.outbox.some((i) => i.recordId === id && i.status === "pending");
-+/** studycall patch: fetches of a row whose announced version has not committed yet. */
++/** Oyl patch: fetches of a row whose announced version has not committed yet. */
 +const uncommittedTries = /* @__PURE__ */ new Map();
 +const UNCOMMITTED_RETRY_MS = 1e3;
 +const UNCOMMITTED_MAX_TRIES = 120;

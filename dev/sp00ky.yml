@@ -4,10 +4,10 @@
 # but SurrealDB runs locally in Docker (ws://localhost:8666) instead of on
 # SurrealDB Cloud, so nothing you do here touches production data.
 mode: singlenode
-slug: studycall
+slug: oyl
 surrealdb:
   namespace: main
-  database: studycall
+  database: oyl
 schema: ../schema
 # PDFs and the images extracted from them (see ../sp00ky.yml).
 buckets:
@@ -35,7 +35,7 @@ apps:
     env:
       - dev:
           VITE_DB_NS: main
-          VITE_DB_DB: studycall
+          VITE_DB_DB: oyl
           VITE_DB_ENDPOINT: ws://localhost:8666/rpc
           VITE_API_URL: http://localhost:8787
   # The API Worker under `wrangler dev`. It reads apps/api/.dev.vars. The

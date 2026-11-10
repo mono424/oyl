@@ -1,6 +1,6 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "studycall-api",
+  "name": "oyl-api",
   "main": "src/index.ts",
   "compatibility_date": "2026-10-15",
   "compatibility_flags": ["nodejs_compat"],
@@ -23,11 +23,11 @@
 
   "vars": {
     // The web app's origin, for CORS. Comma-separated for several.
-    "APP_ORIGIN": "http://localhost:5180,https://talktobolo.stg.spky.cloud",
+    "APP_ORIGIN": "http://localhost:5180,https://oyl.stg.spky.cloud",
     // The local database (dev/sp00ky.yml); sp00ky sets SPKY_DB_* itself on
     // its Worker backend.
     "SPKY_DB_NS": "main",
-    "SPKY_DB_NAME": "studycall",
+    "SPKY_DB_NAME": "oyl",
     "EMBEDDING_MODEL": "@cf/qwen/qwen3-embedding-0.6b",
     // The local sync node's job runner sends it on /jobs/* (dev/sp00ky.yml
     // `apps.api.auth.token`). Not a secret: /jobs/* is never public.

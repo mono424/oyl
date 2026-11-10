@@ -1,10 +1,10 @@
 # Setup and deployment
 
-[Back to TalkToBolo](../README.md)
+[Back to Oyl](../README.md)
 
 This guide covers the local stack, production deployment, and connecting
 ChatGPT through the MCP server. Workspace packages and deployment resources use the internal
-`studycall` name.
+`oyl` name.
 
 ## How it fits together
 
@@ -57,7 +57,7 @@ Set `AGENT_MEMORY_URL` to your Context's full data-plane base URL, for example
 `https://YOUR-CONTEXT-HOST/api/v1/YOUR-CONTEXT-ID`, and store its key as
 `AGENT_MEMORY_API_KEY` in `.dev.vars` or the vault (`spky env set`). Use a dedicated Context
 per environment. The Worker key needs `scope:create`, `memory:write`, and
-`memory:read` for the `talktobolo/*` subtree. Never expose it to the browser.
+`memory:read` for the `oyl/*` subtree. Never expose it to the browser.
 See [SurrealDB's Context setup](https://surrealdb.com/docs/agent-memory/quickstarts/surrealdb-cloud)
 and [REST API reference](https://surrealdb.com/docs/agent-memory/reference/rest-api).
 
@@ -98,9 +98,9 @@ remain under their revision scopes and are no longer queried.
 For permanent erasure, use the Context's scoped erase operation as described in
 [SurrealDB's forgetting guide](https://surrealdb.com/docs/agent-memory/operations/forget).
 
-Run `pnpm --filter @studycall/api test` for the memory contract checks. With the
+Run `pnpm --filter @oyl/api test` for the memory contract checks. With the
 local Docker database running on port 8666, run
-`BOLO_TEST_SURREAL=1 pnpm --filter @studycall/api test` to include real database
+`OYL_TEST_SURREAL=1 pnpm --filter @oyl/api test` to include real database
 boundary and evidence checks. These create and remove a separate test namespace.
 
 ## Local development
@@ -112,8 +112,8 @@ Keep the API Worker and web app pointed at the same pair for each environment.
 
 | Environment | Namespace | Database | Configuration |
 | --- | --- | --- | --- |
-| Local | `main` | `studycall` | [`dev/sp00ky.yml`](../dev/sp00ky.yml) |
-| Staging | `talktobolo` | `main` | [`sp00ky.yml`](../sp00ky.yml) |
+| Local | `main` | `oyl` | [`dev/sp00ky.yml`](../dev/sp00ky.yml) |
+| Staging | `oyl` | `main` | [`sp00ky.yml`](../sp00ky.yml) |
 
 The checked-in [`apps/api/wrangler.jsonc`](../apps/api/wrangler.jsonc) defaults
 to the local pair. Update its `SPKY_DB_NS`, `SPKY_DB_NAME`, and `APP_ORIGIN` before
@@ -134,7 +134,7 @@ pnpm dev                                            # spky dev --path dev
 the web app (http://localhost:5180) and the API Worker under `wrangler dev`
 (`:8787`). In `.dev.vars`, use `SPKY_DB_URL=http://localhost:8666`,
 `SPKY_DB_USER=root`, `SPKY_DB_PASS=root` (namespace `main` and database
-`studycall` come from `wrangler.jsonc`) and `APP_ORIGIN=http://localhost:5180`.
+`oyl` come from `wrangler.jsonc`) and `APP_ORIGIN=http://localhost:5180`.
 An older `.dev.vars` with `SURREAL_URL`, `SURREAL_USER`, `SURREAL_PASS`,
 `SURREAL_NS` and `SURREAL_DB` still works: the API reads `SURREAL_*` for
 whatever `SPKY_DB_*` leaves unset. The local sync
@@ -200,34 +200,34 @@ requires Node 22.22 or newer. From the repository root:
 ```bash
 cp apps/landing/.env.example apps/landing/.env.local
 pnpm dev:landing
-pnpm --filter @studycall/landing type-check
+pnpm --filter @oyl/landing type-check
 pnpm build:landing
 ```
 
-Production links default to [the deployed app](https://talktobolo.stg.spky.cloud/).
+Production links default to [the deployed app](https://oyl.stg.spky.cloud/).
 Set `PUBLIC_APP_URL` in `apps/landing/.env.local` to override that destination.
 Development falls back to `http://localhost:5180`. The static build is written
 to `apps/landing/dist`.
 
 ### GitHub Pages
 
-The landing page is published at <https://mono424.github.io/talk-to-bolo/>.
+The landing page is published at <https://mono424.github.io/oyl/>.
 The [`Deploy landing page` workflow](../.github/workflows/deploy-landing.yml)
 checks, builds, and deploys it when landing-page code or build configuration
 changes on `main`. It can also be run manually from GitHub Actions.
 
 GitHub Pages is configured to publish from **GitHub Actions**. The workflow
 supplies `SITE_URL` and `BASE_PATH` from the Pages configuration, so logos,
-photos, fonts, and scripts work under the `/talk-to-bolo/` project path.
+photos, fonts, and scripts work under the `/oyl/` project path.
 
-The Get started and Log in links use `https://talktobolo.stg.spky.cloud/`.
+The Get started and Log in links use `https://oyl.stg.spky.cloud/`.
 Set the repository Actions variable `PUBLIC_APP_URL` to override that destination,
 then rerun the workflow.
 
 To build the same project-path layout locally:
 
 ```bash
-SITE_URL=https://mono424.github.io BASE_PATH=/talk-to-bolo PUBLIC_APP_URL= pnpm build:landing
+SITE_URL=https://mono424.github.io BASE_PATH=/oyl PUBLIC_APP_URL= pnpm build:landing
 ```
 
 Landing page photo: [Sanket Mishra on Unsplash](https://unsplash.com/photos/a-girl-sitting-on-a-bench-using-a-laptop-vvE2GOnGudg).
@@ -388,7 +388,7 @@ ever sent to its own Canvas.
 
 ### Current staging app
 
-The app is deployed at <https://talktobolo.stg.spky.cloud/>, by `spky deploy`
+The app is deployed at <https://oyl.stg.spky.cloud/>, by `spky deploy`
 alone. The API is the `api` Worker backend in [`sp00ky.yml`](../sp00ky.yml):
 the deploy bundles `apps/api/src/index.ts`, and the sync node runs it as a
 Dynamic Worker with Workers AI and the `INGEST` Workflow.
@@ -428,7 +428,7 @@ lecture images and uploaded sites. Frontend assets continue to use `/assets/`. V
 
 ### 1. Database
 
-Create a SurrealDB Cloud instance, a namespace `studycall` and a database
+Create a SurrealDB Cloud instance, a namespace `oyl` and a database
 `main`, and a database user for sp00ky and the API (Editor or Owner, it defines
 the server-only indexes). Put the endpoint and user in `sp00ky.yml`
 (`surrealdb.endpoint`, `surrealdb.username`), then store the password:
@@ -440,17 +440,17 @@ pnpm exec spky env set DB_PASSWORD
 ### 2. API Worker (Cloudflare)
 
 In `apps/api/wrangler.jsonc`, set `vars.APP_ORIGIN` to the production web app's
-URL and `SPKY_DB_NS` / `SPKY_DB_NAME` to `studycall` / `main`. Then configure the
+URL and `SPKY_DB_NS` / `SPKY_DB_NAME` to `oyl` / `main`. Then configure the
 secrets (add `SPKY_DB_LEVEL` = `namespace` or `database` for a user defined
 there) and deploy:
 
 ```bash
-pnpm --filter @studycall/api exec wrangler secret put SPKY_DB_URL          # https://YOUR-INSTANCE.surreal.cloud
-pnpm --filter @studycall/api exec wrangler secret put SPKY_DB_USER
-pnpm --filter @studycall/api exec wrangler secret put SPKY_DB_PASS
-pnpm --filter @studycall/api exec wrangler secret put AGENT_MEMORY_URL     # https://YOUR-CONTEXT-HOST/api/v1/YOUR-CONTEXT-ID
-pnpm --filter @studycall/api exec wrangler secret put AGENT_MEMORY_API_KEY
-pnpm --filter @studycall/api run deploy
+pnpm --filter @oyl/api exec wrangler secret put SPKY_DB_URL          # https://YOUR-INSTANCE.surreal.cloud
+pnpm --filter @oyl/api exec wrangler secret put SPKY_DB_USER
+pnpm --filter @oyl/api exec wrangler secret put SPKY_DB_PASS
+pnpm --filter @oyl/api exec wrangler secret put AGENT_MEMORY_URL     # https://YOUR-CONTEXT-HOST/api/v1/YOUR-CONTEXT-ID
+pnpm --filter @oyl/api exec wrangler secret put AGENT_MEMORY_API_KEY
+pnpm --filter @oyl/api run deploy
 ```
 
 ### 3. Web app and sync node (Sp00ky Cloud, free plan on Cloudflare)
@@ -460,10 +460,10 @@ The app uses its own origin for public service links. Leave `VITE_API_URL` in
 
 | Service | Public URL |
 | --- | --- |
-| App | <https://talktobolo.stg.spky.cloud/> |
-| API | <https://talktobolo.stg.spky.cloud/api/> |
-| MCP server | <https://talktobolo.stg.spky.cloud/mcp> |
-| PDF images | `https://talktobolo.stg.spky.cloud/material-assets/:id` |
+| App | <https://oyl.stg.spky.cloud/> |
+| API | <https://oyl.stg.spky.cloud/api/> |
+| MCP server | <https://oyl.stg.spky.cloud/mcp> |
+| PDF images | `https://oyl.stg.spky.cloud/material-assets/:id` |
 
 The hosting layer must route `/api/*`, `/mcp`, `/material-assets/*` and
 `/health` to the API Worker before the SPA fallback. A static SPA deployment
@@ -478,7 +478,7 @@ Deploy the web app with:
 
 ```bash
 pnpm exec spky login
-pnpm exec spky project create --slug studycall --plan free
+pnpm exec spky project create --slug oyl --plan free
 pnpm exec spky deploy
 ```
 
@@ -500,7 +500,7 @@ does not document a prefilled install link for arbitrary custom MCP servers.
 Set it up once in a browser; the plugin then also works in the ChatGPT apps on
 iOS and Android.
 
-ChatGPT uses account approval on TalkToBolo's `/connect` page. No API key
+ChatGPT uses account approval on Oyl's `/connect` page. No API key
 is needed. OAuth uses S256 PKCE, short-lived access tokens and rotating
 refresh tokens. Clients identify themselves with a Client ID Metadata Document
 (an https `client_id`, which ChatGPT prefers; the server reads it and keeps it
@@ -516,8 +516,8 @@ and [OpenAI's authentication requirements](https://developers.openai.com/plugins
 ### Studying with ChatGPT voice
 
 ChatGPT Voice uses connected plugins on web, iOS and Android, so a student can
-study on the go: "What should I study today on TalkToBolo?", "Quiz me on what
-I have covered", "Save this session to TalkToBolo". The study tools
+study on the go: "What should I study today on Oyl?", "Quiz me on what
+I have covered", "Save this session to Oyl". The study tools
 (`apps/api/src/study.ts`) keep the lecture boundaries: reached sections are
 exposure, not mastery, and tutoring stays within reached material plus the
 sections explained in order.
@@ -592,7 +592,7 @@ Model settings live in [`apps/api/wrangler.jsonc`](../apps/api/wrangler.jsonc).
 | `EMBEDDING_MODEL` | Course search embeddings | `@cf/qwen/qwen3-embedding-0.6b` |
 
 A PDF's text comes from its text layer (unpdf), so scanned pages without one
-yield no text. Studying runs in the student's own ChatGPT; TalkToBolo calls no
+yield no text. Studying runs in the student's own ChatGPT; Oyl calls no
 language model itself. Document processing, embeddings, Agent Memory and
 hosting use your connected provider accounts. Check those accounts for current
 rates and limits.

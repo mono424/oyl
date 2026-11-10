@@ -53,7 +53,7 @@ function segment(id: string): string {
 
 function materialScope(owner: string, course: string, material: string, rev: number): string {
   if (!Number.isSafeInteger(rev) || rev < 0) throw new Error('Invalid Agent Memory material revision.');
-  return `talktobolo/owners/${segment(owner)}/courses/${segment(course)}/materials/${segment(material)}/revisions/${rev}`;
+  return `oyl/owners/${segment(owner)}/courses/${segment(course)}/materials/${segment(material)}/revisions/${rev}`;
 }
 
 export function courseMemoryScope(owner: string, course: string, material: string, rev: number): string {
@@ -131,7 +131,7 @@ export async function indexMemorySection(
   // owner/material/revision/position provenance in the bytes so equal excerpts
   // at different course positions cannot inherit another excerpt's known time.
   const text = [
-    `<!-- TalkToBolo ${JSON.stringify({ owner: material.owner, course: material.course, material: material.id, revision: material.index_rev, position })} -->`,
+    `<!-- Oyl ${JSON.stringify({ owner: material.owner, course: material.course, material: material.id, revision: material.index_rev, position })} -->`,
     `# ${material.title}`,
     chunk.heading ? `## ${chunk.heading}` : '',
     chunk.text,
@@ -205,7 +205,7 @@ async function queryFacts(env: Env, lens: string[][], query: string, asOf: strin
     asOf,
     include: ['facts'],
     mode: 'graph',
-    source: 'talktobolo',
+    source: 'oyl',
   });
   if (!isObject(result) || !Array.isArray(result.hits)) throw new Error('Invalid Agent Memory query response.');
 
@@ -228,7 +228,7 @@ async function queryFacts(env: Env, lens: string[][], query: string, asOf: strin
 export async function memoryQueryable(env: Env): Promise<boolean> {
   if (!memoryConfigured(env)) return false;
   try {
-    const result = await post(env, '/query', { query: 'health', k: 1, lens: [['talktobolo']], include: ['facts'], mode: 'graph' });
+    const result = await post(env, '/query', { query: 'health', k: 1, lens: [['oyl']], include: ['facts'], mode: 'graph' });
     return isObject(result) && Array.isArray(result.hits);
   } catch (err) {
     console.error('[memory] graph queries unavailable', err);
@@ -270,7 +270,7 @@ export async function sectionGraph(env: Env, material: MemoryMaterial, position:
   const query = [chunk.heading, chunk.text].filter(Boolean).join('\n').slice(0, 2000).trim();
   if (!query) return empty;
   const result = await post(env, '/query', {
-    query, k: 50, lens: [[scope]], scopeView: 'strict', include: ['facts'], mode: 'graph', source: 'talktobolo',
+    query, k: 50, lens: [[scope]], scopeView: 'strict', include: ['facts'], mode: 'graph', source: 'oyl',
   });
   if (!isObject(result) || !Array.isArray(result.hits)) throw new Error('Invalid Agent Memory query response.');
 

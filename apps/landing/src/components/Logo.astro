@@ -1,17 +1,20 @@
 ---
 interface Props {
   class?: string;
+  /** The large file, for the hero. */
+  large?: boolean;
 }
 
-const { class: className } = Astro.props;
+const { class: className, large = false } = Astro.props;
+const src = `${import.meta.env.BASE_URL}${large ? 'oyl-logo-512.png' : 'oyl-logo.png'}`;
 ---
 
-<svg
-  xmlns="http://www.w3.org/2000/svg"
-  viewBox="60 36 210 258"
+<img
+  src={src}
+  width={large ? 512 : 256}
+  height={large ? 504 : 252}
+  alt=""
   class:list={['brand-mark', className]}
   aria-hidden="true"
-  focusable="false"
->
-  <image href={`${import.meta.env.BASE_URL}studycall-logo.svg`} x="60" y="36" width="210" height="258" />
-</svg>
+  draggable="false"
+/>

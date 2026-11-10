@@ -59,11 +59,11 @@ test('a delete that loses a race for a row runs again, other errors do not', asy
   assert.equal(calls, 1);
 });
 
-test('document versions', { skip: !process.env.BOLO_TEST_SURREAL }, async (t) => {
-  const namespace = `bolo_versions_${crypto.randomUUID().replaceAll('-', '')}`;
+test('document versions', { skip: !process.env.OYL_TEST_SURREAL }, async (t) => {
+  const namespace = `oyl_versions_${crypto.randomUUID().replaceAll('-', '')}`;
   const env = {
     SPKY_DB_URL: 'http://127.0.0.1:8666', SPKY_DB_NS: namespace, SPKY_DB_NAME: 'main', SPKY_DB_USER: 'root', SPKY_DB_PASS: 'root',
-    API_ORIGIN: 'https://bolo.example', APP_ORIGIN: 'https://bolo.example', EMBEDDING_MODEL: 'test',
+    API_ORIGIN: 'https://oyl.example', APP_ORIGIN: 'https://oyl.example', EMBEDDING_MODEL: 'test',
   } as unknown as Env;
   const system = Surreal.system(env);
   try {

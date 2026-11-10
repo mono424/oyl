@@ -168,7 +168,7 @@ function sessionSummary(links: Links, s: SessionRow, full: boolean) {
     mode: MODE_NAMES[s.mode] ?? s.mode,
     course: s.course_title ?? null,
     lecture: s.material_title ?? 'Whole course',
-    where: s.assistant ? `${s.assistant} (logged)` : 'Voice call with Bolo',
+    where: s.assistant ? `${s.assistant} (logged)` : 'Voice call in Oyl',
     ...(full && s.recap ? { recap: absoluteLinks(links, s.recap).slice(0, 2000) } : { review_next: reviewNext(s.recap) }),
     url: sessionUrl(links, s.id),
   };
@@ -206,7 +206,7 @@ async function coursesOverview(env: Env, ownerId: string, links: Links) {
     recent_sessions: sessions.map((s) => sessionSummary(links, s, false)),
     next_step: courses.length
       ? 'Ask which course to study, or pick the one studied most recently, then call get_study_overview with its course_id.'
-      : 'The student has no courses yet. They can add lecture material in the TalkToBolo app, or you can create a course with create_course.',
+      : 'The student has no courses yet. They can add lecture material in the Oyl app, or you can create a course with create_course.',
   };
 }
 
@@ -266,7 +266,7 @@ const ACCURACY_RULES = `Never lie or guess:
 - If you are not sure, say so rather than guess. If the material looks wrong or contradicts itself, say what it says and name the doubt; do not quietly change it.
 - Correct the student when they are wrong, even when they sound sure. If you said something wrong, correct it right away.`;
 
-const UNDERSTANDING_RULES = `Track what the student understands, concept by concept (record_understanding). This builds their map in TalkToBolo, and the next session starts from it:
+const UNDERSTANDING_RULES = `Track what the student understands, concept by concept (record_understanding). This builds their map in Oyl, and the next session starts from it:
 - A concept is one small idea: a definition, a rule, a step, a relationship, a reason. Name it as the lecture does. Reuse the names in student_model exactly; a new name makes a new concept.
 - When you read a section whose ideas are not mapped yet, map them (concepts, with material_id and position) and what each builds on (requires), also background knowledge the lecture assumes but does not teach (prior: true).
 - Record an observation after each answer or remark that shows what the student understands: explained (you told them), asked, unsure, wrong, partial, recalled, explained_back (in their own words, or why), applied (used it on something new). The note says what the student actually said. Add a misconception (what they wrongly believe) or a gap (the piece they are missing) when you see one, and list resolved ones once they get it right. Batch a few at natural pauses, at the latest before save_study_session, and do it quietly: never read it out.
@@ -279,7 +279,7 @@ const MODE_GUIDES: Record<StudyMode, string> = {
   qa: `The student leads with their questions. Answer precisely and briefly from their material: find the passage with search_course (or search), cite the lecture and page, then check whether that helped or offer one related point. If they run out of questions, suggest an important reached topic they have not asked about.`,
 };
 
-const WRAP_UP = `When the student wants to stop or the conversation winds down: record any observations not yet recorded, give a one-sentence recap of what to review, then save the session with save_study_session so it shows in their TalkToBolo history. Do it every session, also a short one. Call it once with a short, truthful recap of what actually happened (what was covered, how it went, what to review next) and, after an explanation, covered_through set to the last section the student confirmed. That keeps their progress and history in sync with the app.`;
+const WRAP_UP = `When the student wants to stop or the conversation winds down: record any observations not yet recorded, give a one-sentence recap of what to review, then save the session with save_study_session so it shows in their Oyl history. Do it every session, also a short one. Call it once with a short, truthful recap of what actually happened (what was covered, how it went, what to review next) and, after an explanation, covered_through set to the last section the student confirmed. That keeps their progress and history in sync with the app.`;
 
 /** The guide, the material and what the student already showed, for one mode on a course or lecture. */
 export async function prepareStudySession(
@@ -383,7 +383,7 @@ export async function prepareStudySession(
       ...(course.tutor_notes ? { student_instructions: course.tutor_notes } : {}),
     },
     mode: input.mode,
-    guide: `You are tutoring the student as Bolo from TalkToBolo would. ${MODE_GUIDES[input.mode]}\n\n${ACCURACY_RULES}\n\n${UNDERSTANDING_RULES}\n\n${VOICE_RULES}\n- Speak ${languageName(course.language)} unless the student switches language.\n\n${WRAP_UP}`,
+    guide: `You are the student's tutor in Oyl. ${MODE_GUIDES[input.mode]}\n\n${ACCURACY_RULES}\n\n${UNDERSTANDING_RULES}\n\n${VOICE_RULES}\n- Speak ${languageName(course.language)} unless the student switches language.\n\n${WRAP_UP}`,
     ...material,
     ...(lastSession ? { last_session: sessionSummary(links, lastSession, false) } : {}),
     ...(concepts.length ? { course_concepts: concepts } : {}),
@@ -640,7 +640,7 @@ export async function fetchDocument(env: Env, ownerId: string, links: Links, raw
       'SELECT role, text, seq FROM call_turn WHERE call = type::record($id) AND owner = type::record($owner) ORDER BY seq',
       { id: callId, owner: ownerId },
     );
-    const transcript = turns.map((t) => `${t.role === 'tutor' ? 'Bolo' : 'Student'}: ${t.text}`).join('\n');
+    const transcript = turns.map((t) => `${t.role === 'tutor' ? 'Tutor' : 'Student'}: ${t.text}`).join('\n');
     const observed = await sessionEvidence(env, ownerId, callId);
     const text = [
       call.recap ? `Recap:\n${absoluteLinks(links, call.recap)}` : 'No recap was written for this session.',

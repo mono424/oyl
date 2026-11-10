@@ -5,13 +5,9 @@ import { useAuth } from '../lib/auth';
 import { useChatGPTGuide } from './ChatGPTGuide';
 import { HeaderEndSlot, HeaderSlot, HeaderTitleSlot, useFocused, useHeaderTitleUsed } from './HeaderSlot';
 
-/** Bolo, the approved TalkToBolo mark. */
+/** Oyl's mark: the glass tile with its drop (assets/logo.png). */
 export function Logo(props: { class?: string }) {
-  return (
-    <svg viewBox="60 36 210 258" class={`shrink-0 ${props.class ?? 'h-8 w-10'}`} aria-hidden="true">
-      <image href="/studycall-logo.svg" x="60" y="36" width="210" height="258" />
-    </svg>
-  );
+  return <img src="/oyl-logo.png" alt="" width="256" height="252" draggable={false} class={`shrink-0 select-none ${props.class ?? 'h-8 w-8'}`} aria-hidden="true" />;
 }
 
 /** ChatGPT's mark, in the current color. */
@@ -64,7 +60,7 @@ export function TopBar(props: { onMenu: () => void; menuOpen: boolean }) {
           </button>
         </Show>
         <Show when={!titled()}>
-          <A href="/" class="mr-1 inline-flex shrink-0 items-center text-fg sm:mr-3" aria-label="TalkToBolo home">
+          <A href="/" class="mr-1 inline-flex shrink-0 items-center text-fg sm:mr-3" aria-label="Oyl home">
             <Logo />
           </A>
         </Show>

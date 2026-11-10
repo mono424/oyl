@@ -107,7 +107,7 @@ DEFINE INDEX IF NOT EXISTS api_key_hash ON TABLE api_key FIELDS key_hash UNIQUE;
 
 -- Public OAuth clients and short-lived authorization state. None of these
 -- credentials or hashes are synced to the browser. A client is registered
--- here (DCR, `bolo_` ids) or identified by the https URL of its metadata
+-- here (DCR, `oyl_` ids) or identified by the https URL of its metadata
 -- document (CIMD, `oauth_client:m<hash of the URL>`, refreshed on authorize).
 DEFINE TABLE OVERWRITE oauth_client SCHEMAFULL PERMISSIONS NONE;
 DEFINE FIELD OVERWRITE client_id ON TABLE oauth_client TYPE string;

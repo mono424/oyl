@@ -1,16 +1,16 @@
 # yaml-language-server: $schema=https://sp00ky.cloud/schema/sp00ky.schema.json
 #
-# Studycall on Sp00ky Cloud's free plan (platform: Cloudflare):
+# Oyl on Sp00ky Cloud's free plan (platform: Cloudflare):
 #   - the SSP sync node runs as a Cloudflare Durable Object,
 #   - the web app is published as a static SPA on Workers Static Assets,
-#   - SurrealDB is the shared free database (namespace `talktobolo`), reached
+#   - SurrealDB is the shared free database (namespace `oyl`), reached
 #     by all three. For your own SurrealDB Cloud instance instead, use
 #     `hosting: external` with `endpoint`, `username` and `password`.
 #   - the API (apps/api: PDF processing, search, MCP for ChatGPT) is a sp00ky
 #     Worker backend: `spky deploy` bundles it and the sync node runs it as a
 #     Dynamic Worker. See docs/setup.md.
 mode: singlenode
-slug: talktobolo
+slug: oyl
 # Staging control plane (the only one provisioned).
 cloudApi: https://api-stg.sp00ky.cloud
 surrealdb:
@@ -18,7 +18,7 @@ surrealdb:
   # after its slug, database `main`; `spky deploy` bakes the endpoint into
   # the web app.
   hosting: cloud
-  namespace: talktobolo
+  namespace: oyl
   database: main
 schema: ./schema
 buckets:
@@ -51,7 +51,7 @@ apps:
       context: .
       port: 80
       static:
-        build: pnpm --filter @studycall/web build
+        build: pnpm --filter @oyl/web build
         dir: apps/web/dist
   # The API (apps/api, a Hono app). Like any sp00ky backend it runs jobs: the
   # web app writes a row to the `job` outbox and the sync node calls the path
@@ -95,7 +95,7 @@ apps:
       cpuMs: 300000
       # Embeddings for the lecture search index.
       ai: AI
-      # Routes served publicly on talktobolo.stg.spky.cloud. Everything else,
+      # Routes served publicly on oyl.stg.spky.cloud. Everything else,
       # the job paths included, is reachable only through jobs.
       expose:
         # Course search: results shown as the student types.
@@ -130,8 +130,8 @@ apps:
       # SPKY_DB_NS and SPKY_DB_NAME on the Worker backend, and on the shared
       # free database its namespace login (SPKY_DB_USER, SPKY_DB_PASS,
       # SPKY_DB_LEVEL=namespace).
-      - APP_ORIGIN: https://talktobolo.stg.spky.cloud
-        API_ORIGIN: https://talktobolo.stg.spky.cloud
+      - APP_ORIGIN: https://oyl.stg.spky.cloud
+        API_ORIGIN: https://oyl.stg.spky.cloud
         EMBEDDING_MODEL: "@cf/qwen/qwen3-embedding-0.6b"
         JOB_TOKEN: *jobToken
 # Lectures without a knowledge graph for their current text (processed before

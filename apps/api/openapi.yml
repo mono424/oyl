@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   version: 1.0.0
-  title: talktobolo-api
+  title: oyl-api
   description: >-
     Jobs of the API backend (sp00ky.yml `apps.api`). The web app writes a row
     to the `job` outbox (schema/src/outbox/api.surql) with `path` set to one of

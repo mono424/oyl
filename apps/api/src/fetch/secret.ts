@@ -11,7 +11,7 @@ const VERSION = 'v1';
 
 async function key(env: Env): Promise<CryptoKey> {
   if (!env.FETCHER_KEY) throw new UserError('bCourses sources are not set up on this server yet (FETCHER_KEY is missing).', 503);
-  const raw = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(`talktobolo-fetcher:${env.FETCHER_KEY}`));
+  const raw = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(`oyl-fetcher:${env.FETCHER_KEY}`));
   return crypto.subtle.importKey('raw', raw, 'AES-GCM', false, ['encrypt', 'decrypt']);
 }
 

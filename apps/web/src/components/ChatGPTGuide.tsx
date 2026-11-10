@@ -12,15 +12,15 @@ import { Button, Dot } from './ui';
 const PLUGINS_URL = 'https://chatgpt.com/plugins';
 
 /** What ChatGPT's "Add custom MCP server" form asks for. */
-const PLUGIN_NAME = 'TalkToBolo';
-const PLUGIN_DESCRIPTION = 'Study from my TalkToBolo courses: lectures, progress and past study sessions.';
+const PLUGIN_NAME = 'Oyl';
+const PLUGIN_DESCRIPTION = 'Study from my Oyl courses: lectures, progress and past study sessions.';
 
-/** What to say to ChatGPT once TalkToBolo is connected. */
+/** What to say to ChatGPT once Oyl is connected. */
 export const VOICE_PROMPTS = [
-  'What should I study today on TalkToBolo?',
+  'What should I study today on Oyl?',
   'Continue my lecture where I left off.',
   'Quiz me on what I have covered so far.',
-  'Save this session to TalkToBolo.',
+  'Save this session to Oyl.',
 ];
 
 interface GuideContext {
@@ -49,7 +49,7 @@ export function ChatGPTGuideProvider(props: { children: JSX.Element }) {
   const connected = () => (keys.data() ?? []).some((k) => !k.revoked_at);
   const [isOpen, setOpen] = createSignal(false);
 
-  const seenKey = () => `talktobolo:chatgpt-guide-seen:${auth.userId()}`;
+  const seenKey = () => `oyl:chatgpt-guide-seen:${auth.userId()}`;
   const seen = () => {
     try {
       return localStorage.getItem(seenKey()) === '1';
@@ -103,9 +103,9 @@ function GuideDialog(props: { connected: boolean; onClose: () => void }) {
 
   return (
     <Sheet
-      title="Connect TalkToBolo to ChatGPT"
+      title="Connect Oyl to ChatGPT"
       subtitle="About two minutes, once, in a browser. Then study your courses by voice in ChatGPT, on your phone too."
-      icon={<img src="/studycall-logo.svg" alt="" class="h-11 w-9" />}
+      icon={<img src="/oyl-logo.png" alt="" class="h-11 w-11" />}
       onClose={props.onClose}
       footer={(dismiss) => (
         <>
@@ -196,14 +196,14 @@ function GuideDialog(props: { connected: boolean; onClose: () => void }) {
 
             <Step n={5} title="Install and approve access" done={props.connected}>
               <p>
-                Install the plugin. ChatGPT sends you to TalkToBolo: sign in with this account and choose <Kbd>Allow</Kbd>. No API
+                Install the plugin. ChatGPT sends you to Oyl: sign in with this account and choose <Kbd>Allow</Kbd>. No API
                 key to copy.
               </p>
             </Step>
 
             <Step n={6} title="Start studying">
               <p>
-                Open a new chat and type <Kbd>@TalkToBolo</Kbd>, or open the ChatGPT app on your phone, start Voice and ask for your
+                Open a new chat and type <Kbd>@Oyl</Kbd>, or open the ChatGPT app on your phone, start Voice and ask for your
                 course. Try saying:
               </p>
               <ul class="mt-3 flex flex-col gap-2" aria-label="Things to say">

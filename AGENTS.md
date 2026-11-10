@@ -1,11 +1,39 @@
-# Studycall repository guidance
+# Oyl repository guidance
 
-See README.md for what the app is and how it is deployed.
+One repository, two workspaces. See README.md for what each part is.
+
+- `crates/`: the native macOS app (Rust, GPUI), a Cargo workspace. Design and
+  architecture in PLAN.md.
+- `apps/`, `schema/`, `shared/`, `scripts/`, `dev/`: Oyl Cloud, the web side
+  (pnpm workspace: `apps/*` and `scripts`, never `crates/`). Deployment in
+  docs/setup.md.
+
+Keep both green: `cargo build --workspace` (and `cargo test --workspace`) for
+the app, `pnpm type-check`, `pnpm --filter @oyl/web build`, `pnpm build:landing`
+and `pnpm --filter @oyl/api test` for the web side.
 
 ## Writing style
 
-Never use long dashes (em dashes) anywhere: UI text, comments, commits, docs.
-Use a comma, period, colon or a plain hyphen.
+Never use long dashes (em dashes) in new text: UI text, comments, commits,
+docs. Use a comma, period, colon or a plain hyphen.
+
+## Design (both sides)
+
+One look: frosted glass, warm ink, one amber accent, radii 6/10/16, the system
+UI font, Menlo for code, Charter for the few display moments, no heavy
+shadows. The tokens are defined once in `crates/oyl-ui/src/theme.rs` and
+mirrored for the web in `apps/web/src/styles/global.css` and
+`apps/landing/src/styles/global.css` (mapping in docs/brand/README.md). Change
+a token in all three places. No color literals in components: the app reads
+`cx.tokens()`, the web uses the Tailwind tokens (`bg-surface`, `text-muted`,
+`text-accent`, ...).
+
+## Desktop app (`crates/`)
+
+- Read the real GPUI / GPUI Kit API before using it (sources under
+  `~/.cargo/registry/src/*/gpui-*`); it differs from older versions.
+- `oyl-model` is the shared contract: additive changes only.
+- No placeholder features: what is drawn works.
 
 ## Schema
 
@@ -16,7 +44,7 @@ Use a comma, period, colon or a plain hyphen.
   one rebuilds it.
 - After editing the sp00ky schema: `pnpm generate`, then
   `spky migrate create <name> --path dev`, then check the new migration for
-  `'[REDACTED]'` (see README) before applying it.
+  `'[REDACTED]'` (docs/setup.md, Schema changes) before applying it.
 - Up to canary.345, `pnpm generate` also writes the job outbox's `errors[*]`
   field as an unquoted column key in `apps/web/src/schema.gen.ts`, which
   TypeScript rejects. Delete that line; newer CLIs leave it out.

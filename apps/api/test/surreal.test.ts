@@ -4,9 +4,9 @@ import type { Env } from '../src/env.ts';
 import { Surreal, SurrealAuthError, signinRecord } from '../src/surreal.ts';
 
 test('Surreal JSON-RPC preserves arbitrary parameter strings and explicit record casts', {
-  skip: !process.env.BOLO_TEST_SURREAL,
+  skip: !process.env.OYL_TEST_SURREAL,
 }, async () => {
-  const namespace = `bolo_transport_${crypto.randomUUID().replaceAll('-', '')}`;
+  const namespace = `oyl_transport_${crypto.randomUUID().replaceAll('-', '')}`;
   const db = Surreal.system({
     SPKY_DB_URL: 'http://127.0.0.1:8666', SPKY_DB_NS: namespace, SPKY_DB_NAME: 'main',
     SPKY_DB_USER: 'root', SPKY_DB_PASS: 'root',
@@ -103,22 +103,22 @@ test('Surreal signs in with the login sp00ky injects, or falls back to SURREAL_*
 
   // A project's own database: sp00ky sets the coordinates, the vault the login.
   await Surreal.system({
-    SPKY_DB_URL: 'https://own.example', SPKY_DB_NS: 'studycall', SPKY_DB_NAME: 'main',
-    SURREAL_USER: 'api', SURREAL_PASS: 'p2', SURREAL_AUTH_NS: 'studycall', SURREAL_AUTH_DB: 'main',
+    SPKY_DB_URL: 'https://own.example', SPKY_DB_NS: 'oyl', SPKY_DB_NAME: 'main',
+    SURREAL_USER: 'api', SURREAL_PASS: 'p2', SURREAL_AUTH_NS: 'oyl', SURREAL_AUTH_DB: 'main',
   } as Env).query('RETURN 1;');
   assert.equal(last().url, 'https://own.example/rpc');
   assert.equal(last().headers.authorization, basic('api', 'p2'));
-  assert.equal(last().headers['surreal-auth-ns'], 'studycall');
+  assert.equal(last().headers['surreal-auth-ns'], 'oyl');
   assert.equal(last().headers['surreal-auth-db'], 'main');
 
   // An older .dev.vars: SURREAL_* only, root login, ws URL with /rpc.
   await Surreal.system({
-    SURREAL_URL: 'ws://localhost:8666/rpc', SURREAL_NS: 'main', SURREAL_DB: 'studycall', SURREAL_USER: 'root', SURREAL_PASS: 'root',
+    SURREAL_URL: 'ws://localhost:8666/rpc', SURREAL_NS: 'main', SURREAL_DB: 'oyl', SURREAL_USER: 'root', SURREAL_PASS: 'root',
   } as Env).query('RETURN 1;');
   assert.equal(last().url, 'http://localhost:8666/rpc');
   assert.equal(last().headers.authorization, basic('root', 'root'));
   assert.equal(last().headers['surreal-ns'], 'main');
-  assert.equal(last().headers['surreal-db'], 'studycall');
+  assert.equal(last().headers['surreal-db'], 'oyl');
   assert.equal(last().headers['surreal-auth-ns'], undefined);
 
   assert.throws(() => Surreal.system({ SPKY_DB_URL: 'https://surreal.example' } as Env), /not configured/);
@@ -126,9 +126,9 @@ test('Surreal signs in with the login sp00ky injects, or falls back to SURREAL_*
 });
 
 test('Surreal stores a retained PDF image without exceeding the RPC body limit', {
-  skip: !process.env.BOLO_TEST_SURREAL,
+  skip: !process.env.OYL_TEST_SURREAL,
 }, async (t) => {
-  const namespace = `bolo_image_${crypto.randomUUID().replaceAll('-', '')}`;
+  const namespace = `oyl_image_${crypto.randomUUID().replaceAll('-', '')}`;
   const db = Surreal.system({
     SPKY_DB_URL: 'http://127.0.0.1:8666', SPKY_DB_NS: namespace, SPKY_DB_NAME: 'main',
     SPKY_DB_USER: 'root', SPKY_DB_PASS: 'root',

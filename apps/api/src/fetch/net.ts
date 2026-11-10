@@ -53,7 +53,7 @@ export async function safeFetch(raw: string | URL, init: SafeFetchInit = {}): Pr
   const origin = url.origin;
   const signal = AbortSignal.timeout(init.timeoutMs ?? TIMEOUT_MS);
   for (let hop = 0; ; hop++) {
-    const headers: Record<string, string> = { 'user-agent': 'TalkToBolo source fetcher (+https://talktobolo.stg.spky.cloud)' };
+    const headers: Record<string, string> = { 'user-agent': 'Oyl source fetcher (+https://oyl.stg.spky.cloud)' };
     if (init.accept) headers.accept = init.accept;
     if (init.authorization && url.origin === origin) headers.authorization = init.authorization;
     let res: Response;

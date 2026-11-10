@@ -1436,7 +1436,7 @@ export type SchemaDefinition = typeof schema;
  * This constant contains the raw .surql schema file content.
  */
 export const SURQL_SCHEMA = `-- ##################################################################
--- STUDYCALL SCHEMA
+-- OYL SCHEMA
 --
 -- Source of truth for the database. \`spky generate\` turns it into the typed
 -- client schema (apps/web/src/schema.gen.ts). Tables the client never syncs
@@ -1593,7 +1593,7 @@ DEFINE FIELD OVERWRITE ended_at ON TABLE call TYPE option<datetime>;
 DEFINE FIELD OVERWRITE recap ON TABLE call TYPE option<string>;
 -- The assistant a study session took place in ("ChatGPT"), when the student
 -- studied there and it logged the session through the MCP server. Such a
--- session has a recap and no transcript. NONE for a voice call with Bolo.
+-- session has a recap and no transcript. NONE for a voice call in Oyl.
 DEFINE FIELD OVERWRITE assistant ON TABLE call TYPE option<string>;
 -- SHA-256 of the per-call key the voice agent presents to the API's LLM
 -- endpoint. Never readable.
@@ -2059,7 +2059,7 @@ DEFINE FIELD OVERWRITE revoked_at ON TABLE api_key TYPE option<datetime>;
 -- Background work for the API backend (sp00ky.yml \`apps.api\`, paths in
 -- apps/api/openapi.yml): the web app creates a row, sp00ky's job runner POSTs
 -- its payload to the backend and records the outcome here. Shape from
--- \`spky api add\`; only the permissions and \`assigned_to\` are talktobolo's.
+-- \`spky api add\`; only the permissions and \`assigned_to\` are Oyl's.
 -- ##################################################################
 
 -- A student may create a job only about their own material, call or source, and only

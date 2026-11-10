@@ -5,14 +5,14 @@ import '../styles/global.css';
 import Icon from '../components/Icon.astro';
 import Logo from '../components/Logo.astro';
 
-const appUrl = import.meta.env.PUBLIC_APP_URL?.trim() || (import.meta.env.DEV ? 'http://localhost:5180' : 'https://talktobolo.stg.spky.cloud/');
+const appUrl = import.meta.env.PUBLIC_APP_URL?.trim() || (import.meta.env.DEV ? 'http://localhost:5180' : 'https://oyl.stg.spky.cloud/');
 const baseUrl = import.meta.env.BASE_URL;
 const canonicalUrl = new URL(baseUrl, Astro.site);
 const waveform = [12, 22, 16, 33, 47, 27, 19, 40, 57, 34, 22, 48, 64, 39, 22, 35, 51, 29, 16, 26, 44, 32, 20, 13, 27, 39, 23, 15, 30, 19, 12];
 const faqs = [
-  { question: 'What is TalkToBolo?', answer: 'TalkToBolo is an AI tutor you talk to in your browser. Add your course materials, start a voice call, and work through what you are learning out loud. You can ask questions, get explanations, or have your tutor quiz you.' },
+  { question: 'What is Oyl?', answer: 'Oyl is an AI tutor you talk to in your browser. Add your course materials, start a voice call, and work through what you are learning out loud. You can ask questions, get explanations, or have your tutor quiz you.' },
   { question: 'What can I upload?', answer: 'You can upload PDF lecture slides, Markdown files, and text notes, or paste your notes directly into a course. Your tutor uses the material in that course to guide your conversations.' },
-  { question: 'Do I need to download an app?', answer: 'No download needed. TalkToBolo runs in your browser. You will need a microphone and permission to use it. Headphones are a good idea for a clear conversation.' },
+  { question: 'Do I need to download an app?', answer: 'No download needed. Oyl runs in your browser. You will need a microphone and permission to use it. Headphones are a good idea for a clear conversation.' },
   { question: 'Can I choose how I study?', answer: 'Yes. Choose Explain it for a guided walkthrough, Quiz me to practice answering questions, or I ask to lead the conversation yourself. You can also set the language and add instructions for your tutor.' },
   { question: 'Can I revisit a conversation?', answer: 'Yes. Your calls include a transcript and a recap, so you can go back over what you discussed and pick up where you left off.' },
 ];
@@ -23,26 +23,26 @@ const faqs = [
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <meta name="theme-color" content="#f6f7f2" />
-    <meta name="description" content="Turn your lecture slides and notes into a conversation. TalkToBolo is the AI voice tutor that helps you talk through ideas, ask questions, and practice what you know." />
-    <meta property="og:title" content="TalkToBolo | Talk it through. Make it click." />
-    <meta property="og:description" content="Your notes. Your questions. Your AI study partner. Turn course material into a conversation with TalkToBolo." />
+    <meta name="description" content="Turn your lecture slides and notes into a conversation. Oyl is the AI voice tutor that helps you talk through ideas, ask questions, and practice what you know." />
+    <meta property="og:title" content="Oyl | Talk it through. Make it click." />
+    <meta property="og:description" content="Your notes. Your questions. Your AI study partner. Turn course material into a conversation with Oyl." />
     <meta property="og:type" content="website" />
     <meta property="og:url" content={canonicalUrl.href} />
     <link rel="canonical" href={canonicalUrl.href} />
-    <link rel="icon" type="image/svg+xml" href={`${baseUrl}studycall-logo-small.svg`} />
-    <title>TalkToBolo | Talk it through. Make it click.</title>
+    <link rel="icon" type="image/png" href={`${baseUrl}favicon.png`} />
+    <title>Oyl | Talk it through. Make it click.</title>
   </head>
   <body>
     <a class="skip-link" href="#main">Skip to content</a>
     <div class="site-frame">
       <header class="header">
-        <a href="#" class="wordmark" aria-label="TalkToBolo home">
+        <a href="#" class="wordmark" aria-label="Oyl home">
           <Logo />
-          TalkToBolo
+          Oyl
         </a>
         <nav class="desktop-nav" aria-label="Main navigation">
           <a href="#how-it-works">How it works</a>
-          <a href="#your-study-partner">Why TalkToBolo</a>
+          <a href="#your-study-partner">Why Oyl</a>
           <a href="#questions">Questions</a>
         </nav>
         <div class="nav-actions">
@@ -54,7 +54,7 @@ const faqs = [
         </div>
         <nav id="mobile-nav" class="mobile-nav" aria-label="Mobile navigation" hidden>
           <a href="#how-it-works">How it works <Icon name="arrow" size={16} /></a>
-          <a href="#your-study-partner">Why TalkToBolo <Icon name="arrow" size={16} /></a>
+          <a href="#your-study-partner">Why Oyl <Icon name="arrow" size={16} /></a>
           <a href="#questions">Questions <Icon name="arrow" size={16} /></a>
           {appUrl && <a href={appUrl}>Log in <Icon name="arrow" size={16} /></a>}
         </nav>
@@ -128,13 +128,13 @@ const faqs = [
             <span class="art-label">A CONVERSATION THAT CLICKS</span>
             <div class="conversation">
               <div class="chat-bubble student-bubble"><span>YOU</span> I keep mixing up short-term<br />and working memory.</div>
-              <div class="chat-bubble tutor-bubble"><span><Logo class="mini-brand" /> BOLO</span> Think of short-term memory as a<br />desk. Working memory is what<br />you do with what’s on it.</div>
+              <div class="chat-bubble tutor-bubble"><span><Logo class="mini-brand" /> OYL</span> Think of short-term memory as a<br />desk. Working memory is what<br />you do with what’s on it.</div>
               <div class="chat-bubble aha-bubble">Oh. So remembering a number<br />vs. adding it in my head?</div>
               <div class="got-it"><Icon name="check" size={14} /> Now you’re making connections.</div>
             </div>
             <span class="illustration-note">An example conversation from a psychology course</span>
           </div>
-          <div class="partner-copy"><span class="section-label">MEET YOUR THINKING-OUT-LOUD PARTNER</span><h2 id="partner-title">A patient tutor.<br />An open mind.<br /><span>Your kind of pace.</span></h2><p>Some things make more sense when you say them out loud. TalkToBolo gives you space to be curious, get it wrong, and try again.</p><p>Grounded in your course material, ready to explain it another way. No raised hands required.</p><button class="text-link" data-open-demo>Try a sample conversation <Icon name="arrow" size={18} /></button></div>
+          <div class="partner-copy"><span class="section-label">MEET YOUR THINKING-OUT-LOUD PARTNER</span><h2 id="partner-title">A patient tutor.<br />An open mind.<br /><span>Your kind of pace.</span></h2><p>Some things make more sense when you say them out loud. Oyl gives you space to be curious, get it wrong, and try again.</p><p>Grounded in your course material, ready to explain it another way. No raised hands required.</p><button class="text-link" data-open-demo>Try a sample conversation <Icon name="arrow" size={18} /></button></div>
         </section>
 
         <section id="questions" class="faq-section section-container" aria-labelledby="faq-title">
@@ -142,14 +142,14 @@ const faqs = [
           <div class="faq-list">{faqs.map((faq) => <details class="faq-item"><summary>{faq.question}<span class="faq-plus"><Icon name="plus" size={18} /></span></summary><p>{faq.answer}</p></details>)}</div>
         </section>
 
-        <section class="closing-section" aria-labelledby="closing-title"><Logo class="closing-orbit" /><span class="section-label">YOUR NEXT AHA MOMENT IS ONE CALL AWAY</span><h2 id="closing-title">Goodbye, blank stare.<br /><span>Hello, TalkToBolo.</span></h2>{appUrl ? <a href={appUrl} class="button button-dark">Let’s talk it through <Icon name="arrow" size={18} /></a> : <button class="button button-dark" data-open-demo>Try a conversation <Icon name="arrow" size={18} /></button>}<p>Your notes. Your questions. Your study partner.</p></section>
+        <section class="closing-section" aria-labelledby="closing-title"><Logo class="closing-orbit" /><span class="section-label">YOUR NEXT AHA MOMENT IS ONE CALL AWAY</span><h2 id="closing-title">Goodbye, blank stare.<br /><span>Hello, Oyl.</span></h2>{appUrl ? <a href={appUrl} class="button button-dark">Let’s talk it through <Icon name="arrow" size={18} /></a> : <button class="button button-dark" data-open-demo>Try a conversation <Icon name="arrow" size={18} /></button>}<p>Your notes. Your questions. Your study partner.</p></section>
       </main>
 
-      <footer class="footer section-container"><a href="#" class="wordmark" aria-label="TalkToBolo home"><Logo />TalkToBolo</a><p>A little less stuck. A little more you’ve got this.</p><span>© {new Date().getFullYear()} TalkToBolo</span></footer>
+      <footer class="footer section-container"><a href="#" class="wordmark" aria-label="Oyl home"><Logo />Oyl</a><p>A little less stuck. A little more you’ve got this.</p><span>© {new Date().getFullYear()} Oyl</span></footer>
     </div>
 
     <dialog class="demo-dialog" aria-labelledby="demo-title">
-      <div class="demo-header"><span class="section-label">A LITTLE TASTE OF TalkToBolo</span><button class="dialog-close" aria-label="Close sample conversation"><Icon name="close" /></button></div>
+      <div class="demo-header"><span class="section-label">A LITTLE TASTE OF OYL</span><button class="dialog-close" aria-label="Close sample conversation"><Icon name="close" /></button></div>
       <h2 id="demo-title">How do you like to learn?</h2><p class="demo-intro">Explore a sample session about memory and learning.<br />Choose a mode to see the conversation.</p>
       <div class="demo-tabs" role="tablist" aria-label="Study mode"><button id="tab-explain" role="tab" aria-controls="demo-conversation" aria-selected="true" data-mode="explain">Explain it</button><button id="tab-quiz" role="tab" aria-controls="demo-conversation" aria-selected="false" tabindex="-1" data-mode="quiz">Quiz me</button><button id="tab-qa" role="tab" aria-controls="demo-conversation" aria-selected="false" tabindex="-1" data-mode="qa">I ask</button></div>
       <div id="demo-conversation" class="demo-conversation" role="tabpanel" aria-labelledby="tab-explain" tabindex="0" aria-live="polite"></div>
@@ -179,20 +179,20 @@ const faqs = [
       const tabs = Array.from(document.querySelectorAll<HTMLButtonElement>('[data-mode]'));
       const conversations: Record<string, { speaker: string; text: string }[]> = {
         explain: [
-          { speaker: 'Bolo', text: 'Let’s make working memory a little more familiar. Imagine your short-term memory is a desk. It holds the things you need right now.' },
+          { speaker: 'Oyl', text: 'Let’s make working memory a little more familiar. Imagine your short-term memory is a desk. It holds the things you need right now.' },
           { speaker: 'You', text: 'Okay, so where does working memory fit in?' },
-          { speaker: 'Bolo', text: 'It’s what you do with the things on that desk. Remembering 24 is short-term memory. Adding 6 to it in your head uses working memory. Can you think of another example?' },
+          { speaker: 'Oyl', text: 'It’s what you do with the things on that desk. Remembering 24 is short-term memory. Adding 6 to it in your head uses working memory. Can you think of another example?' },
         ],
         quiz: [
-          { speaker: 'Bolo', text: 'Ready for a quick question? You hear a phone number and repeat it until you can write it down. Which type of memory are you using?' },
+          { speaker: 'Oyl', text: 'Ready for a quick question? You hear a phone number and repeat it until you can write it down. Which type of memory are you using?' },
           { speaker: 'You', text: 'Short-term memory, because I’m just holding on to it?' },
-          { speaker: 'Bolo', text: 'Exactly. You’re briefly storing the number. If you were rearranging those digits in your head, that would bring in working memory. Want to try a trickier one?' },
+          { speaker: 'Oyl', text: 'Exactly. You’re briefly storing the number. If you were rearranging those digits in your head, that would bring in working memory. Want to try a trickier one?' },
         ],
         qa: [
           { speaker: 'You', text: 'Why do I forget what I just read even though I understood it?' },
-          { speaker: 'Bolo', text: 'Understanding something in the moment doesn’t always mean it has made its way into long-term memory. Your notes call that next step encoding.' },
+          { speaker: 'Oyl', text: 'Understanding something in the moment doesn’t always mean it has made its way into long-term memory. Your notes call that next step encoding.' },
           { speaker: 'You', text: 'So explaining it in my own words might help?' },
-          { speaker: 'Bolo', text: 'That’s a useful way to work with the idea. Let’s try it: how would you explain encoding to someone who has never heard the term?' },
+          { speaker: 'Oyl', text: 'That’s a useful way to work with the idea. Let’s try it: how would you explain encoding to someone who has never heard the term?' },
         ],
       };
       const selectMode = (mode: string) => {

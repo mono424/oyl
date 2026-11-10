@@ -12,7 +12,7 @@ import {
 } from '../src/study.ts';
 import { Surreal } from '../src/surreal.ts';
 
-const origin = 'https://bolo.example';
+const origin = 'https://oyl.example';
 const links = { app: origin };
 const same = (md: string) => md;
 
@@ -23,9 +23,9 @@ test('reviewNext takes the last recap section in any language', () => {
 });
 
 test('studying over MCP keeps lecture boundaries, writes progress forward and logs sessions', {
-  skip: !process.env.BOLO_TEST_SURREAL,
+  skip: !process.env.OYL_TEST_SURREAL,
 }, async (t) => {
-  const namespace = `bolo_study_${crypto.randomUUID().replaceAll('-', '')}`;
+  const namespace = `oyl_study_${crypto.randomUUID().replaceAll('-', '')}`;
   const vector = Array.from({ length: 1024 }, (_, i) => i === 0 ? 1 : 0);
   const env = {
     SPKY_DB_URL: 'http://127.0.0.1:8666', SPKY_DB_NS: namespace, SPKY_DB_NAME: 'main', SPKY_DB_USER: 'root', SPKY_DB_PASS: 'root',

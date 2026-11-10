@@ -6,7 +6,7 @@ import type { Env } from '../src/env.ts';
 import { Surreal } from '../src/surreal.ts';
 
 test('ingestion replays a committed embed step without losing chunk timestamps', {
-  skip: !process.env.BOLO_TEST_SURREAL,
+  skip: !process.env.OYL_TEST_SURREAL,
 }, async () => {
   const hook = registerHooks({
     resolve(specifier, context, nextResolve) {
@@ -20,7 +20,7 @@ test('ingestion replays a committed embed step without losing chunk timestamps',
     },
   });
   const { IngestMaterial } = await import('../src/ingest.ts');
-  const namespace = `bolo_ingest_${crypto.randomUUID().replaceAll('-', '')}`;
+  const namespace = `oyl_ingest_${crypto.randomUUID().replaceAll('-', '')}`;
   const vector = Array.from({ length: 1024 }, (_, index) => index === 0 ? 1 : 0);
   const env = {
     SPKY_DB_URL: 'http://127.0.0.1:8666', SPKY_DB_NS: namespace, SPKY_DB_NAME: 'main',

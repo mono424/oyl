@@ -39,7 +39,7 @@ test('the storage shim comes first in the head and leaves the doctype first', ()
   assert.match(page('<p>bare'), /^<script>/);
 });
 
-test('sites upload, serve in ranges and delete with their files', { skip: !process.env.BOLO_TEST_SURREAL }, async (t) => {
+test('sites upload, serve in ranges and delete with their files', { skip: !process.env.OYL_TEST_SURREAL }, async (t) => {
   const hook = registerHooks({
     resolve(specifier, context, nextResolve) {
       if (specifier === 'cloudflare:workers') {
@@ -50,12 +50,12 @@ test('sites upload, serve in ranges and delete with their files', { skip: !proce
   });
   const { default: app } = await import('../src/index.ts');
   const { finishSite } = await import('../src/sites.ts');
-  const namespace = `bolo_sites_${crypto.randomUUID().replaceAll('-', '')}`;
-  const env = { SPKY_DB_URL: 'http://127.0.0.1:8666', SPKY_DB_NS: namespace, SPKY_DB_NAME: 'main', SPKY_DB_USER: 'root', SPKY_DB_PASS: 'root', APP_ORIGIN: 'https://bolo.example' } as Env;
+  const namespace = `oyl_sites_${crypto.randomUUID().replaceAll('-', '')}`;
+  const env = { SPKY_DB_URL: 'http://127.0.0.1:8666', SPKY_DB_NS: namespace, SPKY_DB_NAME: 'main', SPKY_DB_USER: 'root', SPKY_DB_PASS: 'root', APP_ORIGIN: 'https://oyl.example' } as Env;
   const db = Surreal.system(env);
   const key = `k${crypto.randomUUID().replaceAll('-', '')}`;
   const site = `site:${key}`;
-  const get = (path: string, headers: Record<string, string> = {}) => app.fetch(new Request(`https://bolo.example/site-files/${key}${path}`, { headers }), env);
+  const get = (path: string, headers: Record<string, string> = {}) => app.fetch(new Request(`https://oyl.example/site-files/${key}${path}`, { headers }), env);
   const stream = (bytes: Uint8Array) => new Response(bytes).body;
   // Two parts and a bit, each byte telling where it is.
   const audio = Uint8Array.from({ length: PART_BYTES * 2 + 100 }, (_, i) => (i ^ (i >> 8) ^ (i >> 16)) & 255);

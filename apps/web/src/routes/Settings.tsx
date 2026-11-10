@@ -74,13 +74,13 @@ export default function SettingsPage() {
       <h1 class="text-[28px] font-semibold leading-tight tracking-tight sm:text-[30px]">ChatGPT</h1>
       <p class="mt-1.5 max-w-2xl text-[16px] leading-relaxed text-muted">
         Study with ChatGPT from your own courses: it reads your lectures, progress and past sessions, quizzes you and saves what
-        you covered. It can also create courses, add material and upload PDFs, through TalkToBolo's MCP server.
+        you covered. It can also create courses, add material and upload PDFs, through Oyl's MCP server.
       </p>
 
       <Card class="mt-6 p-4 sm:mt-8 sm:p-6">
         <h2 class="text-[18px] font-semibold tracking-tight">Bring your courses into the conversation</h2>
         <p class="mt-2 max-w-xl text-[14px] leading-relaxed text-muted">
-          Connect ChatGPT, then sign in to TalkToBolo and approve access. No API key to copy.
+          Connect ChatGPT, then sign in to Oyl and approve access. No API key to copy.
         </p>
         <div class="mt-5 flex flex-col gap-3 sm:flex-row sm:flex-wrap">
           <Button onClick={guide.open}>

@@ -1,5 +1,5 @@
 -- ##################################################################
--- STUDYCALL SCHEMA
+-- OYL SCHEMA
 --
 -- Source of truth for the database. `spky generate` turns it into the typed
 -- client schema (apps/web/src/schema.gen.ts). Tables the client never syncs
@@ -208,7 +208,7 @@ DEFINE FIELD OVERWRITE ended_at ON TABLE call TYPE option<datetime>;
 DEFINE FIELD OVERWRITE recap ON TABLE call TYPE option<string>;
 -- The assistant a study session took place in ("ChatGPT"), when the student
 -- studied there and it logged the session through the MCP server. Such a
--- session has a recap and no transcript. NONE for a voice call with Bolo.
+-- session has a recap and no transcript. NONE for a voice call in Oyl.
 DEFINE FIELD OVERWRITE assistant ON TABLE call TYPE option<string>;
 -- SHA-256 of the per-call key the voice agent presents to the API's LLM
 -- endpoint. Never readable.

@@ -101,7 +101,7 @@ export default function App() {
       config={dbConfig}
       fallback={
         <div class="flex h-dvh items-center justify-center">
-          <Loader size={8} label="Opening TalkToBolo" />
+          <Loader size={8} label="Opening Oyl" />
         </div>
       }
       onError={(error) => console.error('Failed to start the local database', error)}

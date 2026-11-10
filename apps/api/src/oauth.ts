@@ -209,7 +209,7 @@ async function metadataDocumentClient(env: Env, url: URL): Promise<Client> {
   try {
     // Workers have no redirect: 'error'; a redirect is refused as not ok.
     const res = await fetch(url, {
-      headers: { accept: 'application/json', 'user-agent': 'TalkToBolo-OAuth/1.0' }, redirect: 'manual', signal: AbortSignal.timeout(CLIENT_METADATA_TIMEOUT_MS),
+      headers: { accept: 'application/json', 'user-agent': 'Oyl-OAuth/1.0' }, redirect: 'manual', signal: AbortSignal.timeout(CLIENT_METADATA_TIMEOUT_MS),
     });
     if (!res.ok) throw new Error(`status ${res.status}`);
     doc = JSON.parse(new TextDecoder().decode(await readLimited(res.body, MAX_CLIENT_METADATA)));
@@ -260,7 +260,7 @@ async function register(request: Request, env: Env): Promise<Response> {
   const name = typeof values.client_name === 'string' ? values.client_name.trim().slice(0, 80) : 'AI assistant';
   if (!name || /[\u0000-\u001f\u007f]/.test(name)) fail('invalid_client_metadata', 'Invalid client name.');
   requestedScope(values.scope);
-  const clientId = `bolo_${randomKey(24)}`;
+  const clientId = `oyl_${randomKey(24)}`;
   await Surreal.system(env).query(
     'CREATE type::record($id) CONTENT {client_id:$client,client_name:string::slice($name,2),redirect_uris:$redirects}',
     { id: newId('oauth_client'), client: clientId, name: `!:${name}`, redirects },
@@ -439,8 +439,8 @@ async function token(request: Request, env: Env, origin: string): Promise<Respon
     if (values.scope !== undefined && requestedScope(values.scope) !== grant.scope) fail('invalid_scope', 'Scope cannot be increased.');
   } else return fail('unsupported_grant_type', 'Only authorization_code and refresh_token are supported.');
   if (grant.resource !== resource) fail('invalid_target', 'The requested resource does not match this authorization.');
-  const access = `bolo_at_${randomKey(32)}`;
-  const refresh = `bolo_rt_${randomKey(32)}`;
+  const access = `oyl_at_${randomKey(32)}`;
+  const refresh = `oyl_rt_${randomKey(32)}`;
   const accessExpiry = new Date(Math.min(Date.now() + ACCESS_SECONDS * 1000, Date.parse(grant.expires_at))).toISOString();
   try {
     await Surreal.system(env).queryAll(`BEGIN TRANSACTION;
@@ -504,7 +504,7 @@ export async function handleOAuth(request: Request, env: Env): Promise<Response 
   try {
     const origin = oauthOrigin(request, env);
     const discovered = oauthMetadataResponse(request, {
-      oauthMetadata: metadata(origin), resourceServerUrl: new URL(`${origin}/mcp`), scopesSupported: [SCOPE], resourceName: 'TalkToBolo',
+      oauthMetadata: metadata(origin), resourceServerUrl: new URL(`${origin}/mcp`), scopesSupported: [SCOPE], resourceName: 'Oyl',
     });
     if (discovered) return discovered;
     if (!['/oauth/register', '/oauth/authorize', '/oauth/token', '/oauth/revoke'].includes(path)) return undefined;
@@ -527,7 +527,7 @@ export async function handleOAuth(request: Request, env: Env): Promise<Response 
 
 /** Access is checked on every request so disconnecting an app takes effect immediately. */
 export async function verifyOAuthAccessToken(env: Env, token: string, resource: string): Promise<AuthInfo | null> {
-  if (!/^bolo_at_[A-Za-z0-9_-]{43}$/.test(token)) return null;
+  if (!/^oyl_at_[A-Za-z0-9_-]{43}$/.test(token)) return null;
   await ensureServerSchema(env);
   const row = await Surreal.system(env).query<{
     owner: string; expires_at: string; client_id: string; client_name: string; scope: string; resource: string;

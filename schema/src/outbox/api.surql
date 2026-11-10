@@ -4,7 +4,7 @@
 -- Background work for the API backend (sp00ky.yml `apps.api`, paths in
 -- apps/api/openapi.yml): the web app creates a row, sp00ky's job runner POSTs
 -- its payload to the backend and records the outcome here. Shape from
--- `spky api add`; only the permissions and `assigned_to` are talktobolo's.
+-- `spky api add`; only the permissions and `assigned_to` are Oyl's.
 -- ##################################################################
 
 -- A student may create a job only about their own material, call or source, and only

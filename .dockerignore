@@ -1,0 +1,7 @@
+# Docker builds (apps/web/Dockerfile) use the repo root as context: keep the
+# Rust build output and installed packages out of it.
+target
+.worktrees
+**/node_modules
+**/dist
+.git

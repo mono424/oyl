@@ -86,9 +86,9 @@ test('material creation does not reconcile unrelated failures or repeat successf
 });
 
 test('material reconciliation uses the same record session and cannot adopt foreign rows', {
-  skip: !process.env.BOLO_TEST_SURREAL,
+  skip: !process.env.OYL_TEST_SURREAL,
 }, async (t) => {
-  const namespace = `bolo_create_${crypto.randomUUID().replaceAll('-', '')}`;
+  const namespace = `oyl_create_${crypto.randomUUID().replaceAll('-', '')}`;
   const env = {
     SPKY_DB_URL: 'http://127.0.0.1:8666', SPKY_DB_NS: namespace, SPKY_DB_NAME: 'main',
     SPKY_DB_USER: 'root', SPKY_DB_PASS: 'root',

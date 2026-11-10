@@ -64,11 +64,11 @@ test('review comes due by level', () => {
 });
 
 test('ChatGPT builds the concept map and the student model tells what to explain, focus on and complete', {
-  skip: !process.env.BOLO_TEST_SURREAL,
+  skip: !process.env.OYL_TEST_SURREAL,
 }, async (t) => {
-  const namespace = `bolo_understanding_${crypto.randomUUID().replaceAll('-', '')}`;
+  const namespace = `oyl_understanding_${crypto.randomUUID().replaceAll('-', '')}`;
   const vector = Array.from({ length: 1024 }, (_, i) => i === 0 ? 1 : 0);
-  const origin = 'https://bolo.example';
+  const origin = 'https://oyl.example';
   const links = { app: origin };
   const env = {
     SPKY_DB_URL: 'http://127.0.0.1:8666', SPKY_DB_NS: namespace, SPKY_DB_NAME: 'main', SPKY_DB_USER: 'root', SPKY_DB_PASS: 'root',

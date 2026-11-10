@@ -93,7 +93,7 @@ export function LecturePlace(props: {
         aria-expanded={open()}
         aria-busy={props.saving}
         disabled={props.disabled}
-        title={props.disabled ? 'Available once the lecture has been indexed again' : 'Where Bolo picks up in this lecture'}
+        title={props.disabled ? 'Available once the lecture has been indexed again' : 'Where the tutor picks up in this lecture'}
         onClick={() => (open() ? close() : show())}
         onKeyDown={(e) => {
           if (!open() && (e.key === 'ArrowDown' || e.key === 'ArrowUp')) {
@@ -127,9 +127,9 @@ export function LecturePlace(props: {
           onKeyDown={onListKey}
         >
           <p class="px-3 pb-1.5 pt-1 text-[12px] leading-snug text-faint">
-            Bolo paces explanations from here. Reached does not mean mastered.
+            The tutor paces explanations from here. Reached does not mean mastered.
           </p>
-          <Option through={-1} title="Not started" detail="Bolo introduces the material from the beginning." />
+          <Option through={-1} title="Not started" detail="The tutor introduces the material from the beginning." />
           <For each={props.sections}>
             {(section, i) => (
               <Option through={i()} title={`${i() + 1}. ${heading(i())}`} detail={excerpt(section.text, 120)} page={props.pages[i()]?.page} />

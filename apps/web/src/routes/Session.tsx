@@ -60,7 +60,7 @@ export default function SessionPage() {
             <Show when={topic()}>: {topic()}</Show>
           </h1>
           <p class="mt-1.5 break-words text-[15px] text-muted">
-            {call().assistant ? `Studied in ${call().assistant}` : 'Voice call with Bolo'}, {formatDate(call().started_at, true)}
+            {call().assistant ? `Studied in ${call().assistant}` : 'Voice call in Oyl'}, {formatDate(call().started_at, true)}
           </p>
 
           <Show when={recapHtml()}>

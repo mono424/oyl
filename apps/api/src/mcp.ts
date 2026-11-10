@@ -86,16 +86,16 @@ export async function handleMcp(req: Request, env: Env, ctx?: Pick<ExecutionCont
     requiredScopes: ['courses'],
     verifier: {
       async verifyAccessToken(token: string) {
-        if (token.startsWith('bolo_at_')) {
+        if (token.startsWith('oyl_at_')) {
           const auth = await verifyOAuthAccessToken(env, token, resource.href);
-          if (!auth) throw new OAuthError(OAuthErrorCode.InvalidToken, 'This TalkToBolo connection has expired or been disconnected.');
+          if (!auth) throw new OAuthError(OAuthErrorCode.InvalidToken, 'This Oyl connection has expired or been disconnected.');
           return auth;
         }
         const session = token.startsWith('sc_') ? await sessionForKey(env, token) : null;
-        if (!session) throw new OAuthError(OAuthErrorCode.InvalidToken, 'Unknown or revoked TalkToBolo API key.');
+        if (!session) throw new OAuthError(OAuthErrorCode.InvalidToken, 'Unknown or revoked Oyl API key.');
         return {
           token,
-          clientId: 'studycall-api-key',
+          clientId: 'oyl-api-key',
           scopes: ['courses'],
           resource,
           expiresAt: Math.floor(Date.now() / 1000) + 3600,
@@ -142,13 +142,13 @@ const meta = (invoking: string, invoked: string, extra: Record<string, unknown> 
 });
 
 // The first 512 characters matter most to ChatGPT.
-const INSTRUCTIONS = `TalkToBolo is the student's study app: their courses, lecture material, lecture progress and past study sessions. Ground answers about their subjects in it: look things up (search, search_course, read_section, fetch) before you explain, and cite lecture and page. Never make things up. Check each claim against the material; if it does not cover something, say so and mark general knowledge as such; if unsure, say so. End every study conversation with save_study_session, so it shows in the app's history.
+const INSTRUCTIONS = `Oyl is the student's study app: their courses, lecture material, lecture progress and past study sessions. Ground answers about their subjects in it: look things up (search, search_course, read_section, fetch) before you explain, and cite lecture and page. Never make things up. Check each claim against the material; if it does not cover something, say so and mark general knowledge as such; if unsure, say so. End every study conversation with save_study_session, so it shows in the app's history.
 
 To study, call get_study_overview, then prepare_study_session for the course, lecture and mode (explain, quiz or qa) and follow its guide. Walk through lectures one section at a time with read_section. Reached means seen, not mastered.
 
-TalkToBolo keeps a map of what the student understands, concept by concept. While studying, keep it current with record_understanding: map the concepts of each section you read and what they build on, and record what the student shows after each answer. get_understanding says what to explain first, what to focus on and what is still missing.
+Oyl keeps a map of what the student understands, concept by concept. While studying, keep it current with record_understanding: map the concepts of each section you read and what they build on, and record what the student shows after each answer. get_understanding says what to explain first, what to focus on and what is still missing.
 
-Homework lives in TalkToBolo too: get_homework reads an exercise sheet part by part with the student's answers, start_homework opens a sheet that has no homework yet, update_homework renames one, attaches another sheet to it (such as the original PDF) or fixes its parts, answers kept, write_answers and edit_answer write into the app's editor, where the student sees it live, delete_homework deletes a homework with its answers when the student asks. Help the way the student asks (hints, checking their draft against the lecture, or writing answers out), read a part before writing it and keep the student's own work.
+Homework lives in Oyl too: get_homework reads an exercise sheet part by part with the student's answers, start_homework opens a sheet that has no homework yet, update_homework renames one, attaches another sheet to it (such as the original PDF) or fixes its parts, answers kept, write_answers and edit_answer write into the app's editor, where the student sees it live, delete_homework deletes a homework with its answers when the student asks. Help the way the student asks (hints, checking their draft against the lecture, or writing answers out), read a part before writing it and keep the student's own work.
 
 Documents are the student's own writing, such as a research proposal, with the papers it cites beside it: get_document reads the text and its papers, create_document starts one, write_document and edit_document change the text, add_document_image stores an image for it, update_document renames it, sets its citation style or format, add_paper, update_paper and remove_paper keep the paper list, delete_document deletes it when the student asks. Every change of the text is kept as a version, yours and the student's: get_document_versions lists them and reads an older one, restore_document_version goes back to one. Cite a paper with the cite string get_document gives it: [@key] in Markdown, \\cite{key} in LaTeX documents, which are edited as LaTeX source; never invent references.
 
@@ -161,11 +161,11 @@ function buildServer(env: Env, auth: AuthInfo, origin: string, ctx?: Pick<Execut
   const assistant = (auth.extra?.clientName as string | undefined) || 'AI assistant';
   const server = new McpServer(
     {
-      name: 'TalkToBolo',
-      title: 'TalkToBolo',
+      name: 'Oyl',
+      title: 'Oyl',
       version: '0.2.0',
       websiteUrl: appOrigin(env, origin),
-      icons: [{ src: `${appOrigin(env, origin)}/studycall-logo-small.svg`, mimeType: 'image/svg+xml' }],
+      icons: [{ src: `${appOrigin(env, origin)}/icon-192.png`, mimeType: 'image/png' }],
     },
     { instructions: INSTRUCTIONS },
   );
@@ -510,7 +510,7 @@ function buildServer(env: Env, auth: AuthInfo, origin: string, ctx?: Pick<Execut
     {
       title: 'Read homework',
       description:
-        "Reads the student's homework in TalkToBolo: answers to an exercise sheet, part by part. Without homework_id: the homework (of a course, or of all courses) with how many parts are answered. With homework_id: each part of the sheet with its key, label, points, page, text (prompt), the introduction it builds on (context, left out when the same as the previous part's) and the student's current answer. parts narrows it to some parts; answers_only leaves the exercise text out. A part's page_url opens the PDF sheet at its page; get_material on the sheet shows figures and tables the text may miss.",
+        "Reads the student's homework in Oyl: answers to an exercise sheet, part by part. Without homework_id: the homework (of a course, or of all courses) with how many parts are answered. With homework_id: each part of the sheet with its key, label, points, page, text (prompt), the introduction it builds on (context, left out when the same as the previous part's) and the student's current answer. parts narrows it to some parts; answers_only leaves the exercise text out. A part's page_url opens the PDF sheet at its page; get_material on the sheet shows figures and tables the text may miss.",
       inputSchema: z.object({
         course_id: z.string().optional(),
         homework_id: z.string().optional().describe('A homework:... id from the list or from start_homework.'),
@@ -651,7 +651,7 @@ function buildServer(env: Env, auth: AuthInfo, origin: string, ctx?: Pick<Execut
     {
       title: 'Read a document',
       description:
-        "Reads the student's documents in TalkToBolo: their own writing in a course, such as a research proposal or an essay. Without document_id: the documents (of a course, or of all courses) with their size and number of papers. With document_id: its format (markdown or tex) and whole text, its citation style, and the papers it draws on, each with its cite_key and cite string, details, how often the text cites it and, for a course material, its material id (read it with get_material or search_course) and link. A LaTeX document comes with its bibtex too, the references.bib the app downloads beside the .tex.",
+        "Reads the student's documents in Oyl: their own writing in a course, such as a research proposal or an essay. Without document_id: the documents (of a course, or of all courses) with their size and number of papers. With document_id: its format (markdown or tex) and whole text, its citation style, and the papers it draws on, each with its cite_key and cite string, details, how often the text cites it and, for a course material, its material id (read it with get_material or search_course) and link. A LaTeX document comes with its bibtex too, the references.bib the app downloads beside the .tex.",
       inputSchema: z.object({
         course_id: z.string().optional(),
         document_id: z.string().optional().describe('A document:... id from the list or from create_document.'),
@@ -863,7 +863,7 @@ function buildServer(env: Env, auth: AuthInfo, origin: string, ctx?: Pick<Execut
     {
       title: 'List sources',
       description:
-        "Lists a course's sources: bCourses courses and web pages TalkToBolo checks on a schedule, importing new and changed lecture PDFs (and pages) as material by itself.",
+        "Lists a course's sources: bCourses courses and web pages Oyl checks on a schedule, importing new and changed lecture PDFs (and pages) as material by itself.",
       inputSchema: z.object({ course_id: z.string() }),
       annotations: READ,
       _meta: meta('Loading sources…', 'Sources loaded'),
@@ -884,7 +884,7 @@ function buildServer(env: Env, auth: AuthInfo, origin: string, ctx?: Pick<Execut
     {
       title: 'Add a web page source',
       description:
-        "Makes a public course web page a source of a course: TalkToBolo imports the PDFs linked from it now and checks it again every few hours for new or changed ones. Use when the student asks to follow a course website. bCourses courses need the student's access token, so they are added in the app instead.",
+        "Makes a public course web page a source of a course: Oyl imports the PDFs linked from it now and checks it again every few hours for new or changed ones. Use when the student asks to follow a course website. bCourses courses need the student's access token, so they are added in the app instead.",
       inputSchema: z.object({
         course_id: z.string(),
         url: z.string().url().describe('The https page that links the lecture files, e.g. the course schedule.'),
@@ -970,7 +970,7 @@ function buildServer(env: Env, auth: AuthInfo, origin: string, ctx?: Pick<Execut
   server.registerTool(
     'get_profile',
     {
-      title: 'Your TalkToBolo account',
+      title: 'Your Oyl account',
       description: 'The signed-in student: name, email and how many courses they have. Tells connected accounts apart.',
       inputSchema: z.object({}),
       annotations: READ,
@@ -1054,7 +1054,7 @@ function buildServer(env: Env, auth: AuthInfo, origin: string, ctx?: Pick<Execut
     {
       title: 'Record lecture progress',
       description:
-        "Moves the student's place in a lecture forward to the last section they confirmed covering (exposure, not mastery), so TalkToBolo continues from there. Never moves it back. Pass rev from the section you read. save_study_session can do this too at the end of a session.",
+        "Moves the student's place in a lecture forward to the last section they confirmed covering (exposure, not mastery), so Oyl continues from there. Never moves it back. Pass rev from the section you read. save_study_session can do this too at the end of a session.",
       inputSchema: z.object({
         material_id: z.string(),
         through_position: z.number().int().min(0).describe('The last section covered (its position).'),
@@ -1072,7 +1072,7 @@ function buildServer(env: Env, auth: AuthInfo, origin: string, ctx?: Pick<Execut
     {
       title: 'Save the study session',
       description:
-        "Saves this study session to the student's TalkToBolo history with a recap, so the app and the next session know what was covered. Call once at the end of every study conversation, also a short one or one with only questions; for questions across courses, use the course most of it was about. The recap states only what actually happened in this conversation. The recap is Markdown with three short sections: ## What we covered, ## How it went (questions right and wrong, misunderstandings), ## Review next. Write it in the session's language, under 200 words. After an explanation, pass covered_through (the last section the student confirmed) and rev to record their progress as well.",
+        "Saves this study session to the student's Oyl history with a recap, so the app and the next session know what was covered. Call once at the end of every study conversation, also a short one or one with only questions; for questions across courses, use the course most of it was about. The recap states only what actually happened in this conversation. The recap is Markdown with three short sections: ## What we covered, ## How it went (questions right and wrong, misunderstandings), ## Review next. Write it in the session's language, under 200 words. After an explanation, pass covered_through (the last section the student confirmed) and rev to record their progress as well.",
       inputSchema: z.object({
         course_id: z.string(),
         material_id: z.string().optional().describe('The lecture studied, if the session was about one.'),

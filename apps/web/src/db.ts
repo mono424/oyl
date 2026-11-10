@@ -15,7 +15,7 @@ export const dbConfig: SyncedDbConfig<typeof schema> = {
   pushTimeoutMs: 120_000,
   database: {
     namespace: import.meta.env.VITE_DB_NS || 'main',
-    database: import.meta.env.VITE_DB_DB || 'studycall',
+    database: import.meta.env.VITE_DB_DB || 'oyl',
     endpoint: import.meta.env.VITE_DB_ENDPOINT || 'ws://localhost:8666/rpc',
     store: 'indexeddb',
     queryTimeoutMs: 130_000,

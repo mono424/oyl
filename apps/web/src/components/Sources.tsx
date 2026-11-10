@@ -20,7 +20,7 @@ import { Button, Dot, Field, formatDate, IconButton, inputClass, Loader, Segment
 import { Sheet } from './Sheet';
 
 /**
- * Sources of a course: a bCourses course or a course website that TalkToBolo
+ * Sources of a course: a bCourses course or a course website that Oyl
  * checks on a schedule, importing new and changed lecture PDFs (and pages)
  * as material by itself (apps/api/src/fetch). The list is the course page's
  * Sources tab; the sheet adds and edits one.
@@ -220,7 +220,7 @@ export function AddSourceSheet(props: { courseId: string; onClose: () => void })
   return (
     <Sheet
       title="Add a source"
-      subtitle="TalkToBolo checks it on a schedule and adds new lecture files to this course by itself."
+      subtitle="Oyl checks it on a schedule and adds new lecture files to this course by itself."
       maxWidth="34rem"
       onClose={props.onClose}
       footer={(close) => (

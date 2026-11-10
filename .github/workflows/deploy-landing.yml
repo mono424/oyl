@@ -39,9 +39,9 @@ jobs:
         id: pages
         uses: actions/configure-pages@v6
       - name: Install landing page dependencies
-        run: pnpm --filter @studycall/landing... install --frozen-lockfile
+        run: pnpm --filter @oyl/landing... install --frozen-lockfile
       - name: Check landing page
-        run: pnpm --filter @studycall/landing type-check
+        run: pnpm --filter @oyl/landing type-check
       - name: Build landing page
         run: pnpm build:landing
         env:

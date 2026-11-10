@@ -17,7 +17,7 @@ interface Consent {
   expiresAt: string;
 }
 
-/** Account approval stays in Bolo; credentials never travel in install links. */
+/** Account approval stays in Oyl; credentials never travel in install links. */
 export default function ConnectPage() {
   const db = useDb<typeof schema>();
   const auth = useAuth();
@@ -59,7 +59,7 @@ export default function ConnectPage() {
           {(request) => <>
             <p class="mt-3 text-[15px] leading-relaxed text-muted [overflow-wrap:anywhere]">
               <strong class="font-medium text-fg">{request().clientName}</strong>
-              <Show when={request().clientHost}>{(host) => <span> ({host()})</span>}</Show> wants to use TalkToBolo as{' '}
+              <Show when={request().clientHost}>{(host) => <span> ({host()})</span>}</Show> wants to use Oyl as{' '}
               {auth.user()?.email ?? 'your signed-in account'}.
             </p>
             <div class="mt-5 rounded-2xl bg-soft p-4 text-[14px] leading-relaxed">
@@ -71,7 +71,7 @@ export default function ConnectPage() {
               </ul>
             </div>
             <p class="mt-4 text-[13px] leading-relaxed text-muted [overflow-wrap:anywhere]">
-              Return to {request().redirectHost} after approval. You can revoke this connection from the ChatGPT page in TalkToBolo at any time.
+              Return to {request().redirectHost} after approval. You can revoke this connection from the ChatGPT page in Oyl at any time.
             </p>
             <Show when={error()}><p class="mt-4 break-words text-[14px] text-red" role="alert">{error()}</p></Show>
             <div class="mt-6 flex flex-col gap-3 sm:flex-row sm:flex-wrap">

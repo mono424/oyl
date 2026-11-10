@@ -1,18 +1,18 @@
 {
-  "name": "studycall",
+  "name": "oyl",
   "version": "0.1.0",
   "private": true,
   "description": "Upload course material, build each course's knowledge graph, and study it by voice in ChatGPT through an MCP server. SurrealDB, synced with sp00ky.",
   "scripts": {
     "dev": "spky dev --path dev",
-    "dev:web": "pnpm --filter @studycall/web dev",
-    "dev:landing": "pnpm --filter @studycall/landing dev",
-    "build:landing": "pnpm --filter @studycall/landing build",
-    "dev:api": "pnpm --filter @studycall/api dev",
+    "dev:web": "pnpm --filter @oyl/web dev",
+    "dev:landing": "pnpm --filter @oyl/landing dev",
+    "build:landing": "pnpm --filter @oyl/landing build",
+    "dev:api": "pnpm --filter @oyl/api dev",
     "generate": "spky generate",
     "type-check": "pnpm -r type-check",
-    "backfill:pages": "pnpm --filter @studycall/scripts backfill:pages",
-    "deploy:api": "pnpm --filter @studycall/api deploy",
+    "backfill:pages": "pnpm --filter @oyl/scripts backfill:pages",
+    "deploy:api": "pnpm --filter @oyl/api deploy",
     "deploy": "spky deploy"
   },
   "devDependencies": {

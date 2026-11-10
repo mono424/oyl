@@ -230,9 +230,9 @@ test('Canvas: files, modules and pages, with pagination and fallbacks', async ()
 // ── End to end, against a database ─────────────────────────────────────────
 
 test('a web source imports new PDFs, replaces changed ones and respects deletions', {
-  skip: !process.env.BOLO_TEST_SURREAL,
+  skip: !process.env.OYL_TEST_SURREAL,
 }, async () => {
-  const namespace = `bolo_fetch_${crypto.randomUUID().replaceAll('-', '')}`;
+  const namespace = `oyl_fetch_${crypto.randomUUID().replaceAll('-', '')}`;
   const runs: { id: string; params: unknown }[] = [];
   const ingests: unknown[] = [];
   const env = {

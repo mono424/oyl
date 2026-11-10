@@ -14,7 +14,7 @@ import {
 } from '../src/memory.ts';
 
 const env = {
-  AGENT_MEMORY_URL: 'https://memory.example/api/v1/talktobolo/',
+  AGENT_MEMORY_URL: 'https://memory.example/api/v1/oyl/',
   AGENT_MEMORY_API_KEY: 'test-secret',
 } as Env;
 const material: MemoryMaterial = {
@@ -90,7 +90,7 @@ test('document upload uses scoped multipart metadata and unique bytes per positi
   const text: string[] = [];
   for (const [index, position] of [[1, 0], [3, 1]]) {
     const request = requests[index];
-    assert.equal(request.url, 'https://memory.example/api/v1/talktobolo/documents');
+    assert.equal(request.url, 'https://memory.example/api/v1/oyl/documents');
     assert.equal(request.headers.has('Content-Type'), false, 'fetch must set the multipart boundary.');
     const form = request.init.body as FormData;
     const metadata = JSON.parse(form.get('metadata') as string);
@@ -125,7 +125,7 @@ test('course retrieval excludes future, undated, literal, entity-card and expand
   assert.deepEqual(await queryCourseMemory(env, material, 1, 'force'), [accepted, action]);
   assert.deepEqual(body(requests[0]), {
     query: 'force', k: 10, lens: [[courseScope]], scopeView: 'strict',
-    asOf: lectureStamp(1), include: ['facts'], mode: 'graph', source: 'talktobolo',
+    asOf: lectureStamp(1), include: ['facts'], mode: 'graph', source: 'oyl',
   });
 });
 

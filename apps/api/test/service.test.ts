@@ -5,9 +5,9 @@ import { ensureServerSchema } from '../src/service.ts';
 import { Surreal } from '../src/surreal.ts';
 
 test('concurrent cold requests finish server schema initialization', {
-  skip: !process.env.BOLO_TEST_SURREAL,
+  skip: !process.env.OYL_TEST_SURREAL,
 }, async () => {
-  const namespace = `bolo_cold_${crypto.randomUUID().replaceAll('-', '')}`;
+  const namespace = `oyl_cold_${crypto.randomUUID().replaceAll('-', '')}`;
   const env = {
     SPKY_DB_URL: 'http://127.0.0.1:8666', SPKY_DB_NS: namespace, SPKY_DB_NAME: 'main',
     SPKY_DB_USER: 'root', SPKY_DB_PASS: 'root',

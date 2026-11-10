@@ -8,10 +8,10 @@ COPY package.json pnpm-workspace.yaml pnpm-lock.yaml ./
 COPY apps/web/package.json apps/web/
 COPY apps/api/package.json apps/api/
 COPY scripts/package.json scripts/
-RUN pnpm install --frozen-lockfile --filter @studycall/web...
+RUN pnpm install --frozen-lockfile --filter @oyl/web...
 COPY shared shared
 COPY apps/web apps/web
-RUN pnpm --filter @studycall/web build
+RUN pnpm --filter @oyl/web build
 
 FROM nginx:1.29-alpine
 COPY apps/web/nginx.conf /etc/nginx/conf.d/default.conf

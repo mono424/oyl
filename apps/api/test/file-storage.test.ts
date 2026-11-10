@@ -8,7 +8,7 @@ import { ensureServerSchema } from '../src/service.ts';
 import { Surreal, UserError } from '../src/surreal.ts';
 
 test('file storage remains readable while PDF and image bytes move to buckets', {
-  skip: !process.env.BOLO_TEST_SURREAL,
+  skip: !process.env.OYL_TEST_SURREAL,
 }, async (t) => {
   const hook = registerHooks({
     resolve(specifier, context, nextResolve) {
@@ -22,16 +22,16 @@ test('file storage remains readable while PDF and image bytes move to buckets', 
     },
   });
   const { default: app } = await import('../src/index.ts');
-  const namespace = `bolo_files_${crypto.randomUUID().replaceAll('-', '')}`;
+  const namespace = `oyl_files_${crypto.randomUUID().replaceAll('-', '')}`;
   const env = {
     SPKY_DB_URL: 'http://127.0.0.1:8666', SPKY_DB_NS: namespace, SPKY_DB_NAME: 'main',
-    SPKY_DB_USER: 'root', SPKY_DB_PASS: 'root', APP_ORIGIN: 'https://bolo.example',
+    SPKY_DB_USER: 'root', SPKY_DB_PASS: 'root', APP_ORIGIN: 'https://oyl.example',
   } as Env;
   const db = Surreal.system(env);
   const bytes = (text: string) => Buffer.from(text).toString('base64');
   const imageId = `k${crypto.randomUUID().replaceAll('-', '')}`;
   const missingImageId = `k${crypto.randomUUID().replaceAll('-', '')}`;
-  const getImage = (id = imageId) => app.fetch(new Request(`https://bolo.example/material-assets/${id}`), env);
+  const getImage = (id = imageId) => app.fetch(new Request(`https://oyl.example/material-assets/${id}`), env);
   try {
     await db.query(`DEFINE NAMESPACE ${namespace}; DEFINE DATABASE main;
       DEFINE BUCKET materials BACKEND 'memory' PERMISSIONS NONE;

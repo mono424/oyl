@@ -7,7 +7,7 @@ import { ensureServerSchema, storePdfAndIngest } from '../src/service.ts';
 import { Conflict, Surreal, signinRecord } from '../src/surreal.ts';
 
 test('the original PDF is kept, served to its owner only, and never replaced once working', {
-  skip: !process.env.BOLO_TEST_SURREAL,
+  skip: !process.env.OYL_TEST_SURREAL,
 }, async (t) => {
   const hook = registerHooks({
     resolve(specifier, context, nextResolve) {
@@ -21,11 +21,11 @@ test('the original PDF is kept, served to its owner only, and never replaced onc
     },
   });
   const { default: app } = await import('../src/index.ts');
-  const namespace = `bolo_pdf_${crypto.randomUUID().replaceAll('-', '')}`;
+  const namespace = `oyl_pdf_${crypto.randomUUID().replaceAll('-', '')}`;
   const launched: string[] = [];
   const env = {
     SPKY_DB_URL: 'http://127.0.0.1:8666', SPKY_DB_NS: namespace, SPKY_DB_NAME: 'main',
-    SPKY_DB_USER: 'root', SPKY_DB_PASS: 'root', APP_ORIGIN: 'https://bolo.example',
+    SPKY_DB_USER: 'root', SPKY_DB_PASS: 'root', APP_ORIGIN: 'https://oyl.example',
     INGEST: { create: async ({ id }: { id: string }) => { launched.push(id); } },
   } as unknown as Env;
   const db = Surreal.system(env);
@@ -48,7 +48,7 @@ test('the original PDF is kept, served to its owner only, and never replaced onc
     const two = await signinRecord(env, 'account', { email: 'two@example.com', password: 'pw-two' });
     assert.ok(one && two);
     const get = (id: string, token: string) =>
-      app.fetch(new Request(`https://bolo.example/api/materials/${id}/pdf`, { headers: { authorization: `Bearer ${token}` } }), env);
+      app.fetch(new Request(`https://oyl.example/api/materials/${id}/pdf`, { headers: { authorization: `Bearer ${token}` } }), env);
 
     await t.test('an upload is stored in parts and streamed back whole', async () => {
       await storePdfAndIngest(env, { id: 'material:m1', owner: 'user:u1' }, pdf, 'Slides 1.pdf');
@@ -71,7 +71,7 @@ test('the original PDF is kept, served to its owner only, and never replaced onc
     await t.test('a working material keeps its PDF; a failed upload may be replaced', async () => {
       await db.query(`UPDATE material:m1 SET status = 'ready'`);
       await assert.rejects(storePdfAndIngest(env, { id: 'material:m1', owner: 'user:u1' }, pdf, 'Other.pdf'), Conflict);
-      const res = await app.fetch(new Request('https://bolo.example/api/materials/m1/pdf', {
+      const res = await app.fetch(new Request('https://oyl.example/api/materials/m1/pdf', {
         method: 'POST', body: pdf, headers: { authorization: `Bearer ${one}`, 'content-type': 'application/pdf' },
       }), env);
       assert.equal(res.status, 409);
