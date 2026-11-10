@@ -1,14 +1,10 @@
 name: Deploy landing page
 
+# Manual only for now: Oyl's GitHub Pages site isn't set up yet. Once Pages is
+# enabled for the repository, restore the push trigger:
+#   push: { branches: [main], paths: [apps/landing/**, .github/workflows/deploy-landing.yml,
+#           package.json, pnpm-lock.yaml, pnpm-workspace.yaml] }
 on:
-  push:
-    branches: [main]
-    paths:
-      - apps/landing/**
-      - .github/workflows/deploy-landing.yml
-      - package.json
-      - pnpm-lock.yaml
-      - pnpm-workspace.yaml
   workflow_dispatch:
 
 permissions:
