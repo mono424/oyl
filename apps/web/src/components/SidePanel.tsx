@@ -46,9 +46,10 @@ export function SidePanel(props: {
   });
   return (
     <div
-      class={`sticky top-3 flex h-[calc(100dvh-7.5rem)] shrink-0 ${motion}`}
-      // Cut off only at the right, where the card comes from; its shadow stays elsewhere.
-      style={{ width: props.open ? `${total()}px` : '0px', 'clip-path': 'inset(-80px 0 -80px -80px)', ...still() }}
+      // Cut off at the sides, where the card comes from. A clip, not a clip-path:
+      // the closed panel's track would otherwise still make the page scroll sideways.
+      class={`sticky top-3 flex h-[calc(100dvh-7.5rem)] shrink-0 overflow-x-clip ${motion}`}
+      style={{ width: props.open ? `${total()}px` : '0px', ...still() }}
       inert={props.open ? undefined : true}
     >
       <div class={`flex h-full shrink-0 ${motion}`} style={{ width: `${total()}px`, ...still() }}>

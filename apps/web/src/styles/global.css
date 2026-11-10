@@ -9,7 +9,8 @@
  *
  * The window is a pane of glass (--veil) over a warm canvas. Things that
  * float on it are near-opaque sheets (--surface, --raised) with hairline
- * edges, and the text being written sits in a calmer card (--card). Color
+ * edges, and the text being written sits in a calmer card (--card), or for
+ * a document flat on the page, a faint wash of that tone (.oyl-page). Color
  * means something: slate indigo is the accent (the main action, the caret, the
  * selection, citations, what is running), danger, warning and success are
  * for state.
@@ -208,6 +209,31 @@ input, textarea { caret-color: var(--accent); }
     background: var(--card);
     border: 1px solid var(--card-edge);
     border-radius: 16px;
+  }
+  /* The page a document is written on: flat, no edge, only a faint wash of
+     the card's tone toward the middle, where the text is, fading out at the
+     sides and at both ends. Behind the content, never part of its layout. */
+  .oyl-page { position: relative; isolation: isolate; }
+  .oyl-page::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: 50%;
+    z-index: -1;
+    width: min(100%, 72rem);
+    transform: translateX(-50%);
+    background: linear-gradient(
+      90deg,
+      transparent,
+      color-mix(in srgb, var(--card) 30%, transparent) 25%,
+      color-mix(in srgb, var(--card) 55%, transparent) 50%,
+      color-mix(in srgb, var(--card) 30%, transparent) 75%,
+      transparent
+    );
+    -webkit-mask-image: linear-gradient(transparent, black 8rem, black calc(100% - 8rem), transparent);
+    mask-image: linear-gradient(transparent, black 8rem, black calc(100% - 8rem), transparent);
+    pointer-events: none;
   }
   /* A page of a PDF: the only truly opaque thing, a white sheet with a soft
      shadow, washed slightly in dark mode so it does not glare. */

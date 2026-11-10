@@ -550,7 +550,7 @@ function Workspace(props: { doc: DocumentRow; papers: PaperRow[]; courseKey: str
 
       <div class="relative mt-4 flex items-start gap-0">
         {/* The room after the text is the text's own: a short one never scrolls the page, and the panel stays put. */}
-        <div class={`relative min-w-0 flex-1 ${isTex() || selected() ? '' : 'pb-24'}`}>
+        <div class={`oyl-page min-w-0 flex-1 ${isTex() || selected() ? '' : 'pb-24'}`}>
           <Show when={selected()} keyed>
             {(n) => (
               <VersionView
@@ -569,14 +569,14 @@ function Workspace(props: { doc: DocumentRow; papers: PaperRow[]; courseKey: str
           <Show
             when={!isTex()}
             fallback={
-              <div class="oyl-card sticky top-3 mx-auto h-[calc(100dvh-7.5rem)] min-w-0 max-w-[58rem] overflow-hidden py-2 pr-2">
+              <div class="sticky top-3 mx-auto h-[calc(100dvh-7.5rem)] min-w-0 max-w-[58rem] overflow-hidden py-2 pr-2">
                 <Suspense fallback={<div class="h-40 animate-pulse rounded-xl bg-soft" />}>
                   <TexDocumentEditor content={() => textOf(id)} onInput={(t) => edit(id, t)} onBlur={saveAll} onView={setView} uploadImage={(file) => uploadImage(id, file)} onAddImages={(add) => (addImages = add)} label={props.doc.title} />
                 </Suspense>
               </div>
             }
           >
-          <div class="oyl-card mx-auto max-w-3xl px-4 pt-5 sm:px-9 sm:pt-8">
+          <div class="mx-auto max-w-3xl px-4 pt-5 sm:px-9 sm:pt-8">
             <Suspense fallback={<div class="h-40 animate-pulse rounded-xl bg-soft" />}>
               <Editor
                 parts={parts}
