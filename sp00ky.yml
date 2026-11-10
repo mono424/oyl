@@ -10,7 +10,7 @@
 #     Worker backend: `spky deploy` bundles it and the sync node runs it as a
 #     Dynamic Worker. See docs/setup.md.
 mode: singlenode
-slug: oyl
+slug: talktobolo
 # Staging control plane (the only one provisioned).
 cloudApi: https://api-stg.sp00ky.cloud
 surrealdb:
@@ -18,7 +18,7 @@ surrealdb:
   # after its slug, database `main`; `spky deploy` bakes the endpoint into
   # the web app.
   hosting: cloud
-  namespace: oyl
+  namespace: talktobolo
   database: main
 schema: ./schema
 buckets:
@@ -133,8 +133,8 @@ apps:
       # SPKY_DB_NS and SPKY_DB_NAME on the Worker backend, and on the shared
       # free database its namespace login (SPKY_DB_USER, SPKY_DB_PASS,
       # SPKY_DB_LEVEL=namespace).
-      - APP_ORIGIN: https://oyl.stg.spky.cloud
-        API_ORIGIN: https://oyl.stg.spky.cloud
+      - APP_ORIGIN: https://talktobolo.stg.spky.cloud
+        API_ORIGIN: https://talktobolo.stg.spky.cloud
         EMBEDDING_MODEL: "@cf/qwen/qwen3-embedding-0.6b"
         JOB_TOKEN: *jobToken
 # Lectures without a knowledge graph for their current text (processed before
