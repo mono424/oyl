@@ -204,8 +204,8 @@ pnpm dev                                           # database, sync node, web ap
 | `pnpm build:landing` | Build the static landing page |
 | `pnpm --filter @oyl/api test` | The API's tests |
 
-The hosted app is meant to live at `https://oyl.stg.spky.cloud` (sp00ky project
-`oyl`); see [docs/setup.md](docs/setup.md) for deployment, schema changes and
+The hosted app runs at `https://talktobolo.stg.spky.cloud` (sp00ky project
+`talktobolo`, until an Oyl hostname is set up); see [docs/setup.md](docs/setup.md) for deployment, schema changes and
 the MCP server. ChatGPT reaches the MCP server over HTTPS only; the setup guide
 covers a tunnel for trying the local stack.
 

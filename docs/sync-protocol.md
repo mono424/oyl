@@ -96,7 +96,7 @@ SHA-256. Revoking takes effect on the next request: every endpoint then answers
 
 ## Endpoints (all JSON unless noted, all under `/api/sync`)
 
-Base URL: the deployed app's origin, `https://oyl.stg.spky.cloud` today
+Base URL: the deployed app's origin, `https://talktobolo.stg.spky.cloud` today
 (`http://localhost:8787` for the local stack, `pnpm dev`). Make it a setting.
 
 Errors are `{ error: "<message for people>" }` plus the fields noted. Record

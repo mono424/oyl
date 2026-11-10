@@ -21,7 +21,9 @@ use crate::error::{Result, SyncError, io_err};
 use crate::files::MAX_BLOB_BYTES;
 
 /// Oyl Cloud's address unless the settings or [`URL_ENV`] say otherwise.
-pub const DEFAULT_URL: &str = "https://oyl.stg.spky.cloud";
+/// The cloud project is still the one Talk2Bolo was deployed as; this moves
+/// to an Oyl hostname once one is provisioned.
+pub const DEFAULT_URL: &str = "https://talktobolo.stg.spky.cloud";
 
 /// Overrides the cloud's address for development
 /// (`OYL_CLOUD_URL=http://localhost:8787`).
