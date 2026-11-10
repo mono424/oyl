@@ -44,6 +44,23 @@ DEFINE ACCESS IF NOT EXISTS agent ON DATABASE TYPE RECORD
   DURATION FOR TOKEN 1h, FOR SESSION 1h
 ;
 
+-- The desktop app signs in with its device's sync key (`oyl_sync_...`, from
+-- the device sign-in in apps/api/src/sync-device.ts) to read the user's papers
+-- live through sp00ky. The key is checked like the API checks it: a
+-- `sync_device` row whose connection is not revoked. The session is the key's
+-- owner, so every permission below applies unchanged; the app signs in again
+-- well before the token runs out, and a revoked key stops working at the next
+-- sign-in (within a day).
+DEFINE ACCESS IF NOT EXISTS device ON DATABASE TYPE RECORD
+  SIGNIN (
+    SELECT * FROM user WHERE id = (
+      SELECT VALUE owner FROM sync_device WHERE token_hash = crypto::sha256($key)
+        AND connection.id != NONE AND connection.revoked_at = NONE AND connection.owner = owner LIMIT 1
+    )[0]
+  )
+  DURATION FOR TOKEN 1d, FOR SESSION 1d
+;
+
 -- ##################################################################
 -- USER
 -- ##################################################################

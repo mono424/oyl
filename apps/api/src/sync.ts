@@ -3,7 +3,7 @@ import type { AppEnv, Caller, Env } from './env';
 import { bearer, requireUser, sha256Hex, verifyUserToken } from './auth';
 import { ensureServerTable, PART_BYTES, readLimited } from './service';
 import { Sha256 } from './sha256';
-import { BadRequest, NotFound, Surreal, UserError, fromBase64, recordId, toBase64 } from './surreal';
+import { BadRequest, NotFound, Surreal, UserError, dbConfig, fromBase64, recordId, toBase64 } from './surreal';
 import { SYNC_KEY_PREFIX, approveDevice, cleanText, connectOrigin, deviceName, deviceRequest, pollDevice, startDeviceFlow } from './sync-device';
 
 /**
@@ -587,6 +587,30 @@ export async function blobResponse(env: Env, owner: string, sha: string, ifNoneM
   });
 }
 
+// ── The database, for live reads ──────────────────────────────────────────
+
+/** Where the desktop app reads its papers live through sp00ky. */
+export interface PublicDatabase {
+  /** The SurrealDB RPC socket: `wss://host/rpc`. */
+  endpoint: string;
+  namespace: string;
+  database: string;
+}
+
+/**
+ * The database a client connects to: DB_PUBLIC_URL when set, else the
+ * Worker's own SurrealDB address (on Sp00ky Cloud the database's public
+ * https URL) as its WebSocket RPC endpoint. Names only, never a login: the
+ * device signs in with its sync key through the `device` access.
+ */
+export function publicDatabase(env: Env): PublicDatabase {
+  const { url, ns, db } = dbConfig(env);
+  const base = (env.DB_PUBLIC_URL?.trim() || url).replace(/\/+$/, '').replace(/\/rpc$/, '');
+  const socket = base.replace(/^http(s?):\/\//, 'ws$1://');
+  if (!/^wss?:\/\//.test(socket)) throw new Error(`The database address is not http(s) or ws(s): ${base}`);
+  return { endpoint: `${socket}/rpc`, namespace: ns, database: db };
+}
+
 // ── Routes (/api/sync, exposed in sp00ky.yml) ─────────────────────────────
 
 export const syncRoutes = new Hono<AppEnv>();
@@ -616,6 +640,8 @@ syncRoutes.post('/device/approve', requireUser, async (c) => {
   const body = await jsonBody(c.req.raw);
   return c.json(await approveDevice(c.env, c.var.caller.userId, body.user_code, body.allow));
 });
+
+syncRoutes.get('/database', requireSyncCaller, (c) => c.json(publicDatabase(c.env), 200, { 'cache-control': 'no-store' }));
 
 syncRoutes.get('/papers', requireSyncCaller, async (c) => c.json(await listPapers(c.env, c.var.caller.userId)));
 

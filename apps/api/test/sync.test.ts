@@ -4,7 +4,7 @@ import { registerHooks } from 'node:module';
 import { test } from 'node:test';
 import type { Env } from '../src/env.ts';
 import { Sha256 } from '../src/sha256.ts';
-import { MAX_BLOB_BYTES, MAX_FILES, parseFiles, syncPath } from '../src/sync.ts';
+import { MAX_BLOB_BYTES, MAX_FILES, parseFiles, publicDatabase, syncPath } from '../src/sync.ts';
 import { connectOrigin, formatUserCode, newUserCode, parseUserCode } from '../src/sync-device.ts';
 import { PART_BYTES } from '../src/service.ts';
 import { Surreal, signinRecord } from '../src/surreal.ts';
@@ -81,10 +81,18 @@ test('the approval page is the app origin serving the API, or a local one for a 
   assert.equal(connectOrigin(new Request('https://api.oyl.example/api/sync/device'), env('http://localhost:5180,https://oyl.example')), 'https://oyl.example');
 });
 
+test('the database clients reach is the Worker\'s own as a WebSocket, unless set', () => {
+  const env = { SPKY_DB_URL: 'https://talktobolo-db.stg.spky.cloud/', SPKY_DB_NS: 'talktobolo', SPKY_DB_NAME: 'main' } as Env;
+  assert.deepEqual(publicDatabase(env), { endpoint: 'wss://talktobolo-db.stg.spky.cloud/rpc', namespace: 'talktobolo', database: 'main' });
+  assert.equal(publicDatabase({ ...env, SPKY_DB_URL: 'http://127.0.0.1:8666' }).endpoint, 'ws://127.0.0.1:8666/rpc');
+  assert.equal(publicDatabase({ ...env, DB_PUBLIC_URL: 'wss://db.example/rpc' }).endpoint, 'wss://db.example/rpc');
+  assert.equal(publicDatabase({ ...env, DB_PUBLIC_URL: 'https://db.example' }).endpoint, 'wss://db.example/rpc');
+});
+
 test('every sync endpoint but the device flow needs a token', async () => {
   const env = { APP_ORIGIN: 'https://oyl.example' } as Env;
   const routes: [string, string][] = [
-    ['GET', '/api/sync/papers'], ['POST', '/api/sync/papers'], ['PATCH', '/api/sync/papers/paper_sync:k1'],
+    ['GET', '/api/sync/database'], ['GET', '/api/sync/papers'], ['POST', '/api/sync/papers'], ['PATCH', '/api/sync/papers/paper_sync:k1'],
     ['GET', '/api/sync/papers/paper_sync:k1/head'], ['GET', '/api/sync/papers/paper_sync:k1/revisions'],
     ['GET', '/api/sync/papers/paper_sync:k1/revisions/paper_revision:k1'], ['POST', '/api/sync/papers/paper_sync:k1/revisions'],
     ['POST', '/api/sync/blobs/missing'], ['PUT', `/api/sync/blobs/${'a'.repeat(64)}`], ['GET', `/api/sync/blobs/${'a'.repeat(64)}`],
@@ -182,8 +190,15 @@ test('paper sync end to end: device sign-in, papers, blobs, commits and permissi
       assert.deepEqual(keys, [{ name: 'Oyl on MacBook Pro', prefix: device.slice(0, 13), owner: 'user:u1' }]);
     });
 
-    await t.test('the sync key opens /api/sync and nothing else', async () => {
+    await t.test('the sync key opens /api/sync and the user\'s database session, nothing else', async () => {
       assert.equal(await signinRecord(env, 'agent', { key: device }), null);
+      const session = await signinRecord(env, 'device', { key: device });
+      assert.ok(session, 'the device signs in to SurrealDB with its key');
+      assert.equal(await Surreal.as(env, session!).query<string>('RETURN $auth.id'), 'user:u1');
+      assert.equal(await signinRecord(env, 'device', { key: `${device.slice(0, -1)}x` }), null);
+      assert.deepEqual((await call('GET', '/database', { token: device })).body, {
+        endpoint: 'ws://127.0.0.1:8666/rpc', namespace, database: 'main',
+      });
       const keys = await app.fetch(new Request(`${origin}/api/keys`, { method: 'POST', headers: { authorization: `Bearer ${device}` }, body: '{}' }), env);
       assert.equal(keys.status, 401);
       const ctx = { waitUntil() {}, passThroughOnException() {}, props: {} } as unknown as ExecutionContext;
@@ -425,6 +440,7 @@ test('paper sync end to end: device sign-in, papers, blobs, commits and permissi
       const student = Surreal.as(env, web1);
       await student.query('UPDATE api_key SET revoked_at = time::now()');
       assert.equal((await call('GET', '/papers', { token: device })).status, 401);
+      assert.equal(await signinRecord(env, 'device', { key: device }), null, 'nor a new database session');
       await student.query('DELETE api_key');
       assert.equal(await db.query<number>('RETURN count(SELECT id FROM sync_device)'), 0);
     });

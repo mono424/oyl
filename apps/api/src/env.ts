@@ -24,6 +24,12 @@ export interface Env {
   /** `namespace` or `database`: where SPKY_DB_USER is defined. Unset: root. */
   SPKY_DB_LEVEL?: string;
   /**
+   * The database as clients reach it, when that differs from SPKY_DB_URL
+   * (`wss://host/rpc` or `https://host`). Unset: derived from SPKY_DB_URL.
+   * The desktop app reads it from GET /api/sync/database.
+   */
+  DB_PUBLIC_URL?: string;
+  /**
    * Fallback for any SPKY_DB_* that is unset (see `dbConfig`): an older
    * .dev.vars, a Worker deployed with wrangler, or the login of a project's
    * own database, kept in the vault.

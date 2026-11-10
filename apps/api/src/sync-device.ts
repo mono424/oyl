@@ -18,8 +18,10 @@ import { BadRequest, Conflict, NotFound, Surreal } from './surreal';
  * The key (`oyl_sync_...`) is minted on that poll, so it is only ever seen by
  * the device. It becomes an `api_key` row (the connection Settings lists and
  * revokes, with a `key_hash` that matches no key) and a server-only
- * `sync_device` row holding the key's SHA-256. The `agent` access cannot sign
- * in with it, so it opens /api/sync and nothing else.
+ * `sync_device` row holding the key's SHA-256. The `agent` access and the
+ * other API routes refuse it: it opens /api/sync and, through the `device`
+ * access (schema.surql), a database session as its owner for the app's live
+ * reads.
  */
 
 export const SYNC_KEY_PREFIX = 'oyl_sync_';
