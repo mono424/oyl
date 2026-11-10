@@ -1,4 +1,4 @@
-<p align="center"><img src="assets/logo.png" width="160" alt="Oyl logo"></p>
+<p align="center"><img src="assets/icon/oyl-blob.png" width="180" alt="Oyl logo"></p>
 
 <h1 align="center">Oyl</h1>
 
