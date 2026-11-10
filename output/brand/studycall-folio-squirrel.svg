@@ -1,0 +1,279 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="1040" viewBox="0 0 1440 1040" role="img" aria-labelledby="title desc">
+<title id="title">Studycall — Folio squirrel refinements</title>
+<desc id="desc">Three squirrel-like evolutions of Folio use a shared six-unit design grid: faceted Paper, flowing Curl, and upright Perch. Each has a folded ear, attentive profile, and broad bushy tail.</desc>
+<rect width="1440" height="1040" fill="#F8F9F3"/>
+<g font-family="Avenir Next, Avenir, sans-serif">
+<text x="64" y="57" font-size="13" fill="#737B70" font-weight="500" letter-spacing="2">STUDYCALL / FOLIO SQUIRREL STUDY</text>
+<text x="64" y="119" font-size="42" fill="#292D28" font-weight="500" >Folio, with a squirrel’s curiosity.</text>
+<circle cx="1152" cy="54" r="5" fill="#B86C68"/>
+<text x="1376" y="59" font-size="12" fill="#737B70" font-weight="500" letter-spacing="1.2" text-anchor="end">CLAY ROSE / #B86C68</text>
+<path d="M64 158H1376" stroke="#DEE3D7"/>
+<text x="64" y="204" font-size="12" fill="#737B70" font-weight="500" letter-spacing="1.5">01 / PAPER</text>
+<svg x="98" y="224" width="348" height="348" viewBox="0 0 336 336"><defs>
+<pattern id="grid-paper-minor" width="6" height="6" patternUnits="userSpaceOnUse"><path d="M6 0H0V6" fill="none" stroke="#DCE1D6" stroke-width=".25"/></pattern>
+<pattern id="grid-paper-major" width="36" height="36" patternUnits="userSpaceOnUse"><rect width="36" height="36" fill="url(#grid-paper-minor)"/><path d="M36 0H0V36" fill="none" stroke="#C9D1C2" stroke-width=".6"/></pattern>
+</defs>
+<rect width="336" height="336" fill="#F8F9F3"/>
+<rect width="336" height="336" fill="url(#grid-paper-major)"/>
+<path d="M0 168H336M168 0V336" fill="none" stroke="#737B70" stroke-width=".65" stroke-dasharray="3 3" opacity=".65"/>
+
+  <title id="grid-paper-title">Studycall — Folio / Paper squirrel</title>
+  <desc id="grid-paper-desc">A clay-rose squirrel in profile, built on a six-unit grid. Its broad curled tail and compact body have soft paper facets, with one folded ear, one slanted eye, and a single swept foot.</desc>
+  <path fill="#B86C68" fill-rule="evenodd" d="
+    M156 132
+    L150 96 Q150 84 144 78
+    L126 60 Q120 54 108 54
+    L90 54 Q78 60 72 66
+    L54 78 Q48 90 42 108
+    L42 138 Q42 156 54 174
+    L72 192 L90 198
+    C84 228 108 252 132 264
+    Q156 276 180 270
+    L252 264 Q264 264 264 252
+    Q264 240 252 240
+    L228 234
+    L240 204 Q246 186 246 168
+    L282 150 Q294 144 282 132
+    L258 120 Q258 96 234 84
+    L216 60 Q204 42 198 60
+    L192 96 Q168 108 156 132 Z
+
+    M114 84
+    L96 84 Q84 90 78 96
+    L72 114 Q66 126 72 144
+    L84 162 Q96 174 114 174
+    L132 174 Q144 168 138 156
+    Q132 150 126 156
+    L114 156 Q102 156 96 144
+    L90 132 Q90 114 96 108
+    L108 102 L120 102
+    Q132 102 132 90 Q126 78 114 84 Z
+
+    M204 66 L216 84 L204 84 Z
+
+    M222 114 L240 108
+    Q246 108 246 114
+    Q246 120 240 120
+    L228 126 Q222 126 222 120 Z
+  "/>
+
+<rect x="42.000" y="51.000" width="246.000" height="221.000" fill="none" stroke="#737B70" stroke-width=".55" stroke-dasharray="2 3" opacity=".6"/></svg>
+<text x="98" y="592" font-size="11" fill="#737B70" font-weight="500" letter-spacing=".7">6u GRID / CENTERLINES / SHAPE BOUNDS</text>
+<text x="64" y="641" font-size="30" fill="#292D28" font-weight="500" >Paper</text>
+<text x="64" y="674" font-size="15" fill="#737B70" font-weight="400" >Soft facets, a folded ear, and a sculpted tail.</text>
+<svg x="64" y="709" width="52" height="52" viewBox="30 30 276 276">
+  <title id="lockup-paper-title">Studycall — Folio / Paper squirrel</title>
+  <desc id="lockup-paper-desc">A clay-rose squirrel in profile, built on a six-unit grid. Its broad curled tail and compact body have soft paper facets, with one folded ear, one slanted eye, and a single swept foot.</desc>
+  <path fill="#B86C68" fill-rule="evenodd" d="
+    M156 132
+    L150 96 Q150 84 144 78
+    L126 60 Q120 54 108 54
+    L90 54 Q78 60 72 66
+    L54 78 Q48 90 42 108
+    L42 138 Q42 156 54 174
+    L72 192 L90 198
+    C84 228 108 252 132 264
+    Q156 276 180 270
+    L252 264 Q264 264 264 252
+    Q264 240 252 240
+    L228 234
+    L240 204 Q246 186 246 168
+    L282 150 Q294 144 282 132
+    L258 120 Q258 96 234 84
+    L216 60 Q204 42 198 60
+    L192 96 Q168 108 156 132 Z
+
+    M114 84
+    L96 84 Q84 90 78 96
+    L72 114 Q66 126 72 144
+    L84 162 Q96 174 114 174
+    L132 174 Q144 168 138 156
+    Q132 150 126 156
+    L114 156 Q102 156 96 144
+    L90 132 Q90 114 96 108
+    L108 102 L120 102
+    Q132 102 132 90 Q126 78 114 84 Z
+
+    M204 66 L216 84 L204 84 Z
+
+    M222 114 L240 108
+    Q246 108 246 114
+    Q246 120 240 120
+    L228 126 Q222 126 222 120 Z
+  "/>
+</svg>
+<text x="128" y="744" font-size="26" fill="#292D28" font-weight="500" letter-spacing="-.7">Studycall</text>
+<svg x="386" y="725" width="24" height="24" viewBox="30 30 276 276">
+  <title id="icon-paper-title">Studycall — Folio / Paper squirrel</title>
+  <desc id="icon-paper-desc">A clay-rose squirrel in profile, built on a six-unit grid. Its broad curled tail and compact body have soft paper facets, with one folded ear, one slanted eye, and a single swept foot.</desc>
+  <path fill="#B86C68" fill-rule="evenodd" d="
+    M156 132
+    L150 96 Q150 84 144 78
+    L126 60 Q120 54 108 54
+    L90 54 Q78 60 72 66
+    L54 78 Q48 90 42 108
+    L42 138 Q42 156 54 174
+    L72 192 L90 198
+    C84 228 108 252 132 264
+    Q156 276 180 270
+    L252 264 Q264 264 264 252
+    Q264 240 252 240
+    L228 234
+    L240 204 Q246 186 246 168
+    L282 150 Q294 144 282 132
+    L258 120 Q258 96 234 84
+    L216 60 Q204 42 198 60
+    L192 96 Q168 108 156 132 Z
+
+    M114 84
+    L96 84 Q84 90 78 96
+    L72 114 Q66 126 72 144
+    L84 162 Q96 174 114 174
+    L132 174 Q144 168 138 156
+    Q132 150 126 156
+    L114 156 Q102 156 96 144
+    L90 132 Q90 114 96 108
+    L108 102 L120 102
+    Q132 102 132 90 Q126 78 114 84 Z
+
+    M204 66 L216 84 L204 84 Z
+
+    M222 114 L240 108
+    Q246 108 246 114
+    Q246 120 240 120
+    L228 126 Q222 126 222 120 Z
+  "/>
+</svg>
+<text x="418" y="744" font-size="12" fill="#737B70" font-weight="400" >24px</text>
+<text x="512" y="204" font-size="12" fill="#737B70" font-weight="500" letter-spacing="1.5">02 / CURL</text>
+<svg x="546" y="224" width="348" height="348" viewBox="0 0 336 336"><defs>
+<pattern id="grid-curl-minor" width="6" height="6" patternUnits="userSpaceOnUse"><path d="M6 0H0V6" fill="none" stroke="#DCE1D6" stroke-width=".25"/></pattern>
+<pattern id="grid-curl-major" width="36" height="36" patternUnits="userSpaceOnUse"><rect width="36" height="36" fill="url(#grid-curl-minor)"/><path d="M36 0H0V36" fill="none" stroke="#C9D1C2" stroke-width=".6"/></pattern>
+</defs>
+<rect width="336" height="336" fill="#F8F9F3"/>
+<rect width="336" height="336" fill="url(#grid-curl-major)"/>
+<path d="M0 168H336M168 0V336" fill="none" stroke="#737B70" stroke-width=".65" stroke-dasharray="3 3" opacity=".65"/>
+
+  <title id="grid-curl-title">Studycall — Folio Curl</title>
+  <desc id="grid-curl-desc">An attentive squirrel in profile, with a generous curled tail, one folded ear, a small lifted paw, and a transparent expressive eye.</desc>
+  <path fill="#B86C68" fill-rule="evenodd" d="M163 248C140 268 108 274 81 254C49 232 39 200 49 162C60 119 93 55 125 49C151 44 170 65 168 89C166 109 150 125 133 125C119 125 111 116 114 105C116 98 125 96 133 101C141 105 149 98 147 90C144 76 126 74 112 87C86 111 72 148 75 182C78 217 102 238 126 234C144 231 151 216 151 202C151 180 162 162 181 151C171 141 168 126 176 113L186 98L185 75Q185 65 193 69L214 89L201 95L198 81Q197 77 194 79Q192 80 193 84L196 101Q197 106 202 104L222 97C237 94 247 102 252 114L273 126Q281 131 273 138L252 149C247 162 238 168 226 173L239 186Q245 193 238 198L218 204C213 226 210 241 197 252L223 262Q234 267 228 274Q225 279 215 277L182 271C173 267 167 258 163 248ZM224 122C218 123 215 127 216 132C217 137 222 139 228 137C234 135 237 131 235 127C233 123 229 121 224 122Z"/>
+
+<rect x="45.000" y="48.000" width="232.000" height="229.667" fill="none" stroke="#737B70" stroke-width=".55" stroke-dasharray="2 3" opacity=".6"/></svg>
+<text x="546" y="592" font-size="11" fill="#737B70" font-weight="500" letter-spacing=".7">6u GRID / CENTERLINES / SHAPE BOUNDS</text>
+<text x="512" y="641" font-size="30" fill="#292D28" font-weight="500" >Curl</text>
+<text x="512" y="674" font-size="15" fill="#737B70" font-weight="400" >A curious profile and a sweeping, bushy tail.</text>
+<svg x="512" y="709" width="52" height="52" viewBox="30 30 276 276">
+  <title id="lockup-curl-title">Studycall — Folio Curl</title>
+  <desc id="lockup-curl-desc">An attentive squirrel in profile, with a generous curled tail, one folded ear, a small lifted paw, and a transparent expressive eye.</desc>
+  <path fill="#B86C68" fill-rule="evenodd" d="M163 248C140 268 108 274 81 254C49 232 39 200 49 162C60 119 93 55 125 49C151 44 170 65 168 89C166 109 150 125 133 125C119 125 111 116 114 105C116 98 125 96 133 101C141 105 149 98 147 90C144 76 126 74 112 87C86 111 72 148 75 182C78 217 102 238 126 234C144 231 151 216 151 202C151 180 162 162 181 151C171 141 168 126 176 113L186 98L185 75Q185 65 193 69L214 89L201 95L198 81Q197 77 194 79Q192 80 193 84L196 101Q197 106 202 104L222 97C237 94 247 102 252 114L273 126Q281 131 273 138L252 149C247 162 238 168 226 173L239 186Q245 193 238 198L218 204C213 226 210 241 197 252L223 262Q234 267 228 274Q225 279 215 277L182 271C173 267 167 258 163 248ZM224 122C218 123 215 127 216 132C217 137 222 139 228 137C234 135 237 131 235 127C233 123 229 121 224 122Z"/>
+</svg>
+<text x="576" y="744" font-size="26" fill="#292D28" font-weight="500" letter-spacing="-.7">Studycall</text>
+<svg x="834" y="725" width="24" height="24" viewBox="30 30 276 276">
+  <title id="icon-curl-title">Studycall — Folio Curl</title>
+  <desc id="icon-curl-desc">An attentive squirrel in profile, with a generous curled tail, one folded ear, a small lifted paw, and a transparent expressive eye.</desc>
+  <path fill="#B86C68" fill-rule="evenodd" d="M163 248C140 268 108 274 81 254C49 232 39 200 49 162C60 119 93 55 125 49C151 44 170 65 168 89C166 109 150 125 133 125C119 125 111 116 114 105C116 98 125 96 133 101C141 105 149 98 147 90C144 76 126 74 112 87C86 111 72 148 75 182C78 217 102 238 126 234C144 231 151 216 151 202C151 180 162 162 181 151C171 141 168 126 176 113L186 98L185 75Q185 65 193 69L214 89L201 95L198 81Q197 77 194 79Q192 80 193 84L196 101Q197 106 202 104L222 97C237 94 247 102 252 114L273 126Q281 131 273 138L252 149C247 162 238 168 226 173L239 186Q245 193 238 198L218 204C213 226 210 241 197 252L223 262Q234 267 228 274Q225 279 215 277L182 271C173 267 167 258 163 248ZM224 122C218 123 215 127 216 132C217 137 222 139 228 137C234 135 237 131 235 127C233 123 229 121 224 122Z"/>
+</svg>
+<text x="866" y="744" font-size="12" fill="#737B70" font-weight="400" >24px</text>
+<text x="960" y="204" font-size="12" fill="#737B70" font-weight="500" letter-spacing="1.5">03 / PERCH</text>
+<svg x="994" y="224" width="348" height="348" viewBox="0 0 336 336"><defs>
+<pattern id="grid-perch-minor" width="6" height="6" patternUnits="userSpaceOnUse"><path d="M6 0H0V6" fill="none" stroke="#DCE1D6" stroke-width=".25"/></pattern>
+<pattern id="grid-perch-major" width="36" height="36" patternUnits="userSpaceOnUse"><rect width="36" height="36" fill="url(#grid-perch-minor)"/><path d="M36 0H0V36" fill="none" stroke="#C9D1C2" stroke-width=".6"/></pattern>
+</defs>
+<rect width="336" height="336" fill="#F8F9F3"/>
+<rect width="336" height="336" fill="url(#grid-perch-major)"/>
+<path d="M0 168H336M168 0V336" fill="none" stroke="#737B70" stroke-width=".65" stroke-dasharray="3 3" opacity=".65"/>
+
+  <title id="grid-perch-title">Studycall — Folio / Perch</title>
+  <desc id="grid-perch-desc">A curious squirrel in profile, with a broad curling tail, a folded ear, an attentive eye and a small listening paw.</desc>
+  <g fill="#B86C68" transform="translate(-10 0)">
+    <path d="M171 249C124 260 80 238 60 199C37 154 51 102 92 72C112 57 137 50 158 55C187 61 203 83 198 108C193 133 170 148 148 139C128 131 118 113 126 94C104 107 99 132 110 153C121 174 146 185 166 203C183 217 190 238 171 249Z"/>
+    <path fill-rule="evenodd" d="M156 215C151 190 169 166 186 154L192 131C190 114 200 95 219 94L216 67Q216 58 224 61L246 87C260 88 273 97 279 108L295 123Q301 129 294 134L269 141C266 155 257 166 245 173L243 192L255 209Q263 220 251 225L234 226L240 242L265 249Q276 253 272 262Q269 269 259 268L200 268C179 269 160 258 158 244L156 215ZM225 77L238 93L226 98ZM254 109Q260 107 263 112Q266 117 260 121Q254 124 251 119Q249 114 254 109ZM236 174Q224 174 218 185L213 200Q211 207 218 207Q222 207 224 201L230 190L240 186Q246 182 242 177Q240 175 236 174Z"/>
+  </g>
+
+<rect x="38.667" y="53.333" width="249.333" height="215.000" fill="none" stroke="#737B70" stroke-width=".55" stroke-dasharray="2 3" opacity=".6"/></svg>
+<text x="994" y="592" font-size="11" fill="#737B70" font-weight="500" letter-spacing=".7">6u GRID / CENTERLINES / SHAPE BOUNDS</text>
+<text x="960" y="641" font-size="30" fill="#292D28" font-weight="500" >Perch</text>
+<text x="960" y="674" font-size="15" fill="#737B70" font-weight="400" >An upright pose with a little listening paw.</text>
+<svg x="960" y="709" width="52" height="52" viewBox="30 30 276 276">
+  <title id="lockup-perch-title">Studycall — Folio / Perch</title>
+  <desc id="lockup-perch-desc">A curious squirrel in profile, with a broad curling tail, a folded ear, an attentive eye and a small listening paw.</desc>
+  <g fill="#B86C68" transform="translate(-10 0)">
+    <path d="M171 249C124 260 80 238 60 199C37 154 51 102 92 72C112 57 137 50 158 55C187 61 203 83 198 108C193 133 170 148 148 139C128 131 118 113 126 94C104 107 99 132 110 153C121 174 146 185 166 203C183 217 190 238 171 249Z"/>
+    <path fill-rule="evenodd" d="M156 215C151 190 169 166 186 154L192 131C190 114 200 95 219 94L216 67Q216 58 224 61L246 87C260 88 273 97 279 108L295 123Q301 129 294 134L269 141C266 155 257 166 245 173L243 192L255 209Q263 220 251 225L234 226L240 242L265 249Q276 253 272 262Q269 269 259 268L200 268C179 269 160 258 158 244L156 215ZM225 77L238 93L226 98ZM254 109Q260 107 263 112Q266 117 260 121Q254 124 251 119Q249 114 254 109ZM236 174Q224 174 218 185L213 200Q211 207 218 207Q222 207 224 201L230 190L240 186Q246 182 242 177Q240 175 236 174Z"/>
+  </g>
+</svg>
+<text x="1024" y="744" font-size="26" fill="#292D28" font-weight="500" letter-spacing="-.7">Studycall</text>
+<svg x="1282" y="725" width="24" height="24" viewBox="30 30 276 276">
+  <title id="icon-perch-title">Studycall — Folio / Perch</title>
+  <desc id="icon-perch-desc">A curious squirrel in profile, with a broad curling tail, a folded ear, an attentive eye and a small listening paw.</desc>
+  <g fill="#B86C68" transform="translate(-10 0)">
+    <path d="M171 249C124 260 80 238 60 199C37 154 51 102 92 72C112 57 137 50 158 55C187 61 203 83 198 108C193 133 170 148 148 139C128 131 118 113 126 94C104 107 99 132 110 153C121 174 146 185 166 203C183 217 190 238 171 249Z"/>
+    <path fill-rule="evenodd" d="M156 215C151 190 169 166 186 154L192 131C190 114 200 95 219 94L216 67Q216 58 224 61L246 87C260 88 273 97 279 108L295 123Q301 129 294 134L269 141C266 155 257 166 245 173L243 192L255 209Q263 220 251 225L234 226L240 242L265 249Q276 253 272 262Q269 269 259 268L200 268C179 269 160 258 158 244L156 215ZM225 77L238 93L226 98ZM254 109Q260 107 263 112Q266 117 260 121Q254 124 251 119Q249 114 254 109ZM236 174Q224 174 218 185L213 200Q211 207 218 207Q222 207 224 201L230 190L240 186Q246 182 242 177Q240 175 236 174Z"/>
+  </g>
+</svg>
+<text x="1314" y="744" font-size="12" fill="#737B70" font-weight="400" >24px</text>
+<path d="M64 787H1376" stroke="#DEE3D7"/>
+<svg x="64" y="828" width="82" height="82" viewBox="0 0 336 336">
+  <title id="seed-folio-title">Folio — Studycall character</title>
+  <desc id="seed-folio-desc">A curious folded-paper character in clay rose, with an asymmetric kite silhouette, a folded corner, two tilted lozenge eyes, and one swept paper tail.</desc>
+  <path fill="#B86C68" fill-rule="evenodd" d="
+    M110 83
+    L197 55
+    Q207 51 215 60
+    L239 88
+    L209 98
+    L206 73
+    Q205 65 198 66
+    Q191 67 192 75
+    L196 105
+    Q197 114 205 111
+    L247 97
+    L270 123
+    Q278 132 273 145
+    L235 233
+    Q231 243 220 244
+    L172 244
+    L139 278
+    Q132 285 126 278
+    Q122 274 123 267
+    L128 236
+    L67 179
+    Q59 171 64 159
+    L86 108
+    Q92 91 110 83 Z
+
+    M127 149
+    L139 143
+    Q146 140 149 146
+    L151 150
+    Q153 156 146 159
+    L134 165
+    Q127 168 124 162
+    L122 158
+    Q120 152 127 149 Z
+
+    M182 136
+    L197 129
+    Q204 126 207 132
+    L209 136
+    Q211 142 204 145
+    L189 152
+    Q182 155 179 149
+    L177 145
+    Q175 139 182 136 Z
+  "/>
+</svg>
+<text x="170" y="861" font-size="17" fill="#292D28" font-weight="500" >Folio</text>
+<text x="170" y="889" font-size="15" fill="#737B70" font-weight="400" >Folded geometry</text>
+<text x="372" y="870" font-size="24" fill="#737B70" font-weight="400" >+</text>
+<svg x="420" y="828" width="82" height="82" viewBox="0 0 336 336">
+  <title id="seed-scout-title">Studycall — Spark / Scout</title>
+  <desc id="seed-scout-desc">A curious upright companion in profile, with a swept crest, an expressive eye, a pointed speaking gesture, and a curling open body.</desc>
+  <path fill="#B86C68" fill-rule="evenodd" d="M123 270C89 258 73 229 82 194C89 165 114 144 128 117C138 98 139 80 126 64C123 58 130 51 139 54C170 58 185 80 183 108C208 85 239 97 245 123C250 144 237 164 216 173L249 186C258 190 255 201 246 204L214 214C197 220 186 238 180 257C175 276 155 285 138 276L123 270ZM112 220C110 206 120 191 133 191C143 191 148 201 142 209C133 216 131 227 139 234C145 241 143 250 136 251C123 252 114 240 112 220ZM204 126C211 120 219 120 226 126C229 129 227 133 223 134C216 135 210 135 204 134C200 133 201 129 204 126Z"/>
+</svg>
+<text x="526" y="861" font-size="17" fill="#292D28" font-weight="500" >Scout</text>
+<text x="526" y="889" font-size="15" fill="#737B70" font-weight="400" >Curled profile</text>
+<text x="832" y="849" font-size="12" fill="#737B70" font-weight="500" letter-spacing="1.5">THE SHARED CHARACTER</text>
+<text x="832" y="881" font-size="16" fill="#292D28" font-weight="400" >A perked ear. An attentive face. A generous tail.</text>
+<text x="832" y="909" font-size="15" fill="#737B70" font-weight="400" >A curious companion for thinking out loud.</text>
+</g></svg>

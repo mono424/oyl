@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 336 336" role="img" aria-labelledby="title desc">
+  <title id="title">Studycall — Turn</title>
+  <desc id="desc">Three broad, softly folded ribbons pass a thought around a triangular opening. Unequal bends and softly cut ends create a playful, sculptural symbol for taking turns.</desc>
+  <defs>
+    <mask id="seams" maskUnits="userSpaceOnUse" x="0" y="0" width="336" height="336">
+      <rect width="336" height="336" fill="white"/>
+      <path d="M203 135 L259 111 M235 216 L185 293 M66 121 L122 181" fill="none" stroke="black" stroke-width="10" stroke-linecap="round"/>
+    </mask>
+  </defs>
+  <g transform="translate(-3 -2)" fill="#B86C68" mask="url(#seams)">
+    <path d="M72 143 Q64 130 74 116 L129 60 Q139 50 153 55 L235 89 Q249 96 245 112 L237 135 Q234 148 219 143 L157 116 Q149 112 143 120 L111 159 Q101 171 88 159 Z"/>
+    <path d="M240 123 Q253 121 262 136 L290 207 Q296 222 285 232 L217 284 Q204 294 193 284 L174 264 Q165 253 178 243 L230 205 Q239 199 235 189 L214 143 Q207 130 222 126 Z"/>
+    <path d="M221 262 Q218 279 201 279 L118 271 Q103 270 97 257 L61 182 Q55 168 67 159 L89 143 Q100 136 108 148 L138 207 Q143 217 154 219 L207 223 Q223 223 223 239 Z"/>
+  </g>
+</svg>

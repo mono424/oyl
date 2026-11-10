@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="40 48 256 240" role="img" aria-labelledby="title desc">
+  <title id="title">Studycall — Listener / Pair</title>
+  <desc id="desc">The Listener shapes become two quiet characters looking toward each other. One small eye in each form adds warmth while preserving the simple silhouette.</desc>
+  <g fill="#B86C68" fill-rule="evenodd">
+    <path d="M112 65C81 65 58 94 55 136C51 186 69 231 103 258C120 272 142 267 149 248C156 229 142 216 131 201C117 182 113 161 120 141C126 123 141 112 146 96C151 79 134 65 112 65ZM110 122A11 11 0 1 1 88 122A11 11 0 1 1 110 122Z"/>
+    <path d="M224 271C255 271 278 242 281 200C285 150 267 105 233 78C216 64 194 69 187 88C180 107 194 120 205 135C219 154 223 175 216 195C210 213 195 224 190 240C185 257 202 271 224 271ZM247 122A11 11 0 1 1 225 122A11 11 0 1 1 247 122Z"/>
+  </g>
+</svg>

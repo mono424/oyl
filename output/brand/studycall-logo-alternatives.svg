@@ -1,0 +1,151 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1536" height="1264" viewBox="0 0 1536 1264" role="img" aria-labelledby="title desc">
+<title id="title">Studycall — six bolder logo alternatives</title>
+<desc id="desc">Six original clay rose symbols explore connected ideas, turn taking, companionship, discovery, a curious character, and a new path through a problem.</desc>
+<rect width="1536" height="1264" fill="#F8F9F3"/>
+<g font-family="Avenir Next, Avenir, sans-serif">
+<text x="64" y="57" font-size="13" fill="#737B70" font-weight="500" letter-spacing="2">STUDYCALL / NEW DIRECTIONS</text>
+<text x="64" y="119" font-size="44" fill="#292D28" font-weight="500" >A little further off the grid.</text>
+<text x="1472" y="61" font-size="12" fill="#737B70" font-weight="500" letter-spacing="1.5" text-anchor="end">CLAY ROSE / #B86C68</text>
+<path d="M64 158H1472" stroke="#DEE3D7"/>
+<text x="64" y="200" font-size="12" fill="#737B70" font-weight="500" letter-spacing="1.5">01 / CONNECT</text>
+<svg x="136" y="206" width="304" height="304" viewBox="0 0 336 336">
+  <title id="hero-tangle-title">Studycall — Tangle</title>
+  <desc id="hero-tangle-desc">A warm clay rose overhand knot. One soft, continuous band folds through itself around an asymmetric triangular opening; two blunt tails make an open, memorable silhouette.</desc>
+  <defs>
+    <mask id="hero-tangle-crossings" maskUnits="userSpaceOnUse" x="0" y="0" width="336" height="336">
+      <rect width="336" height="336" fill="white"/>
+      <path d="M86 199 C112 180 145 125 176 88" fill="none" stroke="black" stroke-width="6" stroke-linecap="butt"/>
+    </mask>
+  </defs>
+  <g transform="translate(-6 -5) scale(1.045)" fill="none" stroke="#B86C68" stroke-width="44" stroke-linecap="round" stroke-linejoin="round">
+    <path mask="url(#hero-tangle-crossings)" d="M77 244 C113 216 139 184 159 152 C187 106 218 77 245 108 C278 146 231 190 181 199 C131 208 75 179 85 134 C94 92 146 89 180 128 C199 150 218 195 252 236"/>
+    <path d="M161 184 L177 153 L194 184 Z" fill="#B86C68" stroke="none"/>
+  </g>
+</svg>
+<text x="64" y="538" font-size="29" fill="#292D28" font-weight="500" >Tangle</text>
+<text x="64" y="568" font-size="15" fill="#737B70" font-weight="400" >Ideas connecting. A little beautifully tangled.</text>
+<svg x="64" y="594" width="38" height="38" viewBox="0 0 336 336">
+  <title id="small-tangle-title">Studycall — Tangle</title>
+  <desc id="small-tangle-desc">A warm clay rose overhand knot. One soft, continuous band folds through itself around an asymmetric triangular opening; two blunt tails make an open, memorable silhouette.</desc>
+  <defs>
+    <mask id="small-tangle-crossings" maskUnits="userSpaceOnUse" x="0" y="0" width="336" height="336">
+      <rect width="336" height="336" fill="white"/>
+      <path d="M86 199 C112 180 145 125 176 88" fill="none" stroke="black" stroke-width="6" stroke-linecap="butt"/>
+    </mask>
+  </defs>
+  <g transform="translate(-6 -5) scale(1.045)" fill="none" stroke="#B86C68" stroke-width="44" stroke-linecap="round" stroke-linejoin="round">
+    <path mask="url(#small-tangle-crossings)" d="M77 244 C113 216 139 184 159 152 C187 106 218 77 245 108 C278 146 231 190 181 199 C131 208 75 179 85 134 C94 92 146 89 180 128 C199 150 218 195 252 236"/>
+    <path d="M161 184 L177 153 L194 184 Z" fill="#B86C68" stroke="none"/>
+  </g>
+</svg>
+<text x="111" y="620" font-size="23" fill="#292D28" font-weight="500" letter-spacing="-.7">Studycall</text>
+<path d="M64 655H512" stroke="#DEE3D7"/>
+<text x="544" y="200" font-size="12" fill="#737B70" font-weight="500" letter-spacing="1.5">02 / EXCHANGE</text>
+<svg x="616" y="206" width="304" height="304" viewBox="0 0 336 336">
+  <title id="hero-turn-title">Studycall — Turn</title>
+  <desc id="hero-turn-desc">Three broad, softly folded ribbons pass a thought around a triangular opening. Unequal bends and softly cut ends create a playful, sculptural symbol for taking turns.</desc>
+  <defs>
+    <mask id="hero-turn-seams" maskUnits="userSpaceOnUse" x="0" y="0" width="336" height="336">
+      <rect width="336" height="336" fill="white"/>
+      <path d="M203 135 L259 111 M235 216 L185 293 M66 121 L122 181" fill="none" stroke="black" stroke-width="10" stroke-linecap="round"/>
+    </mask>
+  </defs>
+  <g transform="translate(-3 -2)" fill="#B86C68" mask="url(#hero-turn-seams)">
+    <path d="M72 143 Q64 130 74 116 L129 60 Q139 50 153 55 L235 89 Q249 96 245 112 L237 135 Q234 148 219 143 L157 116 Q149 112 143 120 L111 159 Q101 171 88 159 Z"/>
+    <path d="M240 123 Q253 121 262 136 L290 207 Q296 222 285 232 L217 284 Q204 294 193 284 L174 264 Q165 253 178 243 L230 205 Q239 199 235 189 L214 143 Q207 130 222 126 Z"/>
+    <path d="M221 262 Q218 279 201 279 L118 271 Q103 270 97 257 L61 182 Q55 168 67 159 L89 143 Q100 136 108 148 L138 207 Q143 217 154 219 L207 223 Q223 223 223 239 Z"/>
+  </g>
+</svg>
+<text x="544" y="538" font-size="29" fill="#292D28" font-weight="500" >Turn</text>
+<text x="544" y="568" font-size="15" fill="#737B70" font-weight="400" >Three voices. One conversation in motion.</text>
+<svg x="544" y="594" width="38" height="38" viewBox="0 0 336 336">
+  <title id="small-turn-title">Studycall — Turn</title>
+  <desc id="small-turn-desc">Three broad, softly folded ribbons pass a thought around a triangular opening. Unequal bends and softly cut ends create a playful, sculptural symbol for taking turns.</desc>
+  <defs>
+    <mask id="small-turn-seams" maskUnits="userSpaceOnUse" x="0" y="0" width="336" height="336">
+      <rect width="336" height="336" fill="white"/>
+      <path d="M203 135 L259 111 M235 216 L185 293 M66 121 L122 181" fill="none" stroke="black" stroke-width="10" stroke-linecap="round"/>
+    </mask>
+  </defs>
+  <g transform="translate(-3 -2)" fill="#B86C68" mask="url(#small-turn-seams)">
+    <path d="M72 143 Q64 130 74 116 L129 60 Q139 50 153 55 L235 89 Q249 96 245 112 L237 135 Q234 148 219 143 L157 116 Q149 112 143 120 L111 159 Q101 171 88 159 Z"/>
+    <path d="M240 123 Q253 121 262 136 L290 207 Q296 222 285 232 L217 284 Q204 294 193 284 L174 264 Q165 253 178 243 L230 205 Q239 199 235 189 L214 143 Q207 130 222 126 Z"/>
+    <path d="M221 262 Q218 279 201 279 L118 271 Q103 270 97 257 L61 182 Q55 168 67 159 L89 143 Q100 136 108 148 L138 207 Q143 217 154 219 L207 223 Q223 223 223 239 Z"/>
+  </g>
+</svg>
+<text x="591" y="620" font-size="23" fill="#292D28" font-weight="500" letter-spacing="-.7">Studycall</text>
+<path d="M544 655H992" stroke="#DEE3D7"/>
+<text x="1024" y="200" font-size="12" fill="#737B70" font-weight="500" letter-spacing="1.5">03 / COMPANION</text>
+<svg x="1096" y="206" width="304" height="304" viewBox="0 0 336 336">
+  <title id="hero-listener-title">Studycall — Listener</title>
+  <desc id="hero-listener-desc">Two warm, leaning shapes turn toward one another. Their shared curved opening suggests attentive conversation.</desc>
+  <g fill="#B86C68">
+    <path d="M105 66C72 74 47 108 47 152C47 196 66 236 99 258C115 270 136 264 143 248C151 231 143 216 131 201C115 182 111 157 119 135C126 115 143 105 145 90C147 74 127 60 105 66Z"/>
+    <path d="M216 90C241 82 265 94 279 118C300 153 291 203 263 233C245 252 225 259 207 250C190 243 188 223 198 208C209 193 220 187 224 170C228 153 222 139 211 127C199 114 200 97 216 90Z"/>
+  </g>
+</svg>
+<text x="1024" y="538" font-size="29" fill="#292D28" font-weight="500" >Listener</text>
+<text x="1024" y="568" font-size="15" fill="#737B70" font-weight="400" >Two little characters leaning in.</text>
+<svg x="1024" y="594" width="38" height="38" viewBox="0 0 336 336">
+  <title id="small-listener-title">Studycall — Listener</title>
+  <desc id="small-listener-desc">Two warm, leaning shapes turn toward one another. Their shared curved opening suggests attentive conversation.</desc>
+  <g fill="#B86C68">
+    <path d="M105 66C72 74 47 108 47 152C47 196 66 236 99 258C115 270 136 264 143 248C151 231 143 216 131 201C115 182 111 157 119 135C126 115 143 105 145 90C147 74 127 60 105 66Z"/>
+    <path d="M216 90C241 82 265 94 279 118C300 153 291 203 263 233C245 252 225 259 207 250C190 243 188 223 198 208C209 193 220 187 224 170C228 153 222 139 211 127C199 114 200 97 216 90Z"/>
+  </g>
+</svg>
+<text x="1071" y="620" font-size="23" fill="#292D28" font-weight="500" letter-spacing="-.7">Studycall</text>
+<path d="M1024 655H1472" stroke="#DEE3D7"/>
+<text x="64" y="680" font-size="12" fill="#737B70" font-weight="500" letter-spacing="1.5">04 / DISCOVER</text>
+<svg x="136" y="686" width="304" height="304" viewBox="0 0 336 336">
+  <title id="hero-unfold-title">Unfold — Studycall logo exploration</title>
+  <desc id="hero-unfold-desc">Two sculpted halves open around a flowing negative space, suggesting an idea opening up.</desc>
+  <g fill="#B86C68">
+    <path d="M156 64C168 58 177 70 173 86C167 117 155 132 151 161C144 203 167 233 157 259C154 267 143 270 135 265C90 238 61 202 70 157C77 120 113 83 156 64Z"/>
+    <path d="M196 78C187 71 175 80 177 91C181 122 201 139 203 170C204 203 183 225 180 251C179 263 190 270 201 263C242 237 272 200 268 161C264 123 230 98 196 78Z"/>
+  </g>
+</svg>
+<text x="64" y="1018" font-size="29" fill="#292D28" font-weight="500" >Unfold</text>
+<text x="64" y="1048" font-size="15" fill="#737B70" font-weight="400" >A thought opening. A new way through.</text>
+<svg x="64" y="1074" width="38" height="38" viewBox="0 0 336 336">
+  <title id="small-unfold-title">Unfold — Studycall logo exploration</title>
+  <desc id="small-unfold-desc">Two sculpted halves open around a flowing negative space, suggesting an idea opening up.</desc>
+  <g fill="#B86C68">
+    <path d="M156 64C168 58 177 70 173 86C167 117 155 132 151 161C144 203 167 233 157 259C154 267 143 270 135 265C90 238 61 202 70 157C77 120 113 83 156 64Z"/>
+    <path d="M196 78C187 71 175 80 177 91C181 122 201 139 203 170C204 203 183 225 180 251C179 263 190 270 201 263C242 237 272 200 268 161C264 123 230 98 196 78Z"/>
+  </g>
+</svg>
+<text x="111" y="1100" font-size="23" fill="#292D28" font-weight="500" letter-spacing="-.7">Studycall</text>
+<text x="544" y="680" font-size="12" fill="#737B70" font-weight="500" letter-spacing="1.5">05 / CHARACTER</text>
+<svg x="616" y="686" width="304" height="304" viewBox="0 0 336 336">
+  <title id="hero-curio-title">Studycall — Curio</title>
+  <desc id="hero-curio-desc">A curious little thought with a swept crest, a tilted gaze, and a buoyant, asymmetric silhouette.</desc>
+  <path fill="#B86C68" fill-rule="evenodd" d="M96 108C78 91 85 68 106 63C127 58 148 73 160 92C181 70 206 68 223 84C235 95 240 111 237 125C264 129 286 149 289 175C292 201 279 221 256 233L249 259C246 272 233 278 223 269L203 253C180 261 154 260 134 251L110 269C98 278 85 269 88 256L92 236C66 223 49 199 51 174C53 147 71 123 96 108ZM145 163C139 164 136 169 137 175C138 181 143 184 149 183C155 182 158 177 157 171C156 165 151 162 145 163ZM196 154C190 155 187 160 188 166C189 172 194 175 200 174C206 173 209 168 208 162C207 156 202 153 196 154Z"/>
+</svg>
+<text x="544" y="1018" font-size="29" fill="#292D28" font-weight="500" >Curio</text>
+<text x="544" y="1048" font-size="15" fill="#737B70" font-weight="400" >A curious little study sidekick.</text>
+<svg x="544" y="1074" width="38" height="38" viewBox="0 0 336 336">
+  <title id="small-curio-title">Studycall — Curio</title>
+  <desc id="small-curio-desc">A curious little thought with a swept crest, a tilted gaze, and a buoyant, asymmetric silhouette.</desc>
+  <path fill="#B86C68" fill-rule="evenodd" d="M96 108C78 91 85 68 106 63C127 58 148 73 160 92C181 70 206 68 223 84C235 95 240 111 237 125C264 129 286 149 289 175C292 201 279 221 256 233L249 259C246 272 233 278 223 269L203 253C180 261 154 260 134 251L110 269C98 278 85 269 88 256L92 236C66 223 49 199 51 174C53 147 71 123 96 108ZM145 163C139 164 136 169 137 175C138 181 143 184 149 183C155 182 158 177 157 171C156 165 151 162 145 163ZM196 154C190 155 187 160 188 166C189 172 194 175 200 174C206 173 209 168 208 162C207 156 202 153 196 154Z"/>
+</svg>
+<text x="591" y="1100" font-size="23" fill="#292D28" font-weight="500" letter-spacing="-.7">Studycall</text>
+<text x="1024" y="680" font-size="12" fill="#737B70" font-weight="500" letter-spacing="1.5">06 / RETHINK</text>
+<svg x="1096" y="686" width="304" height="304" viewBox="0 0 336 336">
+  <title id="hero-detour-title">Detour — Studycall logo exploration</title>
+  <desc id="hero-detour-desc">A chunky, folded switchback makes an unexpected route through a difficult idea.</desc>
+  <path fill="#B86C68" d="M253 93Q267 102 256 115L225 149Q214 162 195 155L157 139Q144 134 132 147L110 169L156 192Q171 199 163 215L149 240Q141 255 124 247L67 215Q49 205 61 189L128 111Q143 94 164 102L206 120L231 94Q242 83 253 93Z"/>
+</svg>
+<text x="1024" y="1018" font-size="29" fill="#292D28" font-weight="500" >Detour</text>
+<text x="1024" y="1048" font-size="15" fill="#737B70" font-weight="400" >An unexpected route to understanding.</text>
+<svg x="1024" y="1074" width="38" height="38" viewBox="0 0 336 336">
+  <title id="small-detour-title">Detour — Studycall logo exploration</title>
+  <desc id="small-detour-desc">A chunky, folded switchback makes an unexpected route through a difficult idea.</desc>
+  <path fill="#B86C68" d="M253 93Q267 102 256 115L225 149Q214 162 195 155L157 139Q144 134 132 147L110 169L156 192Q171 199 163 215L149 240Q141 255 124 247L67 215Q49 205 61 189L128 111Q143 94 164 102L206 120L231 94Q242 83 253 93Z"/>
+</svg>
+<text x="1071" y="1100" font-size="23" fill="#292D28" font-weight="500" letter-spacing="-.7">Studycall</text>
+<path d="M64 1172H1472" stroke="#DEE3D7"/>
+<text x="64" y="1217" font-size="16" fill="#737B70" font-weight="400" >Same warmth. More personality. Six different ways to say “let’s figure it out.”</text>
+<text x="1472" y="1217" font-size="12" fill="#737B70" font-weight="500" letter-spacing="1.5" text-anchor="end">SYMBOL EXPLORATION</text>
+</g>
+</svg>

@@ -1,0 +1,60 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1008" height="1008" viewBox="0 0 336 336" role="img" aria-label="folio construction grid">
+<defs>
+<pattern id="construction-folio-minor" width="6" height="6" patternUnits="userSpaceOnUse"><path d="M6 0H0V6" fill="none" stroke="#DCE1D6" stroke-width=".25"/></pattern>
+<pattern id="construction-folio-major" width="36" height="36" patternUnits="userSpaceOnUse"><rect width="36" height="36" fill="url(#construction-folio-minor)"/><path d="M36 0H0V36" fill="none" stroke="#C9D1C2" stroke-width=".6"/></pattern>
+</defs>
+<rect width="336" height="336" fill="#F8F9F3"/>
+<rect width="336" height="336" fill="url(#construction-folio-major)"/>
+<path d="M0 168H336M168 0V336" fill="none" stroke="#737B70" stroke-width=".65" stroke-dasharray="3 3" opacity=".65"/>
+
+  <title id="construction-folio-title">Folio — Studycall character</title>
+  <desc id="construction-folio-desc">A curious folded-paper character in clay rose, with an asymmetric kite silhouette, a folded corner, two tilted lozenge eyes, and one swept paper tail.</desc>
+  <path fill="#B86C68" fill-rule="evenodd" d="
+    M110 83
+    L197 55
+    Q207 51 215 60
+    L239 88
+    L209 98
+    L206 73
+    Q205 65 198 66
+    Q191 67 192 75
+    L196 105
+    Q197 114 205 111
+    L247 97
+    L270 123
+    Q278 132 273 145
+    L235 233
+    Q231 243 220 244
+    L172 244
+    L139 278
+    Q132 285 126 278
+    Q122 274 123 267
+    L128 236
+    L67 179
+    Q59 171 64 159
+    L86 108
+    Q92 91 110 83 Z
+
+    M127 149
+    L139 143
+    Q146 140 149 146
+    L151 150
+    Q153 156 146 159
+    L134 165
+    Q127 168 124 162
+    L122 158
+    Q120 152 127 149 Z
+
+    M182 136
+    L197 129
+    Q204 126 207 132
+    L209 136
+    Q211 142 204 145
+    L189 152
+    Q182 155 179 149
+    L177 145
+    Q175 139 182 136 Z
+  "/>
+
+<rect x="62.000" y="53.667" width="213.000" height="228.000" fill="none" stroke="#737B70" stroke-width=".55" stroke-dasharray="2 3" opacity=".6"/>
+</svg>

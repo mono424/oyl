@@ -1,0 +1,69 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1344" height="1344" viewBox="0 0 336 336" role="img" aria-labelledby="title desc">
+<title id="title">Scout Ink refined — geometric construction</title>
+<desc id="desc">True circular head and back arcs, thirty-degree snout rays with a six-unit fillet, an elliptical eye, intersecting ellipse curl, aligned Bezier handles and measured wall clearances.</desc>
+<defs>
+<pattern id="minor" width="6" height="6" patternUnits="userSpaceOnUse"><path d="M6 0H0V6" fill="none" stroke="#DCE1D6" stroke-width=".25"/></pattern>
+<pattern id="major" width="36" height="36" patternUnits="userSpaceOnUse"><rect width="36" height="36" fill="url(#minor)"/><path d="M36 0H0V36" fill="none" stroke="#C9D1C2" stroke-width=".6"/></pattern>
+</defs>
+<rect width="336" height="336" fill="#F8F9F3"/>
+<rect width="336" height="336" fill="url(#major)"/>
+<path d="M0 168L336 168" fill="none" stroke="#3C6258" stroke-width="0.45" stroke-dasharray="3 3" opacity=".5"/>
+<path d="M168 0L168 336" fill="none" stroke="#3C6258" stroke-width="0.45" stroke-dasharray="3 3" opacity=".5"/>
+<path fill="#B86C68" fill-rule="evenodd" d="M144 276 C164 276 178 268 184 252 C190 236 198 222.928203 216 212.535898 L242.569219 197.196152 A6 6 0 0 0 242.569219 186.803848 L210 168 A36 36 0 1 0 184.544156 106.544156 C182 82 168 62 144 56 C136 54 128 52 126 58 C124 64 128 68 132 76 C144 100 126 126 104 153 C86 175.090909 78 190 78 210 A66 66 0 0 0 144 276 Z M142.966653 204.000052 A18 27 0 1 0 135.739968 243.376403 A15 21 0 0 1 142.966653 204.000052 Z M228 126 A12 6 0 1 0 204 126 A12 6 0 1 0 228 126 Z"/>
+<circle cx="210" cy="132" r="36" fill="none" stroke="#3C6258" stroke-width=".55" stroke-dasharray="2 2"/>
+<circle cx="144" cy="210" r="66" fill="none" stroke="#3C6258" stroke-width=".55" stroke-dasharray="2 2"/>
+<path d="M210 168 A36 36 0 1 0 184.544156 106.544156 M78 210 A66 66 0 0 0 144 276" fill="none" stroke="#3C6258" stroke-width=".95"/>
+<path d="M207 132L213 132" fill="none" stroke="#3C6258" stroke-width="0.45" /><path d="M210 129L210 135" fill="none" stroke="#3C6258" stroke-width="0.45" />
+<path d="M141 210L147 210" fill="none" stroke="#3C6258" stroke-width="0.45" /><path d="M144 207L144 213" fill="none" stroke="#3C6258" stroke-width="0.45" />
+<ellipse cx="128" cy="219" rx="18" ry="27" fill="none" stroke="#3C6258" stroke-width=".55" stroke-dasharray="2 2"/>
+<ellipse cx="143" cy="225" rx="15" ry="21" fill="none" stroke="#3C6258" stroke-width=".55" stroke-dasharray="2 2"/>
+<path d="M142.966653 204.000052 A18 27 0 1 0 135.739968 243.376403 A15 21 0 0 1 142.966653 204.000052 Z" fill="none" stroke="#3C6258" stroke-width=".8"/>
+<path d="M126 219L130 219" fill="none" stroke="#3C6258" stroke-width="0.45" /><path d="M128 217L128 221" fill="none" stroke="#3C6258" stroke-width="0.45" />
+<path d="M141 225L145 225" fill="none" stroke="#3C6258" stroke-width="0.45" /><path d="M143 223L143 227" fill="none" stroke="#3C6258" stroke-width="0.45" />
+<circle cx="142.966653" cy="204.000052" r="1.6" fill="#3C6258" stroke="#3C6258" stroke-width=".5"/>
+<circle cx="135.739968" cy="243.376403" r="1.6" fill="#3C6258" stroke="#3C6258" stroke-width=".5"/>
+<ellipse cx="216" cy="126" rx="12" ry="6" fill="none" stroke="#3C6258" stroke-width=".6"/>
+<path d="M194 126L258 126" fill="none" stroke="#3C6258" stroke-width="0.4" stroke-dasharray="2 2"/>
+<path d="M246 80L246 224" fill="none" stroke="#3C6258" stroke-width="0.45" stroke-dasharray="3 2"/>
+<path d="M204 192L274 192" fill="none" stroke="#3C6258" stroke-width="0.45" stroke-dasharray="3 2"/>
+<path d="M210 168L251.569219 192" fill="none" stroke="#3C6258" stroke-width="0.6" />
+<path d="M251.569219 192L216 212.535898" fill="none" stroke="#3C6258" stroke-width="0.6" />
+<circle cx="239.569219" cy="192" r="6" fill="none" stroke="#3C6258" stroke-width=".6"/>
+<path d="M237.769219 192L241.369219 192" fill="none" stroke="#3C6258" stroke-width="0.45" /><path d="M239.569219 190.2L239.569219 193.8" fill="none" stroke="#3C6258" stroke-width="0.45" />
+<path d="M239.569219 192L242.569219 186.803848" fill="none" stroke="#3C6258" stroke-width="0.45" />
+<path d="M239.569219 192L242.569219 197.196152" fill="none" stroke="#3C6258" stroke-width="0.45" />
+<circle cx="184.544156" cy="106.544156" r="1.6" fill="#3C6258" stroke="#3C6258" stroke-width=".5"/>
+<circle cx="210" cy="168" r="1.6" fill="#3C6258" stroke="#3C6258" stroke-width=".5"/>
+<circle cx="242.569219" cy="186.803848" r="1.6" fill="#3C6258" stroke="#3C6258" stroke-width=".5"/>
+<circle cx="242.569219" cy="197.196152" r="1.6" fill="#3C6258" stroke="#3C6258" stroke-width=".5"/>
+<path d="M236 106L262 88" fill="none" stroke="#3C6258" stroke-width="0.45" />
+<text x="266" y="88" fill="#292D28" font-family="Avenir Next, Avenir, sans-serif" font-size="7.5" >R36</text>
+<path d="M88 244L49 253" fill="none" stroke="#3C6258" stroke-width="0.45" />
+<text x="23" y="256" fill="#292D28" font-family="Avenir Next, Avenir, sans-serif" font-size="7.5" >R66</text>
+<path d="M228 126L260 126" fill="none" stroke="#3C6258" stroke-width="0.45" />
+<text x="264" y="129" fill="#292D28" font-family="Avenir Next, Avenir, sans-serif" font-size="7.5" >2:1 eye</text>
+<path d="M128 192L106 174" fill="none" stroke="#3C6258" stroke-width="0.45" />
+<text x="81" y="171" fill="#292D28" font-family="Avenir Next, Avenir, sans-serif" font-size="7.5" >2:3</text>
+<text x="264" y="179" fill="#292D28" font-family="Avenir Next, Avenir, sans-serif" font-size="7.5" >30°</text>
+<text x="256" y="211" fill="#292D28" font-family="Avenir Next, Avenir, sans-serif" font-size="7.5" >R6</text>
+<path d="M128 68L144 100" fill="none" stroke="#798F84" stroke-width="0.45" />
+<circle cx="128" cy="68" r="1.1" fill="#F8F9F3" stroke="#3C6258" stroke-width=".5"/>
+<circle cx="132" cy="76" r="1.6" fill="#3C6258" stroke="#3C6258" stroke-width=".5"/>
+<circle cx="144" cy="100" r="1.1" fill="#F8F9F3" stroke="#3C6258" stroke-width=".5"/>
+<path d="M126 126L86 175.090909" fill="none" stroke="#798F84" stroke-width="0.45" />
+<circle cx="126" cy="126" r="1.1" fill="#F8F9F3" stroke="#3C6258" stroke-width=".5"/>
+<circle cx="104" cy="153" r="1.6" fill="#3C6258" stroke="#3C6258" stroke-width=".5"/>
+<circle cx="86" cy="175.090909" r="1.1" fill="#F8F9F3" stroke="#3C6258" stroke-width=".5"/>
+<path d="M178 268L190 236" fill="none" stroke="#798F84" stroke-width="0.45" />
+<circle cx="178" cy="268" r="1.1" fill="#F8F9F3" stroke="#3C6258" stroke-width=".5"/>
+<circle cx="184" cy="252" r="1.6" fill="#3C6258" stroke="#3C6258" stroke-width=".5"/>
+<circle cx="190" cy="236" r="1.1" fill="#F8F9F3" stroke="#3C6258" stroke-width=".5"/>
+<path d="M198 222.928203L242.569219 197.196152" fill="none" stroke="#798F84" stroke-width="0.45" />
+<circle cx="198" cy="222.928203" r="1.1" fill="#F8F9F3" stroke="#3C6258" stroke-width=".5"/>
+<circle cx="216" cy="212.535898" r="1.6" fill="#3C6258" stroke="#3C6258" stroke-width=".5"/>
+<circle cx="242.569219" cy="197.196152" r="1.1" fill="#F8F9F3" stroke="#3C6258" stroke-width=".5"/>
+<path d="M216 96.503521L216 120" fill="none" stroke="#3C6258" stroke-width="0.75" /><path d="M213.8 96.503521L218.2 96.503521" fill="none" stroke="#3C6258" stroke-width="0.55" /><path d="M213.8 120L218.2 120" fill="none" stroke="#3C6258" stroke-width="0.55" /><path d="M216 108.251761L265 66" fill="none" stroke="#3C6258" stroke-width="0.45" /><circle cx="265" cy="66" r="5" fill="#F8F9F3" stroke="#3C6258" stroke-width=".5"/><text x="265" y="68.3" fill="#292D28" font-family="Avenir Next, Avenir, sans-serif" font-size="6.5" text-anchor="middle">1</text>
+<path d="M78.616516 219L110 219" fill="none" stroke="#3C6258" stroke-width="0.75" /><path d="M78.616516 216.8L78.616516 221.2" fill="none" stroke="#3C6258" stroke-width="0.55" /><path d="M110 216.8L110 221.2" fill="none" stroke="#3C6258" stroke-width="0.55" /><path d="M94.308258 219L47 202" fill="none" stroke="#3C6258" stroke-width="0.45" /><circle cx="47" cy="202" r="5" fill="#F8F9F3" stroke="#3C6258" stroke-width=".5"/><text x="47" y="204.3" fill="#292D28" font-family="Avenir Next, Avenir, sans-serif" font-size="6.5" text-anchor="middle">2</text>
+<path d="M128 246L128 274.031242" fill="none" stroke="#3C6258" stroke-width="0.75" /><path d="M125.8 246L130.2 246" fill="none" stroke="#3C6258" stroke-width="0.55" /><path d="M125.8 274.031242L130.2 274.031242" fill="none" stroke="#3C6258" stroke-width="0.55" /><path d="M128 260.015621L200 294" fill="none" stroke="#3C6258" stroke-width="0.45" /><circle cx="200" cy="294" r="5" fill="#F8F9F3" stroke="#3C6258" stroke-width=".5"/><text x="200" y="296.3" fill="#292D28" font-family="Avenir Next, Avenir, sans-serif" font-size="6.5" text-anchor="middle">3</text>
+<text x="168" y="326" fill="#292D28" font-family="Avenir Next, Avenir, sans-serif" font-size="6.6" text-anchor="middle" letter-spacing=".55">u = 6 / ACTIVE ARCS SOLID / GUIDES DASHED</text>
+</svg>

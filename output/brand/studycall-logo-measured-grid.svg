@@ -1,0 +1,10 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1008" height="1008" viewBox="0 0 336 336" role="img" aria-label="measured waveform on the construction grid">
+<defs>
+  <pattern id="minor" width="6" height="6" patternUnits="userSpaceOnUse"><path d="M6 0H0V6" fill="none" stroke="#DCE1D6" stroke-width=".25"/></pattern>
+  <pattern id="major" width="36" height="36" patternUnits="userSpaceOnUse"><rect width="36" height="36" fill="url(#minor)"/><path d="M36 0H0V36" fill="none" stroke="#C9D1C2" stroke-width=".6"/></pattern>
+</defs>
+<rect width="336" height="336" fill="#F8F9F3"/>
+<rect width="336" height="336" fill="url(#major)"/>
+<path d="M0 168H336M168 0V336" stroke="#6F786D" stroke-width=".55" stroke-dasharray="3 3" opacity=".6"/>
+<g fill="none" stroke="#B86C68" stroke-width="18" stroke-linecap="round"><path d="M60 150C62.667 162 57.333 174 60 186"/><path d="M96 129C101.778 155 90.222 181 96 207"/><path d="M132 105C141.333 147 122.667 189 132 231"/><path d="M168 87C180 141 156 195 168 249"/><path d="M204 105C213.333 147 194.667 189 204 231"/><path d="M240 129C245.778 155 234.222 181 240 207"/><path d="M276 150C278.667 162 273.333 174 276 186"/></g>
+</svg>

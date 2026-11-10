@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="40 48 256 240" role="img" aria-labelledby="title desc">
+  <title id="title">Studycall — Listener / Call</title>
+  <desc id="desc">A full voice and a smaller answering voice bend toward one another. Their offset, sculpted curves suggest a conversation opening up.</desc>
+  <g fill="#B86C68">
+    <path d="M118 65C82 62 57 92 54 133C50 181 69 229 106 260C121 273 139 273 150 260C160 248 156 231 143 219C125 202 114 179 117 156C120 134 135 121 149 107C165 91 148 68 118 65Z"/>
+    <path d="M221 86C251 84 275 108 281 143C288 182 272 223 241 247C225 260 204 259 195 244C186 230 193 217 206 205C222 190 229 174 224 159C220 146 208 138 199 128C183 110 195 88 221 86Z"/>
+  </g>
+</svg>

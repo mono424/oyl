@@ -1,0 +1,149 @@
+# yaml-language-server: $schema=https://sp00ky.cloud/schema/sp00ky.schema.json
+#
+# Studycall on Sp00ky Cloud's free plan (platform: Cloudflare):
+#   - the SSP sync node runs as a Cloudflare Durable Object,
+#   - the web app is published as a static SPA on Workers Static Assets,
+#   - SurrealDB is the shared free database (namespace `talktobolo`), reached
+#     by all three. For your own SurrealDB Cloud instance instead, use
+#     `hosting: external` with `endpoint`, `username` and `password`.
+#   - the API (apps/api: PDF processing, search, MCP for ChatGPT) is a sp00ky
+#     Worker backend: `spky deploy` bundles it and the sync node runs it as a
+#     Dynamic Worker. See docs/setup.md.
+mode: singlenode
+slug: talktobolo
+# Staging control plane (the only one provisioned).
+cloudApi: https://api-stg.sp00ky.cloud
+surrealdb:
+  # The shared free database: the project always gets the namespace named
+  # after its slug, database `main`; `spky deploy` bakes the endpoint into
+  # the web app.
+  hosting: cloud
+  namespace: talktobolo
+  database: main
+schema: ./schema
+buckets:
+  - ./schema/buckets/materials.surql
+# The bucket uses a file backend (file:/buckets/materials). Without sizeGB no
+# volume is mounted at /buckets and uploaded PDFs and page images land on
+# ephemeral storage. sizeGB is the provisioned disk, not a quota.
+deployment:
+  storage:
+    sizeGB: 5
+version:
+  cloud: canary
+logLevel:
+  dev: info
+  cloud: info
+clientTypes:
+  - format: typescript
+    output: ./apps/web/src/schema.gen.ts
+apps:
+  web:
+    type: frontend
+    dev:
+      type: npm
+      script: dev
+      workdir: ./apps/web
+    deploy:
+      # Required by config validation, unused on the free plan: the SPA is
+      # built with `static.build` and published as static assets.
+      dockerfile: ./apps/web/Dockerfile
+      context: .
+      port: 80
+      static:
+        build: pnpm --filter @studycall/web build
+        dir: apps/web/dist
+  # The API (apps/api, a Hono app). Like any sp00ky backend it runs jobs: the
+  # web app writes a row to the `job` outbox and the sync node calls the path
+  # in openapi.yml with its payload. On Cloudflare it is a Worker backend:
+  # `spky deploy` bundles `worker.entry` and the sync node loads it as a
+  # Dynamic Worker. Local development (dev/sp00ky.yml) runs it under
+  # `wrangler dev` with apps/api/wrangler.jsonc.
+  api:
+    type: backend
+    spec: ./apps/api/openapi.yml
+    method:
+      type: outbox
+      table: job
+      schema: ./schema/src/outbox/api.surql
+      # Indexing and progress jobs of different materials run side by side.
+      concurrency: 4
+    # Durable workflows on sp00ky's job engine (every host): one INGEST run per
+    # material (PDF/markdown processing), one FETCH run per source check. Their
+    # jobs go to the outbox above.
+    workflows:
+      - { binding: INGEST, class: IngestMaterial }
+      - { binding: FETCH, class: FetchSource }
+    deploy:
+      # Job requests time out after 10 s by default. A workflow step runs inside
+      # one job request, so this also bounds a step: an ingestion step converts
+      # 20-50 PDF pages or embeds 48 chunks.
+      timeout: 900
+    auth:
+      type: token
+      # The job runner sends it on every job and the API checks it (JOB_TOKEN
+      # below). Not a secret: job paths are never public, `expose` is.
+      token: &jobToken 8aa90389bd84c6dc0cd7237d680f293d
+    worker:
+      entry: ./apps/api/src/index.ts
+      compatibilityDate: "2026-10-15"
+      compatibilityFlags: [nodejs_compat]
+      # server-schema.surql is imported as a string.
+      textModules: ["**/*.surql"]
+      # PDF parsing and image extraction need more than the default 30 s of
+      # CPU per Workflow step.
+      cpuMs: 300000
+      # Embeddings for the lecture search index.
+      ai: AI
+      # Routes served publicly on talktobolo.stg.spky.cloud. Everything else,
+      # the job paths included, is reachable only through jobs.
+      expose:
+        # Course search: results shown as the student types.
+        - /api/courses/*
+        # PDF upload (the file is the request body) and the viewer's download.
+        - /api/materials/*
+        - /api/fetchers/*
+        - /api/answers/*
+        - /api/documents/*
+        - /api/sites/*
+        # A key for the student's own scripts, made in Settings.
+        - /api/keys
+        # The consent page of an AI client connection, and its redirect.
+        - /api/oauth/*
+        # OAuth for AI clients: discovery, registration, authorize, token.
+        - /oauth/*
+        - /.well-known/oauth*
+        # The MCP server AI clients call.
+        - /mcp
+        # Images inside lectures and answers: <img> cannot send the session token.
+        - /material-assets/*
+        - /answer-images/*
+        # Uploaded sites, by unguessable id: a page cannot send the session token.
+        - /site-files/*
+    env:
+      # Agent Memory (the course knowledge graph). AGENT_MEMORY_URL must be
+      # the full Context URL, ending /api/v1/<context id>: without the context
+      # id the API leaves Agent Memory off and logs why. FETCHER_KEY seals the
+      # bCourses tokens of sources (apps/api/src/fetch/secret.ts).
+      - vault: [AGENT_MEMORY_URL, AGENT_MEMORY_API_KEY, FETCHER_KEY]
+      # The database is not configured here: sp00ky sets SPKY_DB_URL,
+      # SPKY_DB_NS and SPKY_DB_NAME on the Worker backend, and on the shared
+      # free database its namespace login (SPKY_DB_USER, SPKY_DB_PASS,
+      # SPKY_DB_LEVEL=namespace).
+      - APP_ORIGIN: https://talktobolo.stg.spky.cloud
+        API_ORIGIN: https://talktobolo.stg.spky.cloud
+        EMBEDDING_MODEL: "@cf/qwen/qwen3-embedding-0.6b"
+        JOB_TOKEN: *jobToken
+# Lectures without a knowledge graph for their current text (processed before
+# Agent Memory was set up, or a build that failed) get one started, for every
+# student, a few at a time (buildMissingGraphs in apps/api/src/service.ts).
+schedules:
+  graph-backfill:
+    every: 10m
+    backend: api
+    route: /jobs/graphs/backfill
+  # Sources (bCourses, course websites) that are due for their check.
+  fetchers-tick:
+    every: 15m
+    backend: api
+    route: /jobs/fetchers/tick

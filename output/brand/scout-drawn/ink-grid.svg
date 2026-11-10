@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1008" height="1008" viewBox="0 0 336 336" role="img" aria-label="Scout ink on construction grid"><defs>
+<pattern id="construction-ink-minor" width="6" height="6" patternUnits="userSpaceOnUse"><path d="M6 0H0V6" fill="none" stroke="#DCE1D6" stroke-width=".25"/></pattern>
+<pattern id="construction-ink-major" width="36" height="36" patternUnits="userSpaceOnUse"><rect width="36" height="36" fill="url(#construction-ink-minor)"/><path d="M36 0H0V36" fill="none" stroke="#C9D1C2" stroke-width=".6"/></pattern>
+</defs>
+<rect width="336" height="336" fill="#F8F9F3"/>
+<rect width="336" height="336" fill="url(#construction-ink-major)"/>
+<path d="M0 168H336M168 0V336" fill="none" stroke="#737B70" stroke-width=".65" stroke-dasharray="3 3" opacity=".65"/>
+
+  <title id="construction-ink-title">Studycall — Scout / Ink</title>
+  <desc id="construction-ink-desc">A simplified, softly irregular ink silhouette: one swept crest, an inquisitive side profile, and a broad curling body. Original clay rose, with a generous eye and a softly carved curl.</desc>
+  <path fill="#B86C68" fill-rule="evenodd" d="M130 274C101 267 81 245 79 217C77 192 89 172 106 151C127 126 145 96 130 70C128 66 124 62 128 57C132 52 141 56 147 58C170 66 182 84 183 105C200 94 218 96 230 103C243 111 249 125 245 139C242 153 231 163 214 170L244 183C252 186 254 194 245 199L216 211C198 219 187 235 182 251C177 268 164 279 148 277C141 277 135 276 130 274ZM111 213C113 198 125 188 137 192C148 196 149 207 141 218C133 230 136 240 143 244C133 252 119 244 113 231C110 225 110 219 111 213ZM204 124C210 120 220 121 226 126C230 130 226 134 221 135C216 137 208 136 203 134C199 132 200 127 204 124Z"/>
+
+<rect x="78.667" y="54.333" width="172.333" height="223.000" fill="none" stroke="#737B70" stroke-width=".55" stroke-dasharray="2 3" opacity=".6"/></svg>

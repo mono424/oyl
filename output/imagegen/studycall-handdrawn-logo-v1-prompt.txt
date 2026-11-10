@@ -1,0 +1,10 @@
+Mode: Built-in image generation
+
+Use case: logo-brand
+Asset type: standalone logo symbol for Studycall, a voice-based study companion.
+Primary request: Design an original minimal hand-drawn sound-wave logo. Capture an organic, warm, thoughtful editorial character, loosely inspired by the human drawn quality of Anthropic/Claude branding, with an entirely original horizontal waveform silhouette.
+Subject: One compact iconic waveform made from seven separate upright slightly wavy hand-inked strokes. Different irregular heights rise and fall like a spoken phrase; tallest stroke just left of center, shorter outer strokes. Each stroke is one confident soft felt-tip mark with subtle curvature, slight tapering, soft rounded ends, and gently unequal spacing. The cluster should feel alive and handmade but carefully balanced. A recognizable simple silhouette at favicon size. Not straight equalizer rectangles.
+Composition: Single large centered symbol only, occupying roughly 70 percent of a square canvas, generous clear padding, clean edges. No wordmark or letters.
+Color palette: single solid dusty clay rose, approximately hex #B86C68.
+Scene/backdrop: genuinely transparent background, preserve alpha.
+Constraints: Flat single-color logo; controlled gentle hand-drawn irregularity; clean vector-like silhouette. No paper, no texture on the background, no frames, no grids, no mockups, no 3D, no shadows, no gradients, no radial sunburst or star, no text, no watermark.

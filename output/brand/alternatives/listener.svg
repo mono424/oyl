@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 336 336" role="img" aria-labelledby="title desc">
+  <title id="title">Studycall — Listener</title>
+  <desc id="desc">Two warm, leaning shapes turn toward one another. Their shared curved opening suggests attentive conversation.</desc>
+  <g fill="#B86C68">
+    <path d="M105 66C72 74 47 108 47 152C47 196 66 236 99 258C115 270 136 264 143 248C151 231 143 216 131 201C115 182 111 157 119 135C126 115 143 105 145 90C147 74 127 60 105 66Z"/>
+    <path d="M216 90C241 82 265 94 279 118C300 153 291 203 263 233C245 252 225 259 207 250C190 243 188 223 198 208C209 193 220 187 224 170C228 153 222 139 211 127C199 114 200 97 216 90Z"/>
+  </g>
+</svg>

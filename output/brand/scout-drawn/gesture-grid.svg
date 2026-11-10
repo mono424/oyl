@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1008" height="1008" viewBox="0 0 336 336" role="img" aria-label="Scout gesture on construction grid"><defs>
+<pattern id="construction-gesture-minor" width="6" height="6" patternUnits="userSpaceOnUse"><path d="M6 0H0V6" fill="none" stroke="#DCE1D6" stroke-width=".25"/></pattern>
+<pattern id="construction-gesture-major" width="36" height="36" patternUnits="userSpaceOnUse"><rect width="36" height="36" fill="url(#construction-gesture-minor)"/><path d="M36 0H0V36" fill="none" stroke="#C9D1C2" stroke-width=".6"/></pattern>
+</defs>
+<rect width="336" height="336" fill="#F8F9F3"/>
+<rect width="336" height="336" fill="url(#construction-gesture-major)"/>
+<path d="M0 168H336M168 0V336" fill="none" stroke="#737B70" stroke-width=".65" stroke-dasharray="3 3" opacity=".65"/>
+
+  <title id="construction-gesture-title">Studycall — Scout / Gesture</title>
+  <desc id="construction-gesture-desc">Scout redrawn as two loose, tapered ink gestures: a curious profile and a short swept crest. A single irregular eye is carved out of the body.</desc>
+  <g fill="#B86C68">
+    <path fill-rule="evenodd" d="M126 258C98 247 81 222 89 196C98 168 122 146 146 131C163 121 181 113 196 105C217 95 238 103 242 121C247 139 235 155 219 169L247 184L254 192L247 201L216 214C196 227 187 251 174 263L163 268C144 259 133 247 134 232C135 221 143 218 141 212C138 205 127 206 122 215C112 230 116 247 126 258ZM203 125L213 121L226 125L225 132L207 135L201 131Z"/>
+    <path transform="translate(0 -10)" d="M125 63L136 56C159 62 177 76 180 92L176 99L165 106L157 103C157 88 143 76 130 71Z"/>
+  </g>
+
+<rect x="87.000" y="46.000" width="167.000" height="222.000" fill="none" stroke="#737B70" stroke-width=".55" stroke-dasharray="2 3" opacity=".6"/></svg>

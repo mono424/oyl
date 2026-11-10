@@ -1,0 +1,33 @@
+{
+  "name": "studycall",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Upload course material, build each course's knowledge graph, and study it by voice in ChatGPT through an MCP server. SurrealDB, synced with sp00ky.",
+  "scripts": {
+    "dev": "spky dev --path dev",
+    "dev:web": "pnpm --filter @studycall/web dev",
+    "dev:landing": "pnpm --filter @studycall/landing dev",
+    "build:landing": "pnpm --filter @studycall/landing build",
+    "dev:api": "pnpm --filter @studycall/api dev",
+    "generate": "spky generate",
+    "type-check": "pnpm -r type-check",
+    "backfill:pages": "pnpm --filter @studycall/scripts backfill:pages",
+    "deploy:api": "pnpm --filter @studycall/api deploy",
+    "deploy": "spky deploy"
+  },
+  "devDependencies": {
+    "@spooky-sync/cli": "0.0.1-canary.366"
+  },
+  "packageManager": "pnpm@10.20.0",
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "@swc/core",
+      "esbuild",
+      "workerd",
+      "@spooky-sync/cli"
+    ],
+    "patchedDependencies": {
+      "@spooky-sync/core@0.0.1-canary.366": "patches/@spooky-sync__core@0.0.1-canary.366.patch"
+    }
+  }
+}

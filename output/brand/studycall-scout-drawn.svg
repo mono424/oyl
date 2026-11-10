@@ -1,0 +1,112 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="984" viewBox="0 0 1440 984" role="img" aria-labelledby="title desc">
+<title id="title">Studycall — Scout, hand-drawn and simplified</title>
+<desc id="desc">Original Scout is compared with Ink and Gesture on a shared six-unit design grid. Gesture reduces the character to two tapered ink marks and a single carved eye.</desc>
+<rect width="1440" height="984" fill="#F8F9F3"/>
+<g font-family="Avenir Next, Avenir, sans-serif">
+<text x="64" y="57" font-size="13" fill="#737B70" font-weight="500" letter-spacing="2">STUDYCALL / SCOUT INK STUDY</text>
+<text x="64" y="119" font-size="42" fill="#292D28" font-weight="500" >Scout, in a few bold strokes.</text>
+<circle cx="1152" cy="54" r="5" fill="#B86C68"/>
+<text x="1376" y="59" font-size="12" fill="#737B70" font-weight="500" letter-spacing="1.2" text-anchor="end">CLAY ROSE / #B86C68</text>
+<path d="M64 158H1376" stroke="#DEE3D7"/>
+<text x="64" y="204" font-size="12" fill="#737B70" font-weight="500" letter-spacing="1.5">01 / REFERENCE</text>
+<svg x="98" y="224" width="348" height="348" viewBox="0 0 336 336"><defs>
+<pattern id="grid-original-minor" width="6" height="6" patternUnits="userSpaceOnUse"><path d="M6 0H0V6" fill="none" stroke="#DCE1D6" stroke-width=".25"/></pattern>
+<pattern id="grid-original-major" width="36" height="36" patternUnits="userSpaceOnUse"><rect width="36" height="36" fill="url(#grid-original-minor)"/><path d="M36 0H0V36" fill="none" stroke="#C9D1C2" stroke-width=".6"/></pattern>
+</defs>
+<rect width="336" height="336" fill="#F8F9F3"/>
+<rect width="336" height="336" fill="url(#grid-original-major)"/>
+<path d="M0 168H336M168 0V336" fill="none" stroke="#737B70" stroke-width=".65" stroke-dasharray="3 3" opacity=".65"/>
+
+  <title id="grid-original-title">Studycall — Spark / Scout</title>
+  <desc id="grid-original-desc">A curious upright companion in profile, with a swept crest, an expressive eye, a pointed speaking gesture, and a curling open body.</desc>
+  <path fill="#B86C68" fill-rule="evenodd" d="M123 270C89 258 73 229 82 194C89 165 114 144 128 117C138 98 139 80 126 64C123 58 130 51 139 54C170 58 185 80 183 108C208 85 239 97 245 123C250 144 237 164 216 173L249 186C258 190 255 201 246 204L214 214C197 220 186 238 180 257C175 276 155 285 138 276L123 270ZM112 220C110 206 120 191 133 191C143 191 148 201 142 209C133 216 131 227 139 234C145 241 143 250 136 251C123 252 114 240 112 220ZM204 126C211 120 219 120 226 126C229 129 227 133 223 134C216 135 210 135 204 134C200 133 201 129 204 126Z"/>
+
+<rect x="79.333" y="53.000" width="175.333" height="226.667" fill="none" stroke="#737B70" stroke-width=".55" stroke-dasharray="2 3" opacity=".6"/></svg>
+<text x="98" y="592" font-size="11" fill="#737B70" font-weight="500" letter-spacing=".7">6u GRID / CENTERLINES / SHAPE BOUNDS</text>
+<text x="64" y="641" font-size="30" fill="#292D28" font-weight="500" >Original Scout</text>
+<text x="64" y="674" font-size="15" fill="#737B70" font-weight="400" >The starting profile, crest, and curled body.</text>
+<svg x="64" y="709" width="52" height="52" viewBox="66 36 210 252">
+  <title id="lockup-original-title">Studycall — Spark / Scout</title>
+  <desc id="lockup-original-desc">A curious upright companion in profile, with a swept crest, an expressive eye, a pointed speaking gesture, and a curling open body.</desc>
+  <path fill="#B86C68" fill-rule="evenodd" d="M123 270C89 258 73 229 82 194C89 165 114 144 128 117C138 98 139 80 126 64C123 58 130 51 139 54C170 58 185 80 183 108C208 85 239 97 245 123C250 144 237 164 216 173L249 186C258 190 255 201 246 204L214 214C197 220 186 238 180 257C175 276 155 285 138 276L123 270ZM112 220C110 206 120 191 133 191C143 191 148 201 142 209C133 216 131 227 139 234C145 241 143 250 136 251C123 252 114 240 112 220ZM204 126C211 120 219 120 226 126C229 129 227 133 223 134C216 135 210 135 204 134C200 133 201 129 204 126Z"/>
+</svg>
+<text x="128" y="744" font-size="26" fill="#292D28" font-weight="500" letter-spacing="-.7">Studycall</text>
+<svg x="386" y="725" width="24" height="24" viewBox="66 36 210 252">
+  <title id="icon-original-title">Studycall — Spark / Scout</title>
+  <desc id="icon-original-desc">A curious upright companion in profile, with a swept crest, an expressive eye, a pointed speaking gesture, and a curling open body.</desc>
+  <path fill="#B86C68" fill-rule="evenodd" d="M123 270C89 258 73 229 82 194C89 165 114 144 128 117C138 98 139 80 126 64C123 58 130 51 139 54C170 58 185 80 183 108C208 85 239 97 245 123C250 144 237 164 216 173L249 186C258 190 255 201 246 204L214 214C197 220 186 238 180 257C175 276 155 285 138 276L123 270ZM112 220C110 206 120 191 133 191C143 191 148 201 142 209C133 216 131 227 139 234C145 241 143 250 136 251C123 252 114 240 112 220ZM204 126C211 120 219 120 226 126C229 129 227 133 223 134C216 135 210 135 204 134C200 133 201 129 204 126Z"/>
+</svg>
+<text x="418" y="744" font-size="12" fill="#737B70" font-weight="400" >24px</text>
+<text x="512" y="204" font-size="12" fill="#737B70" font-weight="500" letter-spacing="1.5">02 / REFINEMENT</text>
+<svg x="546" y="224" width="348" height="348" viewBox="0 0 336 336"><defs>
+<pattern id="grid-ink-minor" width="6" height="6" patternUnits="userSpaceOnUse"><path d="M6 0H0V6" fill="none" stroke="#DCE1D6" stroke-width=".25"/></pattern>
+<pattern id="grid-ink-major" width="36" height="36" patternUnits="userSpaceOnUse"><rect width="36" height="36" fill="url(#grid-ink-minor)"/><path d="M36 0H0V36" fill="none" stroke="#C9D1C2" stroke-width=".6"/></pattern>
+</defs>
+<rect width="336" height="336" fill="#F8F9F3"/>
+<rect width="336" height="336" fill="url(#grid-ink-major)"/>
+<path d="M0 168H336M168 0V336" fill="none" stroke="#737B70" stroke-width=".65" stroke-dasharray="3 3" opacity=".65"/>
+
+  <title id="grid-ink-title">Studycall — Scout / Ink</title>
+  <desc id="grid-ink-desc">A simplified, softly irregular ink silhouette: one swept crest, an inquisitive side profile, and a broad curling body. Original clay rose, with a generous eye and a softly carved curl.</desc>
+  <path fill="#B86C68" fill-rule="evenodd" d="M130 274C101 267 81 245 79 217C77 192 89 172 106 151C127 126 145 96 130 70C128 66 124 62 128 57C132 52 141 56 147 58C170 66 182 84 183 105C200 94 218 96 230 103C243 111 249 125 245 139C242 153 231 163 214 170L244 183C252 186 254 194 245 199L216 211C198 219 187 235 182 251C177 268 164 279 148 277C141 277 135 276 130 274ZM111 213C113 198 125 188 137 192C148 196 149 207 141 218C133 230 136 240 143 244C133 252 119 244 113 231C110 225 110 219 111 213ZM204 124C210 120 220 121 226 126C230 130 226 134 221 135C216 137 208 136 203 134C199 132 200 127 204 124Z"/>
+
+<rect x="78.667" y="54.333" width="172.333" height="223.000" fill="none" stroke="#737B70" stroke-width=".55" stroke-dasharray="2 3" opacity=".6"/></svg>
+<text x="546" y="592" font-size="11" fill="#737B70" font-weight="500" letter-spacing=".7">6u GRID / CENTERLINES / SHAPE BOUNDS</text>
+<text x="512" y="641" font-size="30" fill="#292D28" font-weight="500" >Ink</text>
+<text x="512" y="674" font-size="15" fill="#737B70" font-weight="400" >A softer silhouette with a bold carved curl.</text>
+<svg x="512" y="709" width="52" height="52" viewBox="66 36 210 252">
+  <title id="lockup-ink-title">Studycall — Scout / Ink</title>
+  <desc id="lockup-ink-desc">A simplified, softly irregular ink silhouette: one swept crest, an inquisitive side profile, and a broad curling body. Original clay rose, with a generous eye and a softly carved curl.</desc>
+  <path fill="#B86C68" fill-rule="evenodd" d="M130 274C101 267 81 245 79 217C77 192 89 172 106 151C127 126 145 96 130 70C128 66 124 62 128 57C132 52 141 56 147 58C170 66 182 84 183 105C200 94 218 96 230 103C243 111 249 125 245 139C242 153 231 163 214 170L244 183C252 186 254 194 245 199L216 211C198 219 187 235 182 251C177 268 164 279 148 277C141 277 135 276 130 274ZM111 213C113 198 125 188 137 192C148 196 149 207 141 218C133 230 136 240 143 244C133 252 119 244 113 231C110 225 110 219 111 213ZM204 124C210 120 220 121 226 126C230 130 226 134 221 135C216 137 208 136 203 134C199 132 200 127 204 124Z"/>
+</svg>
+<text x="576" y="744" font-size="26" fill="#292D28" font-weight="500" letter-spacing="-.7">Studycall</text>
+<svg x="834" y="725" width="24" height="24" viewBox="66 36 210 252">
+  <title id="icon-ink-title">Studycall — Scout / Ink</title>
+  <desc id="icon-ink-desc">A simplified, softly irregular ink silhouette: one swept crest, an inquisitive side profile, and a broad curling body. Original clay rose, with a generous eye and a softly carved curl.</desc>
+  <path fill="#B86C68" fill-rule="evenodd" d="M130 274C101 267 81 245 79 217C77 192 89 172 106 151C127 126 145 96 130 70C128 66 124 62 128 57C132 52 141 56 147 58C170 66 182 84 183 105C200 94 218 96 230 103C243 111 249 125 245 139C242 153 231 163 214 170L244 183C252 186 254 194 245 199L216 211C198 219 187 235 182 251C177 268 164 279 148 277C141 277 135 276 130 274ZM111 213C113 198 125 188 137 192C148 196 149 207 141 218C133 230 136 240 143 244C133 252 119 244 113 231C110 225 110 219 111 213ZM204 124C210 120 220 121 226 126C230 130 226 134 221 135C216 137 208 136 203 134C199 132 200 127 204 124Z"/>
+</svg>
+<text x="866" y="744" font-size="12" fill="#737B70" font-weight="400" >24px</text>
+<text x="960" y="204" font-size="12" fill="#737B70" font-weight="500" letter-spacing="1.5">03 / REFINEMENT</text>
+<svg x="994" y="224" width="348" height="348" viewBox="0 0 336 336"><defs>
+<pattern id="grid-gesture-minor" width="6" height="6" patternUnits="userSpaceOnUse"><path d="M6 0H0V6" fill="none" stroke="#DCE1D6" stroke-width=".25"/></pattern>
+<pattern id="grid-gesture-major" width="36" height="36" patternUnits="userSpaceOnUse"><rect width="36" height="36" fill="url(#grid-gesture-minor)"/><path d="M36 0H0V36" fill="none" stroke="#C9D1C2" stroke-width=".6"/></pattern>
+</defs>
+<rect width="336" height="336" fill="#F8F9F3"/>
+<rect width="336" height="336" fill="url(#grid-gesture-major)"/>
+<path d="M0 168H336M168 0V336" fill="none" stroke="#737B70" stroke-width=".65" stroke-dasharray="3 3" opacity=".65"/>
+
+  <title id="grid-gesture-title">Studycall — Scout / Gesture</title>
+  <desc id="grid-gesture-desc">Scout redrawn as two loose, tapered ink gestures: a curious profile and a short swept crest. A single irregular eye is carved out of the body.</desc>
+  <g fill="#B86C68">
+    <path fill-rule="evenodd" d="M126 258C98 247 81 222 89 196C98 168 122 146 146 131C163 121 181 113 196 105C217 95 238 103 242 121C247 139 235 155 219 169L247 184L254 192L247 201L216 214C196 227 187 251 174 263L163 268C144 259 133 247 134 232C135 221 143 218 141 212C138 205 127 206 122 215C112 230 116 247 126 258ZM203 125L213 121L226 125L225 132L207 135L201 131Z"/>
+    <path transform="translate(0 -10)" d="M125 63L136 56C159 62 177 76 180 92L176 99L165 106L157 103C157 88 143 76 130 71Z"/>
+  </g>
+
+<rect x="87.000" y="46.000" width="167.000" height="222.000" fill="none" stroke="#737B70" stroke-width=".55" stroke-dasharray="2 3" opacity=".6"/></svg>
+<text x="994" y="592" font-size="11" fill="#737B70" font-weight="500" letter-spacing=".7">6u GRID / CENTERLINES / SHAPE BOUNDS</text>
+<text x="960" y="641" font-size="30" fill="#292D28" font-weight="500" >Gesture</text>
+<text x="960" y="674" font-size="15" fill="#737B70" font-weight="400" >Two tapered gestures and a single eye cut.</text>
+<svg x="960" y="709" width="52" height="52" viewBox="66 36 210 252">
+  <title id="lockup-gesture-title">Studycall — Scout / Gesture</title>
+  <desc id="lockup-gesture-desc">Scout redrawn as two loose, tapered ink gestures: a curious profile and a short swept crest. A single irregular eye is carved out of the body.</desc>
+  <g fill="#B86C68">
+    <path fill-rule="evenodd" d="M126 258C98 247 81 222 89 196C98 168 122 146 146 131C163 121 181 113 196 105C217 95 238 103 242 121C247 139 235 155 219 169L247 184L254 192L247 201L216 214C196 227 187 251 174 263L163 268C144 259 133 247 134 232C135 221 143 218 141 212C138 205 127 206 122 215C112 230 116 247 126 258ZM203 125L213 121L226 125L225 132L207 135L201 131Z"/>
+    <path transform="translate(0 -10)" d="M125 63L136 56C159 62 177 76 180 92L176 99L165 106L157 103C157 88 143 76 130 71Z"/>
+  </g>
+</svg>
+<text x="1024" y="744" font-size="26" fill="#292D28" font-weight="500" letter-spacing="-.7">Studycall</text>
+<svg x="1282" y="725" width="24" height="24" viewBox="66 36 210 252">
+  <title id="icon-gesture-title">Studycall — Scout / Gesture</title>
+  <desc id="icon-gesture-desc">Scout redrawn as two loose, tapered ink gestures: a curious profile and a short swept crest. A single irregular eye is carved out of the body.</desc>
+  <g fill="#B86C68">
+    <path fill-rule="evenodd" d="M126 258C98 247 81 222 89 196C98 168 122 146 146 131C163 121 181 113 196 105C217 95 238 103 242 121C247 139 235 155 219 169L247 184L254 192L247 201L216 214C196 227 187 251 174 263L163 268C144 259 133 247 134 232C135 221 143 218 141 212C138 205 127 206 122 215C112 230 116 247 126 258ZM203 125L213 121L226 125L225 132L207 135L201 131Z"/>
+    <path transform="translate(0 -10)" d="M125 63L136 56C159 62 177 76 180 92L176 99L165 106L157 103C157 88 143 76 130 71Z"/>
+  </g>
+</svg>
+<text x="1314" y="744" font-size="12" fill="#737B70" font-weight="400" >24px</text>
+<path d="M64 787H1376" stroke="#DEE3D7"/>
+<text x="64" y="845" font-size="12" fill="#737B70" font-weight="500" letter-spacing="1.5">THE DRAWN QUALITY</text>
+<text x="64" y="877" font-size="18" fill="#292D28" font-weight="400" >Tapered ends, loose curves, and a few deliberate cuts.</text>
+<text x="832" y="845" font-size="12" fill="#737B70" font-weight="500" letter-spacing="1.5">GESTURE / THE SIMPLEST CUT</text>
+<text x="832" y="877" font-size="18" fill="#292D28" font-weight="400" >One curious profile. One swept crest.</text>
+</g></svg>

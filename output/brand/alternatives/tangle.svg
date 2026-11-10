@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 336 336" role="img" aria-labelledby="title desc">
+  <title id="title">Studycall — Tangle</title>
+  <desc id="desc">A warm clay rose overhand knot. One soft, continuous band folds through itself around an asymmetric triangular opening; two blunt tails make an open, memorable silhouette.</desc>
+  <defs>
+    <mask id="crossings" maskUnits="userSpaceOnUse" x="0" y="0" width="336" height="336">
+      <rect width="336" height="336" fill="white"/>
+      <path d="M86 199 C112 180 145 125 176 88" fill="none" stroke="black" stroke-width="6" stroke-linecap="butt"/>
+    </mask>
+  </defs>
+  <g transform="translate(-6 -5) scale(1.045)" fill="none" stroke="#B86C68" stroke-width="44" stroke-linecap="round" stroke-linejoin="round">
+    <path mask="url(#crossings)" d="M77 244 C113 216 139 184 159 152 C187 106 218 77 245 108 C278 146 231 190 181 199 C131 208 75 179 85 134 C94 92 146 89 180 128 C199 150 218 195 252 236"/>
+    <path d="M161 184 L177 153 L194 184 Z" fill="#B86C68" stroke="none"/>
+  </g>
+</svg>

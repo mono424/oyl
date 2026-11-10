@@ -1,0 +1,66 @@
+# yaml-language-server: $schema=https://sp00ky.cloud/schema/sp00ky.schema.json
+#
+# Local development: `pnpm dev` (spky dev --path dev). Same app as ../sp00ky.yml,
+# but SurrealDB runs locally in Docker (ws://localhost:8666) instead of on
+# SurrealDB Cloud, so nothing you do here touches production data.
+mode: singlenode
+slug: studycall
+surrealdb:
+  namespace: main
+  database: studycall
+schema: ../schema
+# PDFs and the images extracted from them (see ../sp00ky.yml).
+buckets:
+  - ../schema/buckets/materials.surql
+# The bucket uses a file backend (file:/buckets/materials). Setting sizeGB makes
+# `spky dev` mount .sp00ky/bucket_data at /buckets in the SurrealDB container and
+# allowlist it; without it, DEFINE BUCKET fails with "File access denied".
+deployment:
+  storage:
+    sizeGB: 1
+version:
+  dev: canary
+logLevel:
+  dev: info
+clientTypes:
+  - format: typescript
+    output: ../apps/web/src/schema.gen.ts
+apps:
+  web:
+    type: frontend
+    dev:
+      type: npm
+      script: dev
+      workdir: ../apps/web
+    env:
+      - dev:
+          VITE_DB_NS: main
+          VITE_DB_DB: studycall
+          VITE_DB_ENDPOINT: ws://localhost:8666/rpc
+          VITE_API_URL: http://localhost:8787
+  # The API Worker under `wrangler dev`. It reads apps/api/.dev.vars. The
+  # local sync node (in Docker) runs the `job` outbox against it, as the cloud
+  # one does against the Worker backend (../sp00ky.yml).
+  api:
+    type: backend
+    spec: ../apps/api/openapi.yml
+    baseUrl: http://localhost:8787
+    method:
+      type: outbox
+      table: job
+      schema: ../schema/src/outbox/api.surql
+      concurrency: 4
+    auth:
+      type: token
+      # apps/api/wrangler.jsonc `JOB_TOKEN`.
+      token: local-dev-jobs
+    workflows:
+      - { binding: INGEST, class: IngestMaterial }
+      - { binding: FETCH, class: FetchSource }
+    deploy:
+      # A workflow step runs inside one job request (see ../sp00ky.yml).
+      timeout: 900
+    dev:
+      type: npm
+      script: dev
+      workdir: ../apps/api

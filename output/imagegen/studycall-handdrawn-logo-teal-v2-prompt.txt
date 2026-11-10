@@ -1,0 +1,8 @@
+Mode: Built-in image generation (edit)
+
+Use case: precise-object-edit
+Asset type: Studycall logo recolor for a sage-green and warm-cream landing page.
+Input image: exact approved hand-drawn waveform logo, EDIT TARGET.
+Primary request: Change ONLY the ink color of the existing waveform from clay rose to a single solid muted dark teal, hex #365C58. The result should feel quiet and confident, almost charcoal with a green-blue undertone.
+Invariants: Preserve the exact seven hand-drawn strokes, their contours, irregular heights, bends, spacing, proportions and positions. Preserve the original square canvas, logo scale, centering, and transparent margins. Do not redraw, redesign, add strokes or smooth the distinctive handmade shapes.
+Background: preserve genuine transparency with alpha; no opaque background. No text, shadows, gradients, mockups, labels or additional elements. Output only the same logo with its ink recolored dark teal.

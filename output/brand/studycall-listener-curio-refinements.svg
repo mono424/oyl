@@ -1,0 +1,175 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1440" height="1308" viewBox="0 0 1440 1308" role="img" aria-labelledby="title desc">
+<title id="title">Studycall — Listener and Curio refinements</title>
+<desc id="desc">Three Listener variations explore balance, dialogue, and a pair of characters. Three Curio variations explore calmness, curiosity, and a playful wink. All use the original clay rose color.</desc>
+<rect width="1440" height="1308" fill="#F8F9F3"/>
+<g font-family="Avenir Next, Avenir, sans-serif">
+<text x="64" y="57" font-size="13" fill="#737B70" font-weight="500" letter-spacing="2">STUDYCALL / SELECTED DIRECTIONS</text>
+<text x="64" y="119" font-size="44" fill="#292D28" font-weight="500" >A little more character.</text>
+<circle cx="1152" cy="54" r="5" fill="#B86C68"/>
+<text x="1376" y="59" font-size="12" fill="#737B70" font-weight="500" letter-spacing="1.2" text-anchor="end">CLAY ROSE / #B86C68</text>
+<path d="M64 158H1376" stroke="#DEE3D7"/>
+<text x="64" y="198" font-size="14" fill="#292D28" font-weight="500" letter-spacing="2">LISTENER</text>
+<text x="234" y="198" font-size="15" fill="#737B70" font-weight="400" >Two forms. A shared conversation.</text>
+<svg x="1230" y="165" width="50" height="50" viewBox="0 0 336 336">
+  <title id="seed-listener-title">Studycall — Listener</title>
+  <desc id="seed-listener-desc">Two warm, leaning shapes turn toward one another. Their shared curved opening suggests attentive conversation.</desc>
+  <g fill="#B86C68">
+    <path d="M105 66C72 74 47 108 47 152C47 196 66 236 99 258C115 270 136 264 143 248C151 231 143 216 131 201C115 182 111 157 119 135C126 115 143 105 145 90C147 74 127 60 105 66Z"/>
+    <path d="M216 90C241 82 265 94 279 118C300 153 291 203 263 233C245 252 225 259 207 250C190 243 188 223 198 208C209 193 220 187 224 170C228 153 222 139 211 127C199 114 200 97 216 90Z"/>
+  </g>
+</svg>
+<text x="1290" y="194" font-size="13" fill="#737B70" font-weight="400" >Original</text>
+<svg x="120" y="215" width="304" height="304" viewBox="0 0 336 336">
+  <title id="hero-listener-close-title">Studycall — Listener / Close</title>
+  <desc id="hero-listener-close-desc">Two related, gently leaning forms share a generous curved space. Matching curves give the original Listener mark a quiet, balanced rhythm.</desc>
+  <g fill="#B86C68">
+    <path d="M112 65C81 65 58 94 55 136C51 186 69 231 103 258C120 272 142 267 149 248C156 229 142 216 131 201C117 182 113 161 120 141C126 123 141 112 146 96C151 79 134 65 112 65Z"/>
+    <path d="M224 271C255 271 278 242 281 200C285 150 267 105 233 78C216 64 194 69 187 88C180 107 194 120 205 135C219 154 223 175 216 195C210 213 195 224 190 240C185 257 202 271 224 271Z"/>
+  </g>
+</svg>
+<text x="64" y="545" font-size="29" fill="#292D28" font-weight="500" >Close</text>
+<text x="64" y="577" font-size="15" fill="#737B70" font-weight="400" >Related curves. A quieter, balanced rhythm.</text>
+<svg x="64" y="605" width="42" height="42" viewBox="0 0 336 336">
+  <title id="lockup-listener-close-title">Studycall — Listener / Close</title>
+  <desc id="lockup-listener-close-desc">Two related, gently leaning forms share a generous curved space. Matching curves give the original Listener mark a quiet, balanced rhythm.</desc>
+  <g fill="#B86C68">
+    <path d="M112 65C81 65 58 94 55 136C51 186 69 231 103 258C120 272 142 267 149 248C156 229 142 216 131 201C117 182 113 161 120 141C126 123 141 112 146 96C151 79 134 65 112 65Z"/>
+    <path d="M224 271C255 271 278 242 281 200C285 150 267 105 233 78C216 64 194 69 187 88C180 107 194 120 205 135C219 154 223 175 216 195C210 213 195 224 190 240C185 257 202 271 224 271Z"/>
+  </g>
+</svg>
+<text x="114" y="633" font-size="23" fill="#292D28" font-weight="500" letter-spacing="-.7">Studycall</text>
+<svg x="400" y="614" width="24" height="24" viewBox="40 48 256 240">
+  <title id="icon-listener-close-title">Studycall — Listener / Close</title>
+  <desc id="icon-listener-close-desc">Two related, gently leaning forms share a generous curved space. Matching curves give the original Listener mark a quiet, balanced rhythm.</desc>
+  <g fill="#B86C68">
+    <path d="M112 65C81 65 58 94 55 136C51 186 69 231 103 258C120 272 142 267 149 248C156 229 142 216 131 201C117 182 113 161 120 141C126 123 141 112 146 96C151 79 134 65 112 65Z"/>
+    <path d="M224 271C255 271 278 242 281 200C285 150 267 105 233 78C216 64 194 69 187 88C180 107 194 120 205 135C219 154 223 175 216 195C210 213 195 224 190 240C185 257 202 271 224 271Z"/>
+  </g>
+</svg>
+<text x="432" y="632" font-size="12" fill="#737B70" font-weight="400" >24px</text>
+<svg x="568" y="215" width="304" height="304" viewBox="0 0 336 336">
+  <title id="hero-listener-call-title">Studycall — Listener / Call</title>
+  <desc id="hero-listener-call-desc">A full voice and a smaller answering voice bend toward one another. Their offset, sculpted curves suggest a conversation opening up.</desc>
+  <g fill="#B86C68">
+    <path d="M118 65C82 62 57 92 54 133C50 181 69 229 106 260C121 273 139 273 150 260C160 248 156 231 143 219C125 202 114 179 117 156C120 134 135 121 149 107C165 91 148 68 118 65Z"/>
+    <path d="M221 86C251 84 275 108 281 143C288 182 272 223 241 247C225 260 204 259 195 244C186 230 193 217 206 205C222 190 229 174 224 159C220 146 208 138 199 128C183 110 195 88 221 86Z"/>
+  </g>
+</svg>
+<text x="512" y="545" font-size="29" fill="#292D28" font-weight="500" >Dialogue</text>
+<text x="512" y="577" font-size="15" fill="#737B70" font-weight="400" >A full voice and a smaller answering voice.</text>
+<svg x="512" y="605" width="42" height="42" viewBox="0 0 336 336">
+  <title id="lockup-listener-call-title">Studycall — Listener / Call</title>
+  <desc id="lockup-listener-call-desc">A full voice and a smaller answering voice bend toward one another. Their offset, sculpted curves suggest a conversation opening up.</desc>
+  <g fill="#B86C68">
+    <path d="M118 65C82 62 57 92 54 133C50 181 69 229 106 260C121 273 139 273 150 260C160 248 156 231 143 219C125 202 114 179 117 156C120 134 135 121 149 107C165 91 148 68 118 65Z"/>
+    <path d="M221 86C251 84 275 108 281 143C288 182 272 223 241 247C225 260 204 259 195 244C186 230 193 217 206 205C222 190 229 174 224 159C220 146 208 138 199 128C183 110 195 88 221 86Z"/>
+  </g>
+</svg>
+<text x="562" y="633" font-size="23" fill="#292D28" font-weight="500" letter-spacing="-.7">Studycall</text>
+<svg x="848" y="614" width="24" height="24" viewBox="40 48 256 240">
+  <title id="icon-listener-call-title">Studycall — Listener / Call</title>
+  <desc id="icon-listener-call-desc">A full voice and a smaller answering voice bend toward one another. Their offset, sculpted curves suggest a conversation opening up.</desc>
+  <g fill="#B86C68">
+    <path d="M118 65C82 62 57 92 54 133C50 181 69 229 106 260C121 273 139 273 150 260C160 248 156 231 143 219C125 202 114 179 117 156C120 134 135 121 149 107C165 91 148 68 118 65Z"/>
+    <path d="M221 86C251 84 275 108 281 143C288 182 272 223 241 247C225 260 204 259 195 244C186 230 193 217 206 205C222 190 229 174 224 159C220 146 208 138 199 128C183 110 195 88 221 86Z"/>
+  </g>
+</svg>
+<text x="880" y="632" font-size="12" fill="#737B70" font-weight="400" >24px</text>
+<svg x="1016" y="215" width="304" height="304" viewBox="0 0 336 336">
+  <title id="hero-listener-pair-title">Studycall — Listener / Pair</title>
+  <desc id="hero-listener-pair-desc">The Listener shapes become two quiet characters looking toward each other. One small eye in each form adds warmth while preserving the simple silhouette.</desc>
+  <g fill="#B86C68" fill-rule="evenodd">
+    <path d="M112 65C81 65 58 94 55 136C51 186 69 231 103 258C120 272 142 267 149 248C156 229 142 216 131 201C117 182 113 161 120 141C126 123 141 112 146 96C151 79 134 65 112 65ZM110 122A11 11 0 1 1 88 122A11 11 0 1 1 110 122Z"/>
+    <path d="M224 271C255 271 278 242 281 200C285 150 267 105 233 78C216 64 194 69 187 88C180 107 194 120 205 135C219 154 223 175 216 195C210 213 195 224 190 240C185 257 202 271 224 271ZM247 122A11 11 0 1 1 225 122A11 11 0 1 1 247 122Z"/>
+  </g>
+</svg>
+<text x="960" y="545" font-size="29" fill="#292D28" font-weight="500" >Friends</text>
+<text x="960" y="577" font-size="15" fill="#737B70" font-weight="400" >A little character in each half.</text>
+<svg x="960" y="605" width="42" height="42" viewBox="0 0 336 336">
+  <title id="lockup-listener-pair-title">Studycall — Listener / Pair</title>
+  <desc id="lockup-listener-pair-desc">The Listener shapes become two quiet characters looking toward each other. One small eye in each form adds warmth while preserving the simple silhouette.</desc>
+  <g fill="#B86C68" fill-rule="evenodd">
+    <path d="M112 65C81 65 58 94 55 136C51 186 69 231 103 258C120 272 142 267 149 248C156 229 142 216 131 201C117 182 113 161 120 141C126 123 141 112 146 96C151 79 134 65 112 65ZM110 122A11 11 0 1 1 88 122A11 11 0 1 1 110 122Z"/>
+    <path d="M224 271C255 271 278 242 281 200C285 150 267 105 233 78C216 64 194 69 187 88C180 107 194 120 205 135C219 154 223 175 216 195C210 213 195 224 190 240C185 257 202 271 224 271ZM247 122A11 11 0 1 1 225 122A11 11 0 1 1 247 122Z"/>
+  </g>
+</svg>
+<text x="1010" y="633" font-size="23" fill="#292D28" font-weight="500" letter-spacing="-.7">Studycall</text>
+<svg x="1296" y="614" width="24" height="24" viewBox="40 48 256 240">
+  <title id="icon-listener-pair-title">Studycall — Listener / Pair</title>
+  <desc id="icon-listener-pair-desc">The Listener shapes become two quiet characters looking toward each other. One small eye in each form adds warmth while preserving the simple silhouette.</desc>
+  <g fill="#B86C68" fill-rule="evenodd">
+    <path d="M112 65C81 65 58 94 55 136C51 186 69 231 103 258C120 272 142 267 149 248C156 229 142 216 131 201C117 182 113 161 120 141C126 123 141 112 146 96C151 79 134 65 112 65ZM110 122A11 11 0 1 1 88 122A11 11 0 1 1 110 122Z"/>
+    <path d="M224 271C255 271 278 242 281 200C285 150 267 105 233 78C216 64 194 69 187 88C180 107 194 120 205 135C219 154 223 175 216 195C210 213 195 224 190 240C185 257 202 271 224 271ZM247 122A11 11 0 1 1 225 122A11 11 0 1 1 247 122Z"/>
+  </g>
+</svg>
+<text x="1328" y="632" font-size="12" fill="#737B70" font-weight="400" >24px</text>
+<path d="M64 672H1376" stroke="#DEE3D7"/>
+<text x="64" y="698" font-size="14" fill="#292D28" font-weight="500" letter-spacing="2">CURIO</text>
+<text x="234" y="698" font-size="15" fill="#737B70" font-weight="400" >One curious little companion.</text>
+<svg x="1230" y="665" width="50" height="50" viewBox="0 0 336 336">
+  <title id="seed-curio-title">Studycall — Curio</title>
+  <desc id="seed-curio-desc">A curious little thought with a swept crest, a tilted gaze, and a buoyant, asymmetric silhouette.</desc>
+  <path fill="#B86C68" fill-rule="evenodd" d="M96 108C78 91 85 68 106 63C127 58 148 73 160 92C181 70 206 68 223 84C235 95 240 111 237 125C264 129 286 149 289 175C292 201 279 221 256 233L249 259C246 272 233 278 223 269L203 253C180 261 154 260 134 251L110 269C98 278 85 269 88 256L92 236C66 223 49 199 51 174C53 147 71 123 96 108ZM145 163C139 164 136 169 137 175C138 181 143 184 149 183C155 182 158 177 157 171C156 165 151 162 145 163ZM196 154C190 155 187 160 188 166C189 172 194 175 200 174C206 173 209 168 208 162C207 156 202 153 196 154Z"/>
+</svg>
+<text x="1290" y="694" font-size="13" fill="#737B70" font-weight="400" >Original</text>
+<svg x="120" y="715" width="304" height="304" viewBox="0 0 336 336">
+  <title id="hero-curio-soft-title">Studycall — Curio Soft</title>
+  <desc id="hero-curio-soft-desc">A warm listening creature with a swept crest, an open gaze, and gently balanced feet. Its eyes are transparent cutouts.</desc>
+  <path fill="#B86C68" fill-rule="evenodd" d="M100 111C83 96 82 77 96 67C114 54 137 66 151 84L161 98C178 77 203 72 220 86C233 96 239 111 236 126C261 131 280 149 284 172C289 196 278 218 254 231L249 254C246 268 236 275 225 267L203 252C181 260 155 259 135 251L113 267C101 276 89 268 92 254L96 235C71 222 53 202 53 179C53 151 72 126 100 111ZM145 160C139 160 135 165 135 172C135 179 139 184 145 184C151 184 155 179 155 172C155 165 151 160 145 160ZM195 158C189 158 185 163 185 170C185 177 189 182 195 182C201 182 205 177 205 170C205 163 201 158 195 158Z"/>
+</svg>
+<text x="64" y="1045" font-size="29" fill="#292D28" font-weight="500" >Soft</text>
+<text x="64" y="1077" font-size="15" fill="#737B70" font-weight="400" >A calm gaze and a gentler stance.</text>
+<svg x="64" y="1105" width="42" height="42" viewBox="0 0 336 336">
+  <title id="lockup-curio-soft-title">Studycall — Curio Soft</title>
+  <desc id="lockup-curio-soft-desc">A warm listening creature with a swept crest, an open gaze, and gently balanced feet. Its eyes are transparent cutouts.</desc>
+  <path fill="#B86C68" fill-rule="evenodd" d="M100 111C83 96 82 77 96 67C114 54 137 66 151 84L161 98C178 77 203 72 220 86C233 96 239 111 236 126C261 131 280 149 284 172C289 196 278 218 254 231L249 254C246 268 236 275 225 267L203 252C181 260 155 259 135 251L113 267C101 276 89 268 92 254L96 235C71 222 53 202 53 179C53 151 72 126 100 111ZM145 160C139 160 135 165 135 172C135 179 139 184 145 184C151 184 155 179 155 172C155 165 151 160 145 160ZM195 158C189 158 185 163 185 170C185 177 189 182 195 182C201 182 205 177 205 170C205 163 201 158 195 158Z"/>
+</svg>
+<text x="114" y="1133" font-size="23" fill="#292D28" font-weight="500" letter-spacing="-.7">Studycall</text>
+<svg x="400" y="1114" width="24" height="24" viewBox="40 48 256 240">
+  <title id="icon-curio-soft-title">Studycall — Curio Soft</title>
+  <desc id="icon-curio-soft-desc">A warm listening creature with a swept crest, an open gaze, and gently balanced feet. Its eyes are transparent cutouts.</desc>
+  <path fill="#B86C68" fill-rule="evenodd" d="M100 111C83 96 82 77 96 67C114 54 137 66 151 84L161 98C178 77 203 72 220 86C233 96 239 111 236 126C261 131 280 149 284 172C289 196 278 218 254 231L249 254C246 268 236 275 225 267L203 252C181 260 155 259 135 251L113 267C101 276 89 268 92 254L96 235C71 222 53 202 53 179C53 151 72 126 100 111ZM145 160C139 160 135 165 135 172C135 179 139 184 145 184C151 184 155 179 155 172C155 165 151 160 145 160ZM195 158C189 158 185 163 185 170C185 177 189 182 195 182C201 182 205 177 205 170C205 163 201 158 195 158Z"/>
+</svg>
+<text x="432" y="1132" font-size="12" fill="#737B70" font-weight="400" >24px</text>
+<svg x="568" y="715" width="304" height="304" viewBox="0 0 336 336">
+  <title id="hero-curio-spark-title">Studycall — Curio Spark</title>
+  <desc id="hero-curio-spark-desc">An alert curious creature with one lifted crest, a buoyant stance, and an inquisitive gaze. Its eyes are transparent cutouts.</desc>
+  <path fill="#B86C68" fill-rule="evenodd" d="M99 115C79 100 77 82 91 72C108 60 135 72 152 94C158 72 174 54 192 55C209 56 214 72 204 87L195 102C219 93 241 106 243 129C267 132 285 150 286 173C288 198 273 222 248 233L252 253C255 268 243 278 231 270L207 253C183 262 156 261 135 252L114 267C102 276 89 267 92 253L97 232C70 220 53 201 53 178C53 152 70 128 99 115ZM142 163C136 164 133 169 134 176C135 183 140 187 146 186C152 185 155 180 154 173C153 166 148 162 142 163ZM195 151C189 152 186 157 187 164C188 171 193 175 199 174C205 173 208 168 207 161C206 154 201 150 195 151Z"/>
+</svg>
+<text x="512" y="1045" font-size="29" fill="#292D28" font-weight="500" >Spark</text>
+<text x="512" y="1077" font-size="15" fill="#737B70" font-weight="400" >A lifted crest. A question on its mind.</text>
+<svg x="512" y="1105" width="42" height="42" viewBox="0 0 336 336">
+  <title id="lockup-curio-spark-title">Studycall — Curio Spark</title>
+  <desc id="lockup-curio-spark-desc">An alert curious creature with one lifted crest, a buoyant stance, and an inquisitive gaze. Its eyes are transparent cutouts.</desc>
+  <path fill="#B86C68" fill-rule="evenodd" d="M99 115C79 100 77 82 91 72C108 60 135 72 152 94C158 72 174 54 192 55C209 56 214 72 204 87L195 102C219 93 241 106 243 129C267 132 285 150 286 173C288 198 273 222 248 233L252 253C255 268 243 278 231 270L207 253C183 262 156 261 135 252L114 267C102 276 89 267 92 253L97 232C70 220 53 201 53 178C53 152 70 128 99 115ZM142 163C136 164 133 169 134 176C135 183 140 187 146 186C152 185 155 180 154 173C153 166 148 162 142 163ZM195 151C189 152 186 157 187 164C188 171 193 175 199 174C205 173 208 168 207 161C206 154 201 150 195 151Z"/>
+</svg>
+<text x="562" y="1133" font-size="23" fill="#292D28" font-weight="500" letter-spacing="-.7">Studycall</text>
+<svg x="848" y="1114" width="24" height="24" viewBox="40 48 256 240">
+  <title id="icon-curio-spark-title">Studycall — Curio Spark</title>
+  <desc id="icon-curio-spark-desc">An alert curious creature with one lifted crest, a buoyant stance, and an inquisitive gaze. Its eyes are transparent cutouts.</desc>
+  <path fill="#B86C68" fill-rule="evenodd" d="M99 115C79 100 77 82 91 72C108 60 135 72 152 94C158 72 174 54 192 55C209 56 214 72 204 87L195 102C219 93 241 106 243 129C267 132 285 150 286 173C288 198 273 222 248 233L252 253C255 268 243 278 231 270L207 253C183 262 156 261 135 252L114 267C102 276 89 267 92 253L97 232C70 220 53 201 53 178C53 152 70 128 99 115ZM142 163C136 164 133 169 134 176C135 183 140 187 146 186C152 185 155 180 154 173C153 166 148 162 142 163ZM195 151C189 152 186 157 187 164C188 171 193 175 199 174C205 173 208 168 207 161C206 154 201 150 195 151Z"/>
+</svg>
+<text x="880" y="1132" font-size="12" fill="#737B70" font-weight="400" >24px</text>
+<svg x="1016" y="715" width="304" height="304" viewBox="0 0 336 336">
+  <title id="hero-curio-wink-title">Studycall — Curio Wink</title>
+  <desc id="hero-curio-wink-desc">A playful little companion with a flowing crest, one open eye, and a gentle curved wink. Both eyes are transparent cutouts.</desc>
+  <path fill="#B86C68" fill-rule="evenodd" d="M100 111C81 94 85 73 102 65C121 56 142 68 155 87L163 100C181 79 205 76 222 91C234 102 238 115 235 129C261 134 279 151 282 175C285 199 273 219 251 231L247 254C244 268 233 274 222 266L202 252C179 260 155 259 134 250L113 266C101 275 89 267 92 253L96 234C70 221 53 201 54 177C55 150 74 126 100 111ZM145 159C139 159 135 164 135 171C135 178 139 183 145 183C151 183 155 178 155 171C155 164 151 159 145 159ZM181 168C186 161 193 157 200 157C208 157 215 161 220 168C222 171 221 175 218 177C215 179 212 178 210 175C207 171 204 169 200 169C196 169 192 172 188 176C185 179 181 178 179 175C177 173 178 170 181 168Z"/>
+</svg>
+<text x="960" y="1045" font-size="29" fill="#292D28" font-weight="500" >Wink</text>
+<text x="960" y="1077" font-size="15" fill="#737B70" font-weight="400" >A warmer, more mischievous expression.</text>
+<svg x="960" y="1105" width="42" height="42" viewBox="0 0 336 336">
+  <title id="lockup-curio-wink-title">Studycall — Curio Wink</title>
+  <desc id="lockup-curio-wink-desc">A playful little companion with a flowing crest, one open eye, and a gentle curved wink. Both eyes are transparent cutouts.</desc>
+  <path fill="#B86C68" fill-rule="evenodd" d="M100 111C81 94 85 73 102 65C121 56 142 68 155 87L163 100C181 79 205 76 222 91C234 102 238 115 235 129C261 134 279 151 282 175C285 199 273 219 251 231L247 254C244 268 233 274 222 266L202 252C179 260 155 259 134 250L113 266C101 275 89 267 92 253L96 234C70 221 53 201 54 177C55 150 74 126 100 111ZM145 159C139 159 135 164 135 171C135 178 139 183 145 183C151 183 155 178 155 171C155 164 151 159 145 159ZM181 168C186 161 193 157 200 157C208 157 215 161 220 168C222 171 221 175 218 177C215 179 212 178 210 175C207 171 204 169 200 169C196 169 192 172 188 176C185 179 181 178 179 175C177 173 178 170 181 168Z"/>
+</svg>
+<text x="1010" y="1133" font-size="23" fill="#292D28" font-weight="500" letter-spacing="-.7">Studycall</text>
+<svg x="1296" y="1114" width="24" height="24" viewBox="40 48 256 240">
+  <title id="icon-curio-wink-title">Studycall — Curio Wink</title>
+  <desc id="icon-curio-wink-desc">A playful little companion with a flowing crest, one open eye, and a gentle curved wink. Both eyes are transparent cutouts.</desc>
+  <path fill="#B86C68" fill-rule="evenodd" d="M100 111C81 94 85 73 102 65C121 56 142 68 155 87L163 100C181 79 205 76 222 91C234 102 238 115 235 129C261 134 279 151 282 175C285 199 273 219 251 231L247 254C244 268 233 274 222 266L202 252C179 260 155 259 134 250L113 266C101 275 89 267 92 253L96 234C70 221 53 201 54 177C55 150 74 126 100 111ZM145 159C139 159 135 164 135 171C135 178 139 183 145 183C151 183 155 178 155 171C155 164 151 159 145 159ZM181 168C186 161 193 157 200 157C208 157 215 161 220 168C222 171 221 175 218 177C215 179 212 178 210 175C207 171 204 169 200 169C196 169 192 172 188 176C185 179 181 178 179 175C177 173 178 170 181 168Z"/>
+</svg>
+<text x="1328" y="1132" font-size="12" fill="#737B70" font-weight="400" >24px</text>
+<path d="M64 1172H1376" stroke="#DEE3D7"/>
+<text x="64" y="1260" font-size="16" fill="#737B70" font-weight="400" >Two directions, explored through shape and expression.</text>
+<text x="1376" y="1260" font-size="12" fill="#737B70" font-weight="500" letter-spacing="1.5" text-anchor="end">SIX REFINEMENTS</text>
+</g></svg>

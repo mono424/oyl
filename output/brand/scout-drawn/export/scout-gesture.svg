@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="66 36 210 252" role="img" aria-labelledby="title desc">
+  <title id="title">Studycall — Scout / Gesture</title>
+  <desc id="desc">Scout redrawn as two loose, tapered ink gestures: a curious profile and a short swept crest. A single irregular eye is carved out of the body.</desc>
+  <g fill="#B86C68">
+    <path fill-rule="evenodd" d="M126 258C98 247 81 222 89 196C98 168 122 146 146 131C163 121 181 113 196 105C217 95 238 103 242 121C247 139 235 155 219 169L247 184L254 192L247 201L216 214C196 227 187 251 174 263L163 268C144 259 133 247 134 232C135 221 143 218 141 212C138 205 127 206 122 215C112 230 116 247 126 258ZM203 125L213 121L226 125L225 132L207 135L201 131Z"/>
+    <path transform="translate(0 -10)" d="M125 63L136 56C159 62 177 76 180 92L176 99L165 106L157 103C157 88 143 76 130 71Z"/>
+  </g>
+</svg>

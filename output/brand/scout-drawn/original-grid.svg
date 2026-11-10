@@ -1,0 +1,13 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1008" height="1008" viewBox="0 0 336 336" role="img" aria-label="Scout original on construction grid"><defs>
+<pattern id="construction-original-minor" width="6" height="6" patternUnits="userSpaceOnUse"><path d="M6 0H0V6" fill="none" stroke="#DCE1D6" stroke-width=".25"/></pattern>
+<pattern id="construction-original-major" width="36" height="36" patternUnits="userSpaceOnUse"><rect width="36" height="36" fill="url(#construction-original-minor)"/><path d="M36 0H0V36" fill="none" stroke="#C9D1C2" stroke-width=".6"/></pattern>
+</defs>
+<rect width="336" height="336" fill="#F8F9F3"/>
+<rect width="336" height="336" fill="url(#construction-original-major)"/>
+<path d="M0 168H336M168 0V336" fill="none" stroke="#737B70" stroke-width=".65" stroke-dasharray="3 3" opacity=".65"/>
+
+  <title id="construction-original-title">Studycall — Spark / Scout</title>
+  <desc id="construction-original-desc">A curious upright companion in profile, with a swept crest, an expressive eye, a pointed speaking gesture, and a curling open body.</desc>
+  <path fill="#B86C68" fill-rule="evenodd" d="M123 270C89 258 73 229 82 194C89 165 114 144 128 117C138 98 139 80 126 64C123 58 130 51 139 54C170 58 185 80 183 108C208 85 239 97 245 123C250 144 237 164 216 173L249 186C258 190 255 201 246 204L214 214C197 220 186 238 180 257C175 276 155 285 138 276L123 270ZM112 220C110 206 120 191 133 191C143 191 148 201 142 209C133 216 131 227 139 234C145 241 143 250 136 251C123 252 114 240 112 220ZM204 126C211 120 219 120 226 126C229 129 227 133 223 134C216 135 210 135 204 134C200 133 201 129 204 126Z"/>
+
+<rect x="79.333" y="53.000" width="175.333" height="226.667" fill="none" stroke="#737B70" stroke-width=".55" stroke-dasharray="2 3" opacity=".6"/></svg>

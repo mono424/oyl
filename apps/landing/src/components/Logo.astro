@@ -1,0 +1,17 @@
+---
+interface Props {
+  class?: string;
+}
+
+const { class: className } = Astro.props;
+---
+
+<svg
+  xmlns="http://www.w3.org/2000/svg"
+  viewBox="60 36 210 258"
+  class:list={['brand-mark', className]}
+  aria-hidden="true"
+  focusable="false"
+>
+  <image href={`${import.meta.env.BASE_URL}studycall-logo.svg`} x="60" y="36" width="210" height="258" />
+</svg>

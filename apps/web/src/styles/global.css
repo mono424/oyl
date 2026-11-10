@@ -1,0 +1,649 @@
+@import 'tailwindcss';
+
+/*
+ * Quiet desktop-app chrome: a white window on a light gray canvas, gray
+ * secondary text, soft cards, pill buttons. Color is reserved for state:
+ * red for what needs attention, blue for what is running, green for ready.
+ * Every color is a token so the dark palette can swap them.
+ */
+:root {
+  --canvas: #f1f1f0;
+  --surface: #ffffff;
+  --soft: #f4f4f3;
+  --hover: #efefee;
+  --line: #ebebea;
+  --line-strong: #dededc;
+  --fg: #1c1c1e;
+  --muted: #8a8a8e;
+  --faint: #b4b4b8;
+  --solid: #2b2b2d;
+  --solid-hover: #3a3a3d;
+  --solid-fg: #ffffff;
+  --red: #e5484d;
+  --red-soft: #fdecec;
+  --blue: #1d9bf0;
+  --green: #2f9e6a;
+  --shadow-card: 0 1px 2px rgb(0 0 0 / 0.04), 0 10px 28px -12px rgb(0 0 0 / 0.12);
+  --shadow-frame: 0 1px 3px rgb(0 0 0 / 0.05), 0 24px 60px -24px rgb(0 0 0 / 0.18);
+  color-scheme: light;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --canvas: #0d0d0e;
+    --surface: #1a1a1c;
+    --soft: #242427;
+    --hover: #2a2a2d;
+    --line: #2b2b2e;
+    --line-strong: #38383c;
+    --fg: #f2f2f3;
+    --muted: #9a9aa0;
+    --faint: #66666b;
+    --solid: #f2f2f3;
+    --solid-hover: #ffffff;
+    --solid-fg: #1a1a1c;
+    --red: #ff6369;
+    --red-soft: #3a1d1f;
+    --blue: #4cb3ff;
+    --green: #4cc38a;
+    --shadow-card: 0 1px 2px rgb(0 0 0 / 0.4), 0 10px 28px -12px rgb(0 0 0 / 0.6);
+    --shadow-frame: 0 1px 3px rgb(0 0 0 / 0.5), 0 24px 60px -24px rgb(0 0 0 / 0.8);
+    color-scheme: dark;
+  }
+}
+
+@theme inline {
+  --color-canvas: var(--canvas);
+  --color-surface: var(--surface);
+  --color-soft: var(--soft);
+  --color-hover: var(--hover);
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+  --color-fg: var(--fg);
+  --color-muted: var(--muted);
+  --color-faint: var(--faint);
+  --color-solid: var(--solid);
+  --color-solid-hover: var(--solid-hover);
+  --color-solid-fg: var(--solid-fg);
+  --color-red: var(--red);
+  --color-red-soft: var(--red-soft);
+  --color-blue: var(--blue);
+  --color-green: var(--green);
+
+  --shadow-card: var(--shadow-card);
+  --shadow-frame: var(--shadow-frame);
+
+  --font-sans: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'Inter', 'Segoe UI', system-ui, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', Menlo, monospace;
+}
+
+html,
+body {
+  background: var(--canvas);
+  color: var(--fg);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  letter-spacing: -0.005em;
+}
+
+html { -webkit-text-size-adjust: 100%; }
+body { margin: 0; min-width: 320px; }
+button, a, input, select, textarea { -webkit-tap-highlight-color: transparent; }
+button, a { touch-action: manipulation; }
+button, a, input, select, textarea { scroll-margin-block: 1rem; }
+
+/* Leave room for the home indicator and landscape camera cutouts. */
+@layer components {
+  /* Sixteen-pixel inputs avoid focus zoom on iOS; title styles can override. */
+  .form-input { font-size: 16px; }
+  @media (min-width: 640px) {
+    .form-input { font-size: 15px; }
+  }
+  .auth-viewport {
+    padding: max(1.5rem, env(safe-area-inset-top)) max(1rem, env(safe-area-inset-right)) max(1.5rem, env(safe-area-inset-bottom)) max(1rem, env(safe-area-inset-left));
+  }
+  .app-viewport {
+    padding-top: env(safe-area-inset-top);
+    padding-right: env(safe-area-inset-right);
+    padding-bottom: env(safe-area-inset-bottom);
+    padding-left: env(safe-area-inset-left);
+  }
+  @media (min-width: 768px) {
+    .app-viewport {
+      padding-top: max(0.75rem, env(safe-area-inset-top));
+      padding-right: max(0.75rem, env(safe-area-inset-right));
+      padding-bottom: max(0.75rem, env(safe-area-inset-bottom));
+      padding-left: max(0.75rem, env(safe-area-inset-left));
+    }
+  }
+}
+
+:focus-visible {
+  outline: 2px solid var(--blue);
+  outline-offset: 2px;
+  border-radius: 10px;
+}
+
+/* Thin, quiet scrollbars inside the window. */
+.scroll-quiet {
+  scrollbar-width: thin;
+  scrollbar-color: var(--line-strong) transparent;
+}
+
+/* Rendered lecture markdown. */
+.lecture {
+  font-size: 1rem;
+  line-height: 1.7;
+  max-width: 70ch;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+.lecture h1,
+.lecture h2,
+.lecture h3,
+.lecture h4 {
+  font-weight: 600;
+  line-height: 1.3;
+  letter-spacing: -0.015em;
+  margin: 1.9em 0 0.6em;
+}
+.lecture h1 { font-size: 1.6rem; }
+.lecture h2 { font-size: 1.3rem; }
+.lecture h3 { font-size: 1.08rem; }
+.lecture > :first-child { margin-top: 0; }
+.lecture p,
+.lecture ul,
+.lecture ol,
+.lecture pre,
+.lecture table,
+.lecture blockquote,
+.lecture figure { margin: 0 0 1em; }
+.lecture ul { list-style: disc; padding-left: 1.3em; }
+.lecture ol { list-style: decimal; padding-left: 1.3em; }
+.lecture li { margin: 0.25em 0; }
+.lecture li::marker { color: var(--muted); }
+.lecture a { color: var(--blue); text-decoration: underline; text-underline-offset: 3px; }
+.lecture code {
+  font-family: var(--font-mono);
+  font-size: 0.875em;
+  background: var(--soft);
+  padding: 0.1em 0.35em;
+  border-radius: 6px;
+}
+.lecture pre {
+  background: var(--soft);
+  padding: 1em;
+  border-radius: 14px;
+  overflow-x: auto;
+  max-width: 100%;
+  overflow-wrap: normal;
+}
+.lecture pre code { background: none; padding: 0; }
+.lecture blockquote {
+  border-left: 3px solid var(--line-strong);
+  padding-left: 1em;
+  color: var(--muted);
+}
+.lecture img {
+  max-width: 100%;
+  height: auto;
+  border-radius: 14px;
+  border: 1px solid var(--line);
+  background: #fff;
+}
+.lecture table { display: block; max-width: 100%; overflow-x: auto; border-collapse: collapse; font-size: 0.9375rem; }
+.lecture th,
+.lecture td { border: 1px solid var(--line); padding: 0.45em 0.75em; }
+.lecture :is(th, td):not([align]) { text-align: left; }
+.lecture th { background: var(--soft); font-weight: 600; }
+.lecture hr { border: 0; border-top: 1px solid var(--line); margin: 2em 0; }
+.lecture .math-display { margin: 0 0 1em; overflow-x: auto; overflow-y: hidden; max-width: 100%; }
+.lecture .katex { font-size: 1.08em; }
+
+/* TikZ pictures (src/lib/tikz.ts). Drawn black on white, like a PDF figure: on a white card in dark mode. */
+.tikz { margin: 0 0 1em; max-width: 100%; overflow-x: auto; overflow-y: hidden; text-align: center; }
+.tikz svg { display: inline-block; max-width: 100%; height: auto; overflow: visible; }
+.tikz-note { font-size: 0.875rem; color: var(--muted); text-align: left; }
+.tikz-pending .tikz-note { padding: 1.5em 0; text-align: center; }
+.tikz-error { text-align: left; }
+.tikz-error pre { margin: 0.5em 0 0; }
+@media (prefers-color-scheme: dark) {
+  .tikz:not(.tikz-pending, .tikz-error) { background: #fff; color: #000; border-radius: 14px; padding: 0.75em; }
+}
+/* Formulas keep their own wrapping rules inside a lecture. */
+.lecture .katex,
+.lecture .katex * { overflow-wrap: normal; }
+
+/* The LaTeX editor (components/TexEditor.tsx). */
+.tex-editor .cm-editor {
+  height: 100%;
+  background: var(--surface);
+  color: var(--fg);
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  font-size: 13px;
+}
+.tex-editor .cm-editor.cm-focused { outline: none; border-color: var(--line-strong); box-shadow: 0 0 0 4px var(--soft); }
+.tex-editor .cm-scroller { font-family: var(--font-mono); line-height: 1.6; border-radius: 14px; }
+.tex-editor .cm-gutters { background: var(--soft); color: var(--faint); border-right: 1px solid var(--line); border-radius: 14px 0 0 14px; }
+.tex-editor .cm-activeLine,
+.tex-editor .cm-activeLineGutter { background: color-mix(in srgb, var(--soft) 70%, transparent); }
+.tex-editor .cm-cursor { border-left-color: var(--fg); }
+.tex-editor .cm-selectionBackground,
+.tex-editor .cm-focused .cm-selectionBackground { background: color-mix(in srgb, var(--blue) 22%, transparent) !important; }
+@media (max-width: 767px) { .tex-editor .cm-editor { font-size: 16px; } }
+/* A document's LaTeX: flat on the page, like the text of a Markdown document. */
+.tex-editor.flat .cm-editor { background: transparent; border: 0; border-radius: 0; font-size: 14px; }
+.tex-editor.flat .cm-editor.cm-focused { box-shadow: none; }
+.tex-editor.flat .cm-scroller { border-radius: 0; line-height: 1.7; }
+.tex-editor.flat .cm-gutters { background: transparent; border: 0; color: color-mix(in srgb, var(--faint) 60%, transparent); }
+.tex-editor.flat .cm-lineNumbers .cm-gutterElement { padding: 0 14px 0 4px; font-size: 11px; }
+.tex-editor.flat .cm-activeLine { background: transparent; }
+.tex-editor.flat .cm-activeLineGutter { background: transparent; color: var(--muted); }
+.tex-editor.flat .cm-foldGutter { opacity: 0; transition: opacity 0.15s; }
+.tex-editor.flat .cm-gutters:hover .cm-foldGutter { opacity: 1; }
+
+/* A running state's dot breathes; nothing else moves on its own. */
+@keyframes breathe {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.45; transform: scale(0.8); }
+}
+.dot-breathe { animation: breathe 1.6s ease-in-out infinite; }
+
+/* The sidebars fold away while a page is in focus (the graph), and its title slides in. */
+.side-fold { display: flex; flex-shrink: 0; }
+@media (min-width: 768px) {
+  .side-fold {
+    overflow: hidden;
+    transition: width 0.34s cubic-bezier(0.32, 0.72, 0, 1), opacity 0.22s ease-out;
+  }
+}
+@keyframes focus-in { from { opacity: 0; transform: translateX(-6px); } }
+.focus-in { animation: focus-in 0.3s cubic-bezier(0.32, 0.72, 0, 1) both; }
+
+/*
+ * A page's controls in the top bar (components/HeaderSlot.tsx), lined up with
+ * the page's centered column (--page-column, the lecture's 48rem) but never
+ * under the account menu (--account-w, which the top bar measures).
+ */
+@media (min-width: 768px) {
+  .header-column {
+    width: 100%;
+    max-width: var(--page-column, 48rem);
+    margin-inline: auto;
+    padding-left: 2rem;
+    padding-right: max(2rem, calc(var(--account-w, 10rem) + 0.75rem - max(0px, (100% - var(--page-column, 48rem)) / 2)));
+  }
+}
+
+/*
+ * Glass sheet: frosted, translucent panel over a blurred page. A bottom sheet
+ * on phones (slides up, drag the handle down to dismiss), a centered card on
+ * wider screens. `data-closing` plays the exit before the dialog unmounts.
+ */
+:root {
+  --glass-bg: rgb(255 255 255 / 0.72);
+  --glass-edge: rgb(255 255 255 / 0.7);
+  --glass-line: rgb(0 0 0 / 0.06);
+  --glass-fill: rgb(0 0 0 / 0.04);
+  --glass-fill-strong: rgb(255 255 255 / 0.7);
+  --glass-shadow: 0 -1px 0 rgb(255 255 255 / 0.6) inset, 0 30px 80px -20px rgb(0 0 0 / 0.35);
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --glass-bg: rgb(30 30 33 / 0.7);
+    --glass-edge: rgb(255 255 255 / 0.12);
+    --glass-line: rgb(255 255 255 / 0.07);
+    --glass-fill: rgb(255 255 255 / 0.06);
+    --glass-fill-strong: rgb(255 255 255 / 0.1);
+    --glass-shadow: 0 1px 0 rgb(255 255 255 / 0.06) inset, 0 30px 80px -20px rgb(0 0 0 / 0.8);
+  }
+}
+
+.glass-sheet {
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: blur(30px) saturate(1.8);
+  backdrop-filter: blur(30px) saturate(1.8);
+  border: 1px solid var(--glass-edge);
+  box-shadow: var(--glass-shadow);
+  border-radius: 28px;
+  margin: auto;
+  width: calc(100% - 3rem);
+  max-width: var(--sheet-max, 36rem);
+  max-height: calc(100dvh - 4rem);
+  animation: sheet-pop 0.24s cubic-bezier(0.2, 0.9, 0.3, 1.1);
+}
+.glass-sheet::backdrop {
+  background: rgb(0 0 0 / 0.28);
+  -webkit-backdrop-filter: blur(6px);
+  backdrop-filter: blur(6px);
+  animation: sheet-fade 0.3s ease-out;
+}
+.glass-sheet:focus-visible { outline: none; }
+.glass-sheet-scroll { mask-image: linear-gradient(to bottom, transparent, #000 1rem); }
+.glass-sheet[data-closing] { animation: sheet-pop-out 0.18s ease-in forwards; }
+.glass-sheet[data-closing]::backdrop { animation: sheet-fade-out 0.22s ease-in forwards; }
+.glass-sheet-footer {
+  border-top: 1px solid var(--glass-line);
+  background: linear-gradient(to bottom, transparent, var(--glass-bg) 40%);
+}
+
+@media (max-width: 639px) {
+  .glass-sheet {
+    margin: auto 0 0;
+    width: 100%;
+    max-width: 100%;
+    /* Stop well short of the top so the page stays visible above it. */
+    max-height: min(85dvh, calc(100dvh - max(4rem, env(safe-area-inset-top) + 2.5rem)));
+    border-radius: 24px 24px 0 0;
+    border-bottom: 0;
+    animation: sheet-up 0.42s cubic-bezier(0.32, 0.72, 0, 1);
+  }
+  .glass-sheet[data-closing] { animation: sheet-down 0.24s cubic-bezier(0.4, 0, 1, 1) forwards; }
+  .glass-sheet-footer { padding-bottom: max(1rem, env(safe-area-inset-bottom)); }
+}
+
+/* iOS keeps scrolling the page under a modal dialog otherwise. */
+html:has(.glass-sheet[open]) { overflow: hidden; }
+
+@keyframes sheet-up { from { transform: translateY(100%); } }
+@keyframes sheet-down { to { transform: translateY(100%); } }
+@keyframes sheet-pop { from { opacity: 0; transform: translateY(12px) scale(0.97); } }
+@keyframes sheet-pop-out { to { opacity: 0; transform: translateY(8px) scale(0.98); } }
+@keyframes sheet-fade { from { opacity: 0; } }
+@keyframes sheet-fade-out { to { opacity: 0; } }
+
+/* The one big call to action: solid pill with a soft top sheen and a glow. */
+.cta-glow {
+  background-color: var(--solid);
+  background-image: linear-gradient(180deg, rgb(255 255 255 / 0.16), rgb(255 255 255 / 0) 55%);
+  color: var(--solid-fg);
+  box-shadow:
+    inset 0 1px 0 rgb(255 255 255 / 0.22),
+    inset 0 -1px 0 rgb(0 0 0 / 0.2),
+    0 10px 28px -10px rgb(0 0 0 / 0.55),
+    0 2px 6px -2px rgb(0 0 0 / 0.25);
+  transition: transform 0.15s ease, box-shadow 0.2s ease, background-color 0.2s ease;
+}
+.cta-glow:hover { background-color: var(--solid-hover); }
+.cta-glow:active { transform: scale(0.97); }
+.cta-glow .cta-arrow { transition: transform 0.2s ease; }
+.cta-glow:hover .cta-arrow { transform: translate(2px, -2px); }
+@media (prefers-color-scheme: dark) {
+  .cta-glow {
+    background-image: linear-gradient(180deg, rgb(255 255 255 / 0.9), rgb(255 255 255 / 0) 60%);
+    box-shadow:
+      inset 0 1px 0 rgb(255 255 255 / 0.9),
+      inset 0 -1px 0 rgb(0 0 0 / 0.12),
+      0 10px 32px -10px rgb(255 255 255 / 0.28);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+/*
+ * The writing editor (components/Editor.tsx): one page of answers.
+ * Lines carry 14px of left padding, where the active part's thin line runs;
+ * part labels and question numbers sit in the content's left margin.
+ */
+.answer-editor .cm-editor { background: transparent; color: var(--fg); font-size: 16px; }
+@media (min-width: 640px) { .answer-editor .cm-editor { font-size: 15px; } }
+.answer-editor .cm-editor.cm-focused { outline: none; }
+.answer-editor .cm-editor .cm-scroller { font-family: var(--font-sans); line-height: 1.7; overflow: visible; }
+.answer-editor .cm-editor .cm-content { padding: 0 0 35vh 3rem; caret-color: var(--fg); }
+@media (min-width: 640px) { .answer-editor .cm-editor .cm-content { padding-left: 4.25rem; } }
+.answer-editor .cm-editor .cm-line { position: relative; padding: 0 2px 0 14px; }
+
+.answer-editor .cm-editor .cm-line.cm-hw-gap { --gap: 1.15rem; padding-top: var(--gap); }
+.answer-editor .cm-hw-part::before {
+  content: attr(data-label);
+  position: absolute;
+  right: calc(100% + 0.25rem);
+  top: calc(var(--gap, 0px) + 0.42em);
+  width: 2.6rem;
+  overflow: hidden;
+  font-size: 11px;
+  line-height: 1.3;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--faint);
+  pointer-events: none;
+  transition: color 120ms;
+}
+.answer-editor .cm-hw-part.cm-hw-active::before { color: var(--muted); }
+/* Through a rendered display formula or picture of the part too. */
+.answer-editor .cm-hw-active + :is(.cm-md-math-display, .cm-md-tikz) { position: relative; }
+.answer-editor .cm-hw-active::after,
+.answer-editor .cm-hw-active + :is(.cm-md-math-display, .cm-md-tikz)::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: var(--gap, 0px);
+  bottom: 0;
+  width: 1px;
+  background: color-mix(in srgb, var(--blue) 55%, transparent);
+  pointer-events: none;
+}
+.answer-editor .cm-hw-question {
+  padding: 1.9rem 0 0.35rem 14px;
+  font-size: 14px;
+  font-weight: 600;
+  line-height: 1.4;
+  user-select: none;
+}
+.answer-editor .cm-hw-question-first { padding-top: 0.2rem; }
+.answer-editor .cm-hw-qnum {
+  display: inline-block;
+  width: 2.6rem;
+  margin: 0 calc(0.25rem + 14px) 0 calc(-2.85rem - 14px);
+  font-size: 11px;
+  font-weight: 400;
+  font-variant-numeric: tabular-nums;
+  text-align: right;
+  color: var(--faint);
+}
+.answer-editor .cm-hw-placeholder { color: var(--faint); pointer-events: none; user-select: none; }
+
+/* Images: where a dragged one drops (the part tinted, the drop cursor), and one on its way. */
+.answer-editor .cm-editor .cm-line.cm-hw-drop {
+  background: linear-gradient(color-mix(in srgb, var(--blue) 8%, transparent), color-mix(in srgb, var(--blue) 8%, transparent)) 0 var(--gap, 0px) / 100% calc(100% - var(--gap, 0px)) no-repeat;
+}
+.answer-editor .cm-editor .cm-dropCursor { border-left: 2px solid var(--blue); margin-left: -1px; }
+.answer-editor .cm-hw-uploading,
+.tex-editor .cm-hw-uploading {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45em;
+  margin: 0.2em 0.4em 0.2em 0;
+  padding: 0.1em 0.7em;
+  border-radius: 999px;
+  font-size: 0.85em;
+  color: var(--muted);
+  background: var(--soft);
+  pointer-events: none;
+  user-select: none;
+}
+.answer-editor .cm-hw-uploading::before,
+.tex-editor .cm-hw-uploading::before {
+  content: '';
+  width: 0.75em;
+  height: 0.75em;
+  border: 1.5px solid currentColor;
+  border-right-color: transparent;
+  border-radius: 50%;
+  animation: cm-hw-spin 0.8s linear infinite;
+}
+@keyframes cm-hw-spin { to { transform: rotate(360deg); } }
+
+/* Live Markdown (lib/live-markdown.ts), as the lecture renders it. */
+.answer-editor .cm-md-h1,
+.answer-editor .cm-md-h2,
+.answer-editor .cm-md-h3,
+.answer-editor .cm-md-h4,
+.answer-editor .cm-md-h5,
+.answer-editor .cm-md-h6 { font-weight: 600; line-height: 1.35; letter-spacing: -0.015em; }
+.answer-editor .cm-md-h1 { font-size: 1.45em; }
+.answer-editor .cm-md-h2 { font-size: 1.25em; }
+.answer-editor .cm-md-h3 { font-size: 1.08em; }
+.answer-editor .cm-md-link { color: var(--blue); text-decoration: underline; text-underline-offset: 3px; }
+.answer-editor .cm-md-code { font-family: var(--font-mono); font-size: 0.875em; background: var(--soft); padding: 0.1em 0.3em; border-radius: 5px; }
+.answer-editor .cm-md-codeblock,
+.answer-editor .cm-md-table { font-family: var(--font-mono); font-size: 0.875em; }
+.answer-editor .cm-editor .cm-line.cm-md-codeblock { background: linear-gradient(var(--soft), var(--soft)) 14px var(--gap, 0px) / calc(100% - 14px) calc(100% - var(--gap, 0px)) no-repeat; padding-left: calc(14px + 0.75em); }
+.answer-editor .cm-editor .cm-line.cm-md-quote { color: var(--muted); background: linear-gradient(var(--line-strong), var(--line-strong)) 14px var(--gap, 0px) / 3px calc(100% - var(--gap, 0px)) no-repeat; padding-left: calc(14px + 1em); }
+.answer-editor .cm-md-table-view { padding: 0.4em 0 0.4em 14px; overflow-x: auto; white-space: normal; cursor: text; }
+.answer-editor .cm-md-table-view table { border-collapse: collapse; font-size: 0.9375em; line-height: 1.5; }
+.answer-editor .cm-md-table-view th,
+.answer-editor .cm-md-table-view td { border: 1px solid var(--line); padding: 0.35em 0.75em; }
+.answer-editor .cm-md-table-view :is(th, td):not([align]) { text-align: left; }
+.answer-editor .cm-md-table-view th { background: var(--soft); font-weight: 600; }
+.answer-editor .cm-md-table-view p { margin: 0; }
+.answer-editor .cm-md-listmark { color: var(--muted); }
+.answer-editor .cm-md-bullet { display: inline-block; min-width: 0.6em; color: var(--muted); }
+.answer-editor .cm-md-hr { display: inline-block; width: 100%; vertical-align: middle; border-top: 1px solid var(--line-strong); }
+.answer-editor .cm-md-image { display: inline-block; max-width: 100%; padding: 0.35em 0; vertical-align: top; }
+.answer-editor .cm-md-image img { display: block; max-width: 100%; max-height: 28rem; height: auto; border: 1px solid var(--line); border-radius: 12px; background: #fff; }
+.answer-editor .cm-md-math { padding: 0 1px; cursor: text; }
+.answer-editor .cm-md-math .katex { font-size: 1.06em; }
+.answer-editor .cm-md-math-display { padding: 0.4em 0 0.4em 14px; overflow-x: auto; overflow-y: hidden; cursor: text; }
+.answer-editor .cm-md-math-display .katex-display { margin: 0; }
+.answer-editor .cm-md-math-preview { padding: 0.15em 0 0.6em 14px; opacity: 0.85; }
+.answer-editor .cm-md-tikz { padding: 0.4em 0 0.4em 14px; cursor: text; }
+.answer-editor .cm-md-tikz .tikz { margin: 0; }
+.answer-editor .cm-md-tikz-preview { padding: 0.15em 0 0.6em 14px; opacity: 0.85; }
+.answer-editor .cm-md-math-block { background: linear-gradient(var(--soft), var(--soft)) 14px var(--gap, 0px) / calc(100% - 14px) calc(100% - var(--gap, 0px)) no-repeat; }
+.answer-editor .cm-editor .cm-tooltip { border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--fg); box-shadow: var(--shadow-card); }
+.answer-editor .cm-md-math-tip { padding: 0.35rem 0.6rem; font-size: 15px; }
+.answer-editor .cm-editor .cm-tooltip-arrow { display: none; }
+
+/* A document (routes/Document.tsx): one text, no part labels in the margin. */
+.document-editor .cm-editor { font-size: 17px; }
+@media (min-width: 640px) { .document-editor .cm-editor { font-size: 16px; } }
+.document-editor .cm-editor .cm-content { padding-left: 0; }
+@media (min-width: 640px) { .document-editor .cm-editor .cm-content { padding-left: 0; } }
+.document-editor .cm-hw-active::after,
+.document-editor .cm-hw-active + :is(.cm-md-math-display, .cm-md-tikz)::after { display: none; }
+
+/* Citations (lib/citations.ts): as they print, until the cursor walks in. */
+.answer-editor .cm-cite {
+  padding: 0.05em 0.3em;
+  border-radius: 6px;
+  color: color-mix(in srgb, var(--blue) 85%, var(--fg));
+  background: color-mix(in srgb, var(--blue) 9%, transparent);
+  cursor: pointer;
+  white-space: nowrap;
+}
+.answer-editor .cm-cite:hover { background: color-mix(in srgb, var(--blue) 16%, transparent); }
+.answer-editor .cm-cite-missing { color: var(--red); background: var(--red-soft); cursor: default; }
+.answer-editor .cm-cite-src { font-family: var(--font-mono); font-size: 0.88em; color: color-mix(in srgb, var(--blue) 80%, var(--fg)); }
+:is(.answer-editor, .tex-editor) .cm-editor .cm-tooltip.cm-tooltip-autocomplete { padding: 4px; }
+:is(.answer-editor, .tex-editor) .cm-editor .cm-tooltip.cm-tooltip-autocomplete > ul { max-height: 16rem; max-width: min(28rem, 90vw); font-family: var(--font-sans); }
+:is(.answer-editor, .tex-editor) .cm-editor .cm-tooltip.cm-tooltip-autocomplete > ul > li { display: flex; gap: 0.6rem; align-items: baseline; padding: 0.35rem 0.6rem; border-radius: 7px; }
+:is(.answer-editor, .tex-editor) .cm-editor .cm-tooltip.cm-tooltip-autocomplete > ul > li[aria-selected] { background: var(--soft); color: var(--fg); }
+:is(.answer-editor, .tex-editor) .cm-completionLabel { font-size: 14px; font-weight: 500; white-space: nowrap; }
+:is(.answer-editor, .tex-editor) .cm-completionDetail { min-width: 0; overflow: hidden; text-overflow: ellipsis; font-size: 12px; font-style: normal; color: var(--muted); }
+.tex-editor .cm-editor .cm-tooltip { border: 1px solid var(--line); border-radius: 10px; background: var(--surface); color: var(--fg); box-shadow: var(--shadow-card); }
+.tex-editor .cm-completionLabel { font-family: var(--font-mono); font-size: 13px; }
+
+.sheet-excerpt canvas { border-radius: 6px; }
+
+/* A LaTeX document's own head, from \\twocolumn[...]: the first line has a left and a right part. */
+.article-head > p:first-child { display: flex; justify-content: space-between; gap: 1em; }
+
+/* Export PDF prints only the homework's answers. */
+.homework-print { display: none; }
+/* Export PDF, set like a LaTeX article: Computer Modern (KaTeX's own fonts),
+   justified and hyphenated, numbered pages, booktabs tables. */
+@media print {
+  @page {
+    size: auto;
+    margin: 25mm 27mm 28mm;
+    @bottom-center { content: counter(page); font-family: KaTeX_Main, serif; font-size: 10pt; }
+  }
+  html, body { background: #fff !important; }
+  body > :not(.homework-print) { display: none !important; }
+  .homework-print { display: block; color: #000; background: #fff; }
+  .homework-print-body {
+    font-family: KaTeX_Main, 'Latin Modern Roman', 'CMU Serif', 'STIX Two Text', 'Times New Roman', serif;
+    font-size: 11pt;
+    line-height: 1.38;
+    text-align: justify;
+    hyphens: auto;
+    font-kerning: normal;
+    font-variant-ligatures: common-ligatures;
+  }
+  .homework-print-body .title-block { text-align: center; margin: 0 0 26pt; }
+  .homework-print-body h1 { font-size: 17pt; font-weight: 400; line-height: 1.2; margin: 0 0 12pt; }
+  .homework-print-body .author, .homework-print-body .date { font-size: 12pt; margin: 0 0 4pt; text-align: center; }
+  .homework-print-body h2 { font-size: 14pt; font-weight: 700; line-height: 1.25; margin: 20pt 0 8pt; text-align: left; break-after: avoid; }
+  .homework-print-body h2 .title::before { content: ': '; }
+  .homework-print-body h3 { font-size: 11pt; font-weight: 700; margin: 10pt 0 3pt; break-after: avoid; }
+  .homework-print-body section { margin-bottom: 6pt; }
+  .homework-print-body .unanswered { font-style: italic; }
+
+  .homework-print-body .answer { overflow-wrap: break-word; }
+  .homework-print-body .answer > :first-child { margin-top: 0; }
+  .homework-print-body .answer p { margin: 0 0 7pt; orphans: 2; widows: 2; }
+  .homework-print-body .answer h1,
+  .homework-print-body .answer h2,
+  .homework-print-body .answer h3,
+  .homework-print-body .answer h4 { font-size: 11pt; font-weight: 700; margin: 8pt 0 3pt; break-after: avoid; }
+  .homework-print-body .answer em { font-style: italic; }
+  .homework-print-body .answer strong { font-weight: 700; }
+  .homework-print-body .answer a { color: inherit; text-decoration: none; }
+  .homework-print-body .answer ul,
+  .homework-print-body .answer ol { margin: 0 0 7pt; padding-left: 2em; text-align: left; }
+  .homework-print-body .answer ul { list-style: disc; }
+  .homework-print-body .answer ol { list-style: decimal; }
+  .homework-print-body .answer li { margin: 0 0 2pt; }
+  .homework-print-body .answer blockquote { margin: 0 2.5em 7pt; }
+  .homework-print-body .answer code { font-family: KaTeX_Typewriter, 'Latin Modern Mono', monospace; font-size: 1em; }
+  .homework-print-body .answer pre { margin: 0 0 7pt 1.5em; white-space: pre-wrap; text-align: left; font-size: 10pt; break-inside: avoid; }
+  .homework-print-body .answer img { display: block; max-width: 100%; max-height: 120mm; height: auto; margin: 6pt auto 9pt; break-inside: avoid; }
+  .homework-print-body .answer hr { border: 0; border-top: 0.4pt solid #000; margin: 10pt 0; }
+  .homework-print-body .answer table { border-collapse: collapse; margin: 6pt auto 9pt; border-top: 0.8pt solid #000; border-bottom: 0.8pt solid #000; break-inside: avoid; }
+  .homework-print-body .answer thead { border-bottom: 0.5pt solid #000; }
+  .homework-print-body .answer th,
+  .homework-print-body .answer td { padding: 2pt 7pt; text-align: left; font-weight: 400; }
+  .homework-print-body .answer .katex { font-size: 1em; }
+  .homework-print-body .answer .math-display { margin: 6pt 0 8pt; text-align: center; overflow: visible; break-inside: avoid; }
+
+  /* A LaTeX document in two columns, set like a magazine page. */
+  @page two-column {
+    margin: 19mm;
+    @bottom-center { content: counter(page); font-family: KaTeX_Main, serif; font-size: 9pt; }
+  }
+  .homework-print-body.two-column { page: two-column; column-count: 2; column-gap: 6.35mm; font-size: 10pt; line-height: 1.26; }
+  .two-column .title-block,
+  .two-column .answer .article-head { column-span: all; }
+  .two-column .answer .article-head { margin: 0 0 13pt; text-align: left; }
+  .two-column .answer .article-head p { margin: 0 0 5pt; }
+  .two-column .answer .article-head > p:first-child { margin-bottom: 11pt; padding-bottom: 3pt; border-bottom: 0.5pt solid #000; }
+  .two-column .answer .article-head h2 { margin: 3pt 0 7pt; font-size: 21pt; line-height: 1.12; font-weight: 700; }
+  .two-column .answer .article-head > p:last-child { font-size: 11pt; line-height: 1.28; margin: 0; }
+  .two-column .answer h2 { margin: 11pt 0 3pt; font-size: 11pt; }
+  .two-column .answer .tikz { margin: 6pt 0; overflow: visible; break-inside: avoid; }
+  .two-column .answer p { margin-bottom: 6pt; }
+  .homework-print-body.two-column .references-title { margin: 11pt 0 3pt; font-size: 11pt; }
+  .homework-print-body.two-column .references { font-size: 8.5pt; line-height: 1.2; }
+  .homework-print-body.two-column .references li { margin-bottom: 3pt; }
+
+  /* A document's reference list: hanging indent, or numbered labels. */
+  .homework-print-body .references-title { margin-top: 22pt; }
+  .homework-print-body .references { margin: 0; padding: 0; list-style: none; text-align: left; }
+  .homework-print-body .references li { margin: 0 0 5pt; padding-left: 2em; text-indent: -2em; break-inside: avoid; overflow-wrap: anywhere; }
+  .homework-print-body .references.numeric li { padding-left: 2.4em; text-indent: 0; position: relative; }
+  .homework-print-body .references.numeric .label { position: absolute; left: 0; }
+  .homework-print-body .references em { font-style: italic; }
+  .homework-print-body .references .url { font-family: KaTeX_Typewriter, 'Latin Modern Mono', monospace; font-size: 0.92em; }
+}

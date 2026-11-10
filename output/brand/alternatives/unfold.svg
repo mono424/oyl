@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 336 336" role="img" aria-labelledby="title desc">
+  <title id="title">Unfold — Studycall logo exploration</title>
+  <desc id="desc">Two sculpted halves open around a flowing negative space, suggesting an idea opening up.</desc>
+  <g fill="#B86C68">
+    <path d="M156 64C168 58 177 70 173 86C167 117 155 132 151 161C144 203 167 233 157 259C154 267 143 270 135 265C90 238 61 202 70 157C77 120 113 83 156 64Z"/>
+    <path d="M196 78C187 71 175 80 177 91C181 122 201 139 203 170C204 203 183 225 180 251C179 263 190 270 201 263C242 237 272 200 268 161C264 123 230 98 196 78Z"/>
+  </g>
+</svg>
