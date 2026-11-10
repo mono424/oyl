@@ -1,6 +1,6 @@
 //! Syntax colors: Oyl's restrained theme, and the Typst highlighter.
 //!
-//! The theme uses few colors on purpose: amber for commands, functions and
+//! The theme uses few colors on purpose: the accent for commands, functions and
 //! citations; a softer ink for math, strings and brackets; a faint one for
 //! comments; weight and slant for headings and emphasis. Everything else is
 //! plain text. It is built from the active [`Tokens`], so it follows light and

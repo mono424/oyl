@@ -1,9 +1,10 @@
-//! Oyl's look: frosted glass, warm ink, one amber accent.
+//! Oyl's look: frosted glass, warm ink, one slate-indigo accent.
 //!
-//! The window is a blurred pane of the desktop under a tinted *veil*. Nothing
-//! sits in boxes unless it floats: floating things are *surfaces* (a faint
-//! lighter glass) or *raised* (nearly opaque, for menus and the palette).
-//! The paper itself is the only truly opaque thing on screen.
+//! The window is solid where work happens (the *body*), so it looks the same
+//! over any desktop; only the header row is glass, a blurred pane of the
+//! desktop under a tinted *veil*. Nothing sits in boxes unless it floats:
+//! floating things are *surfaces* (a faint lighter glass) or *raised*
+//! (nearly opaque, for menus and the palette).
 //!
 //! Every crate reads colors from [`Tokens`] (`cx.tokens()`), never from
 //! literals, so light and dark stay in step. The component library's own
@@ -54,16 +55,20 @@ pub struct Tokens {
     pub dark: bool,
 
     // -- Window ----------------------------------------------------------
-    /// The tint over the blurred desktop. The window root paints it once
-    /// for the whole window; do not paint it again.
+    /// The header row's tint over the blurred desktop: the body's color, a
+    /// little see-through. The header fades from it at its top to `body` at
+    /// its bottom, so header and body meet without a line.
     pub veil: Hsla,
+    /// The window below the header: opaque, so whatever the desktop shows,
+    /// the window looks the same. The shell paints it once.
+    pub body: Hsla,
     /// A calmer, more opaque tint for where long text is read or written
     /// (the editor column), painted on top of the veil.
     pub veil_strong: Hsla,
 
     // -- Cards -----------------------------------------------------------
     /// The card the source (and the agent) sit in: recessed and darker than
-    /// the veil in dark mode, a quiet white sheet in light mode.
+    /// the body in dark mode, a quiet white sheet in light mode.
     pub card: Hsla,
     /// 1px edge of a card.
     pub card_edge: Hsla,
@@ -91,7 +96,7 @@ pub struct Tokens {
     pub text_faint: Hsla,
 
     // -- Accent ----------------------------------------------------------
-    /// The one accent: amber, like lamplight on paper.
+    /// The one accent: slate indigo, ink with a little dusk in it.
     pub accent: Hsla,
     /// Accent as a translucent fill (selected rows, chips).
     pub accent_soft: Hsla,
@@ -143,23 +148,24 @@ impl Tokens {
     pub fn dark() -> Self {
         Self {
             dark: true,
-            veil: c(0x15151AB8),
+            veil: c(0x1B1B1FE0),
+            body: c(0x1B1B1FFF),
             veil_strong: c(0x111114C7),
-            card: c(0x0C0C0FD1),
+            card: c(0x111113FF),
             card_edge: c(0xFFFFFF12),
-            card_solid: c(0x141417FF),
+            card_solid: c(0x131316FF),
             surface: c(0xFFFFFF0F),
             surface_hover: c(0xFFFFFF1A),
             surface_active: c(0xFFFFFF26),
-            raised: c(0x222227F2),
+            raised: c(0x26262BF2),
             hairline: c(0xFFFFFF17),
             hairline_strong: c(0xFFFFFF2B),
             text: c(0xEDECEAFF),
             text_soft: c(0xEDECEAA6),
             text_faint: c(0xEDECEA61),
-            accent: c(0xE9B76AFF),
-            accent_soft: c(0xE9B76A2B),
-            on_accent: c(0x1C1407FF),
+            accent: c(0x6B72A8FF),
+            accent_soft: c(0x6B72A833),
+            on_accent: c(0xF4F4FAFF),
             danger: c(0xFF7B72FF),
             danger_soft: c(0xFF7B7229),
             warning: c(0xF0C355FF),
@@ -169,9 +175,9 @@ impl Tokens {
             paper: c(0xFCFBF8FF),
             paper_shadow: c(0x00000066),
             paper_dim: c(0x15151A14),
-            selection: c(0xE9B76A47),
+            selection: c(0x6B72A85C),
             line_highlight: c(0xFFFFFF0A),
-            caret: c(0xE9B76AFF),
+            caret: c(0x6B72A8FF),
             radius_s: px(6.),
             radius_m: px(10.),
             radius_l: px(16.),
@@ -184,9 +190,10 @@ impl Tokens {
     pub fn light() -> Self {
         Self {
             dark: false,
-            veil: c(0xF3F1ECBD),
+            veil: c(0xE2E1DDE0),
+            body: c(0xE2E1DDFF),
             veil_strong: c(0xFBFAF7CC),
-            card: c(0xFFFFFFC7),
+            card: c(0xF9F8F8FF),
             card_edge: c(0x0000000F),
             card_solid: c(0xFCFBF9FF),
             surface: c(0xFFFFFF8C),
@@ -198,8 +205,8 @@ impl Tokens {
             text: c(0x1D1C1AFF),
             text_soft: c(0x1D1C1AA8),
             text_faint: c(0x1D1C1A66),
-            accent: c(0xAD6500FF),
-            accent_soft: c(0xAD650024),
+            accent: c(0x4B5390FF),
+            accent_soft: c(0x4B539024),
             on_accent: c(0xFFFFFFFF),
             danger: c(0xC6392FFF),
             danger_soft: c(0xC6392F1F),
@@ -210,9 +217,9 @@ impl Tokens {
             paper: c(0xFFFFFFFF),
             paper_shadow: c(0x00000024),
             paper_dim: c(0x00000000),
-            selection: c(0xAD650033),
+            selection: c(0x4B539033),
             line_highlight: c(0x00000008),
-            caret: c(0xAD6500FF),
+            caret: c(0x4B5390FF),
             radius_s: px(6.),
             radius_m: px(10.),
             radius_l: px(16.),
@@ -298,7 +305,7 @@ fn apply(appearance: Appearance, cx: &mut App) {
         let clear = Hsla::transparent_black();
         let t = &mut theme.colors;
 
-        t.background = k.veil;
+        t.background = k.body;
         t.foreground = k.text;
         t.border = k.hairline;
         t.input = k.hairline_strong;

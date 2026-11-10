@@ -35,7 +35,7 @@ Not a clone of the reference screenshot: it borrowed only "dark, calm, rounded".
   soft shadow, floating directly on the glass — no panel behind them, free
   scrolling, pinch/⌘-scroll zoom.
 - **The source sits on the glass too.** No editor box: text on a slightly
-  calmer veil, faint line numbers, amber caret.
+  calmer veil, faint line numbers, slate-indigo caret.
 - **The header sits flat in the window:** one row at the very top, level with
   the traffic lights, no pill, no border, no line under it — paper name and
   engine on the left, the mode switch centered, compile state, theme toggle and
@@ -45,7 +45,7 @@ Not a clone of the reference screenshot: it borrowed only "dark, calm, rounded".
   it resizes.
 - **Floating things are cards:** the chat composer, the command palette, the
   overlays.
-- **One accent:** amber — lamplight on paper. Used for the caret, selection,
+- **One accent:** slate indigo, ink with a little dusk in it. Used for the caret, selection,
   the active mode, citations, and the agent's presence. Nothing else is colored
   except meaning (error, warning, success).
 - **Type:** system UI font; Menlo for source; a serif (Charter) for the few

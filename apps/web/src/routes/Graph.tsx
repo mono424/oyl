@@ -28,7 +28,7 @@ import { Focus, HeaderEndActions, HeaderTitle } from '../components/HeaderSlot';
 /**
  * The scene is drawn by WebGL, which cannot read CSS variables, so it carries
  * Oyl's dark tokens as values (crates/oyl-ui/src/theme.rs, Tokens::dark):
- * meaning colors for the levels, the amber accent for lectures, warm ink for
+ * meaning colors for the levels, the accent for lectures, warm ink for
  * the rest. The overlay around it uses the dark theme's CSS tokens.
  */
 const INK = '#edecea';
@@ -42,7 +42,7 @@ const LEVELS: { level: ConceptLevel; label: string; color: string }[] = [
 ];
 const LEVEL = Object.fromEntries(LEVELS.map((l) => [l.level, l])) as Record<ConceptLevel, (typeof LEVELS)[number]>;
 const LEARNED = new Set<ConceptLevel>(['solid', 'mastered']);
-const LECTURE_COLOR = '#e9b76a';
+const LECTURE_COLOR = '#6b72a8';
 const BACKGROUND_COLOR = '#8e8c87';
 const SCENE = '#111114';
 
@@ -553,7 +553,7 @@ const touches = (l: Link, id: string | null) => !!id && (endId(l.source) === id 
 
 function linkColor(l: Link, selected: string | null): string {
   if (l.kind !== 'requires') return 'rgba(237,236,234,0.16)';
-  if (touches(l, selected)) return '#e9b76a';
+  if (touches(l, selected)) return '#6b72a8';
   const base = end(l.target)?.concept;
   return base && LEARNED.has(base.level) ? 'rgba(116,209,155,0.5)' : 'rgba(237,236,234,0.28)';
 }
@@ -625,7 +625,7 @@ function nodeObject(n: Node, glow: THREE.Texture, rings: Map<string, THREE.Objec
   }
 
   if (!hub) {
-    const sel = new THREE.Mesh(RING, new THREE.MeshBasicMaterial({ color: '#e9b76a', side: THREE.DoubleSide, transparent: true, opacity: 0.95, depthWrite: false }));
+    const sel = new THREE.Mesh(RING, new THREE.MeshBasicMaterial({ color: '#6b72a8', side: THREE.DoubleSide, transparent: true, opacity: 0.95, depthWrite: false }));
     sel.onBeforeRender = (_renderer, _scene, camera) => sel.quaternion.copy(camera.quaternion);
     const holder = new THREE.Group();
     holder.add(sel);

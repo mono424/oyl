@@ -1,6 +1,6 @@
 /**
  * Divider-tab colors a course can carry. Keys are stored on `course.color`.
- * Quiet, dusty tones that sit beside Oyl's one amber accent without competing
+ * Quiet, dusty tones that sit beside Oyl's one slate-indigo accent without competing
  * with it.
  */
 export const COURSE_COLORS = {

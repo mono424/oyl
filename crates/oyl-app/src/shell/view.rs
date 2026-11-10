@@ -85,6 +85,13 @@ impl Shell {
             .flex_none()
             .w_full()
             .h(px(layout::HEADER_HEIGHT))
+            // The one bit of glass: the desktop shows through a little at the
+            // top, fading into the solid body by the header's bottom edge.
+            .bg(gpui_kit::linear_gradient(
+                180.,
+                gpui_kit::linear_color_stop(cx.tokens().veil, 0.),
+                gpui_kit::linear_color_stop(cx.tokens().body, 1.),
+            ))
             .child(drag_area)
             .child(contents)
             .into_any_element()
@@ -640,7 +647,8 @@ impl Render for Shell {
             })
             .child(self.pointer_tracker(cx))
             .child(header)
-            .child(div().relative().flex_1().min_h_0().w_full().child(content))
+            // Solid below the header: the same look over any desktop.
+            .child(div().relative().flex_1().min_h_0().w_full().bg(k.body).child(content))
             .child(self.overlays.clone())
     }
 }

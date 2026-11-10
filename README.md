@@ -31,7 +31,7 @@ Claude Code or Codex login already on your machine — no API keys needed.
 - Syntax highlighting, completion for citations (`\cite{…}`, `@key`), labels
   and environments, inline compiler errors, autosave, three-way merge when a
   file changes underneath you.
-- Light and dark, one amber accent, a command palette (⌘K) for everything.
+- Light and dark, one slate-indigo accent, a command palette (⌘K) for everything.
 
 **AI**
 - **Agent** tab: chat with an agent that edits the paper's files in place, with

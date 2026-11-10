@@ -7,7 +7,7 @@ the landing page
 ([`apps/landing/src/styles/global.css`](../../apps/landing/src/styles/global.css))
 mirror them as CSS variables, light and dark. Change a token in all three.
 
-Frosted glass, warm ink, one amber accent. Floating things are near-opaque
+Frosted glass, warm ink, one slate-indigo accent. Floating things are near-opaque
 sheets with hairline edges; the text being written sits in a calmer card; color
 means something (the accent, danger, warning, success) and nothing else is
 colored. No heavy shadows.
@@ -25,15 +25,16 @@ dark with `data-theme="dark"` (the knowledge graph's scene does).
 
 | `theme.rs` (`Tokens`) | Light | Dark | Web CSS variable | Tailwind (web) |
 | --- | --- | --- | --- | --- |
-| `veil` | `#F3F1EC` 74% | `#15151A` 72% | `--veil` (80%, over `--canvas`) | `bg-veil`, `.oyl-window` |
+| `veil` (the header row's glass, fading into `body`) | `#E2E1DD` 88% | `#1B1B1F` 88% | `--veil` (80%, over `--canvas`) | `bg-veil`, `.oyl-window` |
+| `body` (the window below the header, opaque) | `#E2E1DD` | `#1B1B1F` | (the page sits on `--canvas`, so it never shows the desktop) | |
 | `veil_strong` | `#FBFAF7` 80% | `#111114` 78% | `--veil-strong` | |
-| `card` / `card_edge` | white 78% / black 6% | `#0C0C0F` 82% / white 7% | `--card` / `--card-edge` | `.oyl-card` |
-| `card_solid` | `#FCFBF9` | `#141417` | `--surface` (cards, inputs: `#FDFCFA` / `#1C1C21`) | `bg-surface` |
+| `card` / `card_edge` | `#F9F8F8` / black 6% | `#111113` / white 7% | `--card` / `--card-edge` | `.oyl-card` |
+| `card_solid` | `#FCFBF9` | `#131316` | `--surface` (cards, inputs: `#FDFCFA` / `#1C1C21`) | `bg-surface` |
 | `surface` / `_hover` / `_active` | white 55/75/90% | white 6/10/15% | `--soft` / `--hover` / `--active` (as ink tints, so they work on any sheet) | `bg-soft`, `bg-hover`, `bg-active` |
-| `raised` | white 95% | `#222227` 95% | `--raised` | `bg-raised`, `.oyl-glass` |
+| `raised` | white 95% | `#26262B` 95% | `--raised` | `bg-raised`, `.oyl-glass` |
 | `hairline` / `hairline_strong` | black 8% / 15% | white 9% / 17% | `--line` / `--line-strong` | `border-line`, `border-line-strong` |
 | `text` / `text_soft` / `text_faint` | `#1D1C1A` 100/66/40% | `#EDECEA` 100/65/38% | `--fg` / `--muted` / `--faint` | `text-fg`, `text-muted`, `text-faint` |
-| `accent` / `accent_soft` / `on_accent` | `#AD6500` / 14% / white | `#E9B76A` / 17% / `#1C1407` | `--accent` / `--accent-soft` / `--on-accent` (`--accent-hover` = 88%) | `bg-accent`, `text-accent`, `bg-accent-soft`, `text-on-accent` |
+| `accent` / `accent_soft` / `on_accent` | `#4B5390` / 14% / white | `#6B72A8` / 20% / `#F4F4FA` | `--accent` / `--accent-soft` / `--on-accent` (`--accent-hover` = 88%) | `bg-accent`, `text-accent`, `bg-accent-soft`, `text-on-accent` |
 | `danger` (+ `_soft`) | `#C6392F` | `#FF7B72` | `--danger` / `--danger-soft` | `text-danger`, `bg-danger-soft` |
 | `warning` (+ `_soft`) | `#9A6200` | `#F0C355` | `--warning` / `--warning-soft` | `text-warning`, `bg-warning-soft` |
 | `success` (+ `_soft`) | `#2B7A4B` | `#74D19B` | `--success` / `--success-soft` | `text-success`, `bg-success-soft` |
@@ -48,7 +49,7 @@ The landing page uses the same values under the desktop names (`--veil`,
 `--surface`, `--hairline`, `--text-soft`, `--accent`, ...).
 
 Where a browser has no desktop to blur, the window sits on `--canvas` (a
-warm off-white or near-black) with a faint amber light (`--glow`) behind it,
+warm off-white or near-black) with a faint slate-indigo light (`--glow`) behind it,
 so the glass still reads as glass.
 
 The knowledge graph is drawn by WebGL, which cannot read CSS variables: its

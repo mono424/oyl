@@ -12,6 +12,7 @@ use gpui_kit::base::input::{
     EditorState, InputEditsEvent, Position, RopeExt as _, TextDecorationCollection,
 };
 use gpui_kit::component::input::Editor;
+use gpui_kit::component::{Sizable as _, Size as ComponentSize};
 use gpui_kit::prelude::*;
 use gpui_kit::{
     App, Bounds, ClipboardEntry, ClipboardItem, Context, Div, Entity, EntityId, EventEmitter,
@@ -66,11 +67,17 @@ pub const AUTOSAVE_DELAY: Duration = Duration::from_millis(400);
 /// How long the cursor has to rest before [`EditorEvent::CursorMoved`].
 pub const CURSOR_DEBOUNCE: Duration = Duration::from_millis(150);
 
-/// Room around the text inside the card the app puts the pane in: top,
-/// right, bottom, left (the left side also holds the line numbers).
-const PADDING: (f32, f32, f32, f32) = (16., 20., 16., 12.);
+/// Room beside the text, outside the editor: left and right. The editor
+/// fills the card from top to bottom, so the text scrolls right up to the
+/// card's edges; the room above the first line and below the last is the
+/// editor's own, inside what scrolls (its size tier, [`EDITOR_SIZE`]). The
+/// left also keeps the line numbers off the card's edge.
+const SIDES: (f32, f32) = (10., 0.);
 /// The same in zen mode, where the text has the whole card to itself.
-const ZEN_PADDING: (f32, f32, f32, f32) = (20., 32., 20., 32.);
+const ZEN_SIDES: (f32, f32) = (32., 20.);
+/// The editor's size tier: 10 px above the first line and below the last,
+/// 12 px right of the text, inside the scrolling area.
+const EDITOR_SIZE: ComponentSize = ComponentSize::Large;
 /// The widest the completion menu gets.
 const COMPLETION_MENU_WIDTH: Pixels = px(440.);
 /// Leading, as a multiple of the font size. Prose wants air between lines.
@@ -891,6 +898,7 @@ impl EditorPane {
             .font_family(tokens.mono_font.clone())
             .text_size(px(self.font_size))
             .line_height(relative(LINE_HEIGHT))
+            .with_size(EDITOR_SIZE)
             .h(relative(1.))
             .w_full()
             .aria_label(format!("Source of {}", buffer.file_name()))
@@ -924,7 +932,9 @@ impl EditorPane {
                 .items_start()
                 .gap(px(8.))
                 .pt(px(8.))
+                .pb(px(12.))
                 .pl(px(6.))
+                .pr(px(12.))
                 .font_family(tokens.ui_font.clone())
                 .text_xs()
                 .line_height(relative(1.4))
@@ -1037,17 +1047,14 @@ impl Render for EditorPane {
             .active
             .and_then(|index| self.render_message(index, &tokens));
 
-        let (top, right, bottom, left) = if zen { ZEN_PADDING } else { PADDING };
+        let (left, right) = if zen { ZEN_SIDES } else { SIDES };
         let column = div()
             .flex()
             .flex_col()
             .h_full()
             .min_h_0()
-            .pt(px(top))
             .pr(px(right))
-            .pb(px(bottom))
             .pl(px(left))
-            // The text is clipped at the padding, never drawn into it.
             .children(editor.map(|editor| {
                 div()
                     .flex_1()

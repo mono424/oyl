@@ -19,7 +19,7 @@ docs. Use a comma, period, colon or a plain hyphen.
 
 ## Design (both sides)
 
-One look: frosted glass, warm ink, one amber accent, radii 6/10/16, the system
+One look: frosted glass, warm ink, one slate-indigo accent, radii 6/10/16, the system
 UI font, Menlo for code, Charter for the few display moments, no heavy
 shadows. The tokens are defined once in `crates/oyl-ui/src/theme.rs` and
 mirrored for the web in `apps/web/src/styles/global.css` and

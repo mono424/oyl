@@ -1,7 +1,7 @@
 @import 'tailwindcss';
 
 /*
- * Oyl's look on the web: frosted glass, warm ink, one amber accent.
+ * Oyl's look on the web: frosted glass, warm ink, one slate-indigo accent.
  * The tokens mirror crates/oyl-ui/src/theme.rs (the desktop app), light and
  * dark; docs/brand/README.md has the mapping. Components never use color
  * literals, only these tokens through Tailwind (bg-surface, text-muted,
@@ -10,7 +10,7 @@
  * The window is a pane of glass (--veil) over a warm canvas. Things that
  * float on it are near-opaque sheets (--surface, --raised) with hairline
  * edges, and the text being written sits in a calmer card (--card). Color
- * means something: amber is the accent (the main action, the caret, the
+ * means something: slate indigo is the accent (the main action, the caret, the
  * selection, citations, what is running), danger, warning and success are
  * for state.
  *
@@ -21,7 +21,7 @@
 :root {
   /* Window */
   --canvas: #e8e5de;
-  --glow: rgb(173 101 0 / 0.07);
+  --glow: rgb(75 83 144 / 0.07);
   --veil: rgb(243 241 236 / 0.8);
   --veil-strong: rgb(251 250 247 / 0.86);
   /* The card the text being written sits in: a quiet white sheet. */
@@ -41,10 +41,10 @@
   --fg: #1d1c1a;
   --muted: rgb(29 28 26 / 0.66);
   --faint: rgb(29 28 26 / 0.4);
-  /* The one accent: amber, like lamplight on paper. */
-  --accent: #ad6500;
-  --accent-hover: rgb(173 101 0 / 0.88);
-  --accent-soft: rgb(173 101 0 / 0.14);
+  /* The one accent: slate indigo, ink with a little dusk in it. */
+  --accent: #4b5390;
+  --accent-hover: rgb(75 83 144 / 0.88);
+  --accent-soft: rgb(75 83 144 / 0.14);
   --on-accent: #ffffff;
   /* Meaning */
   --danger: #c6392f;
@@ -55,7 +55,7 @@
   --success-soft: rgb(43 122 75 / 0.12);
   /* Paper: PDF pages and sites are always paper-white. */
   --paper: #ffffff;
-  --selection: rgb(173 101 0 / 0.2);
+  --selection: rgb(75 83 144 / 0.2);
   --overlay: rgb(29 28 26 / 0.18);
   /* No heavy shadows: a hairline does the work, a shadow only lifts menus. */
   --shadow-card: 0 1px 2px rgb(0 0 0 / 0.04);
@@ -68,7 +68,7 @@
 :root[data-theme='dark'],
 [data-theme='dark'] {
   --canvas: #0c0c0e;
-  --glow: rgb(233 183 106 / 0.05);
+  --glow: rgb(107 114 168 / 0.05);
   --veil: rgb(21 21 26 / 0.8);
   --veil-strong: rgb(17 17 20 / 0.86);
   /* Recessed: darker than the veil. */
@@ -84,10 +84,10 @@
   --fg: #edecea;
   --muted: rgb(237 236 234 / 0.65);
   --faint: rgb(237 236 234 / 0.38);
-  --accent: #e9b76a;
-  --accent-hover: rgb(233 183 106 / 0.88);
-  --accent-soft: rgb(233 183 106 / 0.17);
-  --on-accent: #1c1407;
+  --accent: #6b72a8;
+  --accent-hover: rgb(107 114 168 / 0.88);
+  --accent-soft: rgb(107 114 168 / 0.2);
+  --on-accent: #f4f4fa;
   --danger: #ff7b72;
   --danger-soft: rgb(255 123 114 / 0.16);
   --warning: #f0c355;
@@ -95,7 +95,7 @@
   --success: #74d19b;
   --success-soft: rgb(116 209 155 / 0.16);
   --paper: #fcfbf8;
-  --selection: rgb(233 183 106 / 0.28);
+  --selection: rgb(107 114 168 / 0.36);
   --overlay: rgb(0 0 0 / 0.4);
   --shadow-card: 0 1px 2px rgb(0 0 0 / 0.25);
   --shadow-raised: 0 1px 2px rgb(0 0 0 / 0.3), 0 14px 36px -18px rgb(0 0 0 / 0.7);

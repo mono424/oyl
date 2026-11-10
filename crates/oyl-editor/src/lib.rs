@@ -3,7 +3,7 @@
 //! [`EditorPane`] holds the open files of a paper and shows one at a time,
 //! with no chrome and no background of its own: the app puts it in a card
 //! (in zen mode with roomier margins). It is written for prose:
-//! soft-wrapped, generously leaded Menlo, faint line numbers, an amber caret.
+//! soft-wrapped, generously leaded Menlo, faint line numbers, a slate-indigo caret.
 //!
 //! What it does for the app:
 //!

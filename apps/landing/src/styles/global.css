@@ -2,13 +2,13 @@
 
 /*
  * Oyl's look (crates/oyl-ui/src/theme.rs, mirrored in apps/web): frosted
- * glass, warm ink, one amber accent, radii 6/10/16, the system UI font and
+ * glass, warm ink, one slate-indigo accent, radii 6/10/16, the system UI font and
  * Charter for display headings, no heavy shadows. Light and dark follow
  * `data-theme` on <html> (set before the first paint, flipped by the toggle).
  */
 :root {
   --canvas: #e8e5de;
-  --glow: rgb(173 101 0 / 0.08);
+  --glow: rgb(75 83 144 / 0.08);
   --veil: rgb(243 241 236 / 0.8);
   --surface: rgb(255 255 255 / 0.55);
   --surface-hover: rgb(255 255 255 / 0.75);
@@ -21,15 +21,15 @@
   --text: #1d1c1a;
   --text-soft: rgb(29 28 26 / 0.66);
   --text-faint: rgb(29 28 26 / 0.42);
-  --accent: #ad6500;
-  --accent-hover: rgb(173 101 0 / 0.88);
-  --accent-soft: rgb(173 101 0 / 0.14);
+  --accent: #4b5390;
+  --accent-hover: rgb(75 83 144 / 0.88);
+  --accent-soft: rgb(75 83 144 / 0.14);
   --on-accent: #ffffff;
   --danger: #c6392f;
   --danger-soft: rgb(198 57 47 / 0.12);
   --success: #2b7a4b;
   --success-soft: rgb(43 122 75 / 0.12);
-  --selection: rgb(173 101 0 / 0.2);
+  --selection: rgb(75 83 144 / 0.2);
   --overlay: rgb(29 28 26 / 0.22);
   --shadow: 0 1px 2px rgb(0 0 0 / 0.04);
   --shadow-raised: 0 1px 2px rgb(0 0 0 / 0.04), 0 18px 48px -24px rgb(0 0 0 / 0.26);
@@ -45,7 +45,7 @@
 }
 :root[data-theme='dark'] {
   --canvas: #0c0c0e;
-  --glow: rgb(233 183 106 / 0.06);
+  --glow: rgb(107 114 168 / 0.06);
   --veil: rgb(21 21 26 / 0.8);
   --surface: rgb(255 255 255 / 0.06);
   --surface-hover: rgb(255 255 255 / 0.1);
@@ -58,15 +58,15 @@
   --text: #edecea;
   --text-soft: rgb(237 236 234 / 0.65);
   --text-faint: rgb(237 236 234 / 0.4);
-  --accent: #e9b76a;
-  --accent-hover: rgb(233 183 106 / 0.88);
-  --accent-soft: rgb(233 183 106 / 0.17);
-  --on-accent: #1c1407;
+  --accent: #6b72a8;
+  --accent-hover: rgb(107 114 168 / 0.88);
+  --accent-soft: rgb(107 114 168 / 0.2);
+  --on-accent: #f4f4fa;
   --danger: #ff7b72;
   --danger-soft: rgb(255 123 114 / 0.16);
   --success: #74d19b;
   --success-soft: rgb(116 209 155 / 0.16);
-  --selection: rgb(233 183 106 / 0.28);
+  --selection: rgb(107 114 168 / 0.36);
   --overlay: rgb(0 0 0 / 0.45);
   --shadow: 0 1px 2px rgb(0 0 0 / 0.25);
   --shadow-raised: 0 1px 2px rgb(0 0 0 / 0.3), 0 18px 48px -24px rgb(0 0 0 / 0.75);
