@@ -278,7 +278,10 @@ at once on the API and at its next database sign-in (`sync_device` holds the
 key's hash, `apps/api/src/sync-device.ts`). `GET /api/sync/database` tells the
 app where the database is: the Worker's own address as `wss://.../rpc`, or
 `DB_PUBLIC_URL` when clients reach it elsewhere. The web app lists synced
-papers under **Papers** and shows a revision's files read-only.
+papers under **Papers** and writes their text files live with every Mac, as
+sp00ky CRDT fields (`paper_file.content`, Loro; docs/sync-protocol.md, Live
+text). `crates/oyl-sync/tests/live_text.rs` runs two Macs against the local
+stack (`OYL_LIVE_ENDPOINT` and `OYL_LIVE_API`).
 
 `apps/api/test/sync.test.ts` covers every endpoint; its database half runs with
 `OYL_TEST_SURREAL=1` against the local SurrealDB, like the other tests.

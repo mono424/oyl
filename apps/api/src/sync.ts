@@ -587,6 +587,99 @@ export async function blobResponse(env: Env, owner: string, sha: string, ifNoneM
   });
 }
 
+// ── Live text (paper_file) ────────────────────────────────────────────────
+
+/** The files written live (docs/sync-protocol.md, Live text): LaTeX, Typst, BibTeX, Markdown, plain text. */
+const LIVE_EXTENSIONS = new Set(['tex', 'ltx', 'sty', 'cls', 'bib', 'bst', 'bbx', 'cbx', 'dtx', 'typ', 'md', 'markdown', 'txt']);
+/** Larger text files are synced through revisions only. */
+export const MAX_LIVE_BYTES = 512 * 1024;
+
+export const isLivePath = (path: string) => {
+  const dot = path.lastIndexOf('.');
+  return dot > path.lastIndexOf('/') + 1 && LIVE_EXTENSIONS.has(path.slice(dot + 1).toLowerCase());
+};
+
+/** A paper's live file for `path`: the same id wherever it is worked out. */
+export const liveFileId = async (paperId: string, path: string) => `paper_file:f${(await sha256Hex(`${paperId}\n${path}`)).slice(0, 32)}`;
+
+/** The bytes as text, or null for bytes that are not UTF-8 text. */
+function utf8Text(bytes: Uint8Array): string | null {
+  if (bytes.subarray(0, 8192).includes(0)) return null;
+  try {
+    return new TextDecoder('utf-8', { fatal: true, ignoreBOM: true }).decode(bytes);
+  } catch {
+    return null;
+  }
+}
+
+/** A small blob's bytes (at most a few parts). */
+async function blobBytes(env: Env, owner: string, sha: string): Promise<Uint8Array | null> {
+  await ensureServerTable(env, 'sync_blob');
+  const db = Surreal.system(env);
+  const id = await blobId(owner, sha);
+  const row = await db.query<{ size: number; parts: number } | null>(
+    'RETURN (SELECT size, parts FROM type::record($id) WHERE owner = type::record($owner))[0]',
+    { id, owner },
+  );
+  if (!row) return null;
+  const out = new Uint8Array(row.size);
+  for (let n = 0, at = 0; n < row.parts; n++) {
+    const part = fromBase64(await db.query<string>(`RETURN encoding::base64::encode(type::file('materials', $key).get());`, { key: partPath(id, n) }));
+    out.set(part.subarray(0, Math.max(0, row.size - at)), at);
+    at += part.byteLength;
+  }
+  return out;
+}
+
+export interface LiveFile {
+  id: string;
+  path: string;
+  /** SHA-256 of the text the file's document starts from. */
+  seed: string;
+}
+
+/**
+ * Makes sure every live text file of the paper's head has its `paper_file`
+ * row, made with that revision's text as the seed, and answers all of them.
+ * Rows are only ever made here; one that another request made meanwhile is
+ * fine. A path deleted from the paper keeps its row (and its document) for
+ * when it comes back.
+ */
+export async function ensureLiveFiles(env: Env, userId: string, rawPaper: unknown): Promise<LiveFile[]> {
+  const paper = await ownedPaper(env, userId, rawPaper);
+  const db = Surreal.system(env);
+  const read = () =>
+    db.query<LiveFile[]>(
+      'SELECT id, path, seed FROM paper_file WHERE paper = type::record($paper) AND owner = type::record($owner) ORDER BY path',
+      { paper: paper.id, owner: userId },
+    );
+  const rows = (await read()) ?? [];
+  const head = paper.head && !paper.deleted_at ? await revisionOf(env, userId, paper.id, paper.head) : null;
+  if (!head) return rows;
+  const have = new Set(rows.map((r) => r.path));
+  let made = false;
+  for (const [path, file] of Object.entries(JSON.parse(head.files) as Record<string, FileEntry>)) {
+    if (have.has(path) || !isLivePath(path) || file.size > MAX_LIVE_BYTES) continue;
+    const bytes = await blobBytes(env, userId, file.sha256);
+    const text = bytes ? utf8Text(bytes) : null;
+    if (text === null) continue;
+    try {
+      await db.query(
+        `CREATE type::record($id) CONTENT {
+           owner: type::record($owner), paper: type::record($paper), path: $path, seed: $seed, content: $text
+         } RETURN NONE`,
+        { id: await liveFileId(paper.id, path), owner: userId, paper: paper.id, path, seed: file.sha256, text },
+      );
+      made = true;
+    } catch (error) {
+      // Made by another request meanwhile: the read below has it.
+      if (!(error instanceof Error && /already exists|already contains/i.test(error.message))) throw error;
+      made = true;
+    }
+  }
+  return made ? ((await read()) ?? []) : rows;
+}
+
 // ── The database, for live reads ──────────────────────────────────────────
 
 /** Where the desktop app reads its papers live through sp00ky. */
@@ -671,9 +764,23 @@ syncRoutes.get('/papers/:id/revisions/:rev', requireSyncCaller, async (c) =>
 );
 
 syncRoutes.post('/papers/:id/revisions', requireSyncCaller, async (c) => {
-  const result = await commitRevision(c.env, c.var.caller, c.req.param('id'), await jsonBody(c.req.raw, MAX_COMMIT_BODY));
+  const body = await jsonBody(c.req.raw, MAX_COMMIT_BODY);
+  const result = await commitRevision(c.env, c.var.caller, c.req.param('id'), body);
+  if (result.status === 201) {
+    // A text file new to the paper gets its live document now. The commit
+    // stands either way: the next `POST /papers/:id/files` makes up for it.
+    try {
+      await ensureLiveFiles(c.env, c.var.caller.userId, c.req.param('id'));
+    } catch (error) {
+      console.warn('sync: live files after a commit', error);
+    }
+  }
   return c.json(result.body, result.status);
 });
+
+syncRoutes.post('/papers/:id/files', requireSyncCaller, async (c) =>
+  c.json(await ensureLiveFiles(c.env, c.var.caller.userId, c.req.param('id'))),
+);
 
 syncRoutes.post('/blobs/missing', requireSyncCaller, async (c) => {
   const body = await jsonBody(c.req.raw, MAX_COMMIT_BODY);

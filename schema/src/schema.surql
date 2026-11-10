@@ -750,6 +750,7 @@ DEFINE INDEX OVERWRITE paper_sync_owner ON TABLE paper_sync FIELDS owner;
 
 DEFINE EVENT OVERWRITE paper_sync_deleted ON TABLE paper_sync WHEN $event = "DELETE" THEN {
   DELETE paper_revision WHERE paper = $before.id;
+  DELETE paper_file WHERE paper = $before.id;
 };
 
 -- One snapshot of a paper. Never changed once written.
@@ -779,6 +780,35 @@ DEFINE FIELD OVERWRITE created_at ON TABLE paper_revision TYPE datetime DEFAULT 
 
 -- Unique: two commits on the same head cannot both become revision n.
 DEFINE INDEX OVERWRITE paper_revision_paper ON TABLE paper_revision FIELDS paper, n UNIQUE;
+
+-- A text file of a synced paper, written live by the web app and Oyl on the
+-- Mac at once (docs/sync-protocol.md, Live text). `content` is a sp00ky CRDT
+-- field: a Loro document whose edits travel as `paper_file__crdt_log` rows,
+-- merged by every side as they arrive and folded into `content` by the sync
+-- node. Only the API creates these rows, one per text path
+-- (`POST /api/sync/papers/:id/files`), with the id `paper_file:f` + the first
+-- 32 hex digits of SHA-256("<paper id>\n<path>"). `seed` names the blob the
+-- document starts from: every client adds that text as the same first edit
+-- (made by a peer derived from the id), so it lands once however many add it.
+-- Revisions stay the history, and the only home of the other files.
+DEFINE TABLE OVERWRITE paper_file SCHEMAFULL
+  PERMISSIONS
+    FOR select, update WHERE owner = $auth.id
+    FOR create, delete WHERE false;
+
+DEFINE FIELD OVERWRITE owner ON TABLE paper_file TYPE record<user> READONLY;
+DEFINE FIELD OVERWRITE paper ON TABLE paper_file TYPE record<paper_sync> READONLY; -- @parent
+-- Relative to the paper folder, as in a revision's files.
+DEFINE FIELD OVERWRITE path ON TABLE paper_file TYPE string READONLY;
+-- SHA-256 of the text the document starts from (a blob of the owner's).
+DEFINE FIELD OVERWRITE seed ON TABLE paper_file TYPE string READONLY;
+-- The text, as the sync node last folded it. Edited only through the CRDT.
+-- @crdt text
+-- @opaque
+DEFINE FIELD OVERWRITE content ON TABLE paper_file TYPE string;
+DEFINE FIELD OVERWRITE created_at ON TABLE paper_file TYPE datetime DEFAULT time::now() READONLY;
+
+DEFINE INDEX OVERWRITE paper_file_path ON TABLE paper_file FIELDS paper, path UNIQUE;
 
 -- ##################################################################
 -- API KEYS (MCP access for AI clients)

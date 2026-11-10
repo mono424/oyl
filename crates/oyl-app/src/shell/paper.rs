@@ -431,6 +431,7 @@ impl Shell {
         }
         self.refresh_index(cx);
         self.cloud_saved();
+        self.live_text_changed(&batch);
     }
 
     /// Re-reads `refs.bib` and hands the editor the new citations.

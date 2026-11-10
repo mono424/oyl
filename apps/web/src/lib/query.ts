@@ -143,6 +143,12 @@ export function useCloudPaper(db: Db, userId: () => string | null | undefined, p
 }
 
 /**
+ * A synced paper's live text files (lib/paper-live.ts): their seed and the
+ * text the sync node last folded, which trails the live edits by seconds.
+ */
+export const qPaperFiles = (db: Db, paperId: string) => db.query('paper_file').where({ paper: paperId }).orderBy('path', 'asc').build();
+
+/**
  * A synced paper's latest revisions, newest first, each with its file map
  * (`files`, JSON of path to { sha256, size }). The bytes come from the API
  * (lib/api.ts syncBlob).

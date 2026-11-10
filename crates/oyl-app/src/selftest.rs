@@ -122,6 +122,7 @@ fn cloud_options(
         tokens: tokens.clone(),
         timing: oyl_sync::Timing {
             push_delay: Duration::from_millis(300),
+            push_max_delay: Duration::from_secs(1),
             pull_every: Duration::from_secs(1),
             live_pull_every: Duration::from_secs(1),
             backoff_min: Duration::from_millis(200),

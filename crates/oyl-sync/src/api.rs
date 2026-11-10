@@ -531,6 +531,18 @@ impl Client {
         reply.json()
     }
 
+    /// Makes sure every text file of the paper's head is written live (has
+    /// its `paper_file` row, docs/sync-protocol.md, Live text). Only the API
+    /// makes those rows; the live text reads them from the database.
+    pub fn live_files(&self, paper: &str) -> Result<()> {
+        let reply = self.post_json(
+            &format!("/papers/{}/files", encode_id(paper)),
+            &serde_json::json!({}),
+            true,
+        )?;
+        if reply.ok() { Ok(()) } else { Err(reply.error()) }
+    }
+
     /// The paper's latest revision with its files; `None` before the first
     /// commit.
     pub fn head(&self, paper: &str) -> Result<Option<Revision>> {

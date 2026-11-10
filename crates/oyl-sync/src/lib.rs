@@ -23,6 +23,9 @@
 //! - [`LiveCloud`]: the account's papers live from Oyl Cloud's database
 //!   through sp00ky, so the library and open papers hear of changes at
 //!   once. Commits and blobs stay on the API.
+//! - [`LiveText`]: the paper's text files written live with the web app and
+//!   other Macs, through sp00ky's CRDT fields (Loro); revisions stay the
+//!   history and carry the other files.
 //! - [`mock::MockCloud`]: an in-process server speaking the protocol, for
 //!   tests and the app's self-test.
 
@@ -34,6 +37,7 @@ mod error;
 mod files;
 mod keychain;
 mod live;
+mod live_text;
 pub mod mock;
 mod runner;
 pub mod sign_in;
@@ -48,6 +52,7 @@ pub use error::{Result, SyncError};
 pub use files::{MAX_BLOB_BYTES, nfc_key};
 pub use keychain::{Keychain, MemoryTokens, TokenStore, token_key};
 pub use live::{ACCESS, Database, LiveCloud, LivePapers};
+pub use live_text::{LiveEvent, LivePaths, LiveText};
 pub use runner::{Event, Runner, Status, Timing};
 pub use state::{PendingReview, STATE_FILE, SyncState};
 

@@ -3,22 +3,23 @@ import { createEffect, createMemo, createSignal, For, lazy, onCleanup, onMount, 
 import { Portal } from 'solid-js/web';
 import { type GetTable, type TableModel, useDb, useQuery } from '@spooky-sync/client-solid';
 import type { EditorView } from '@codemirror/view';
-import { Download, FileCode2, FileDown, FileText, History, ImagePlus, Library, PanelRight, Plus, Trash2, X } from 'lucide-solid';
+import { FileCode2, FileDown, FileText, History, ImagePlus, Library, PanelRight, Plus, Trash2, X } from 'lucide-solid';
 import type { schema } from '../schema.gen';
 import { answerImageUrl, type DocumentVersion, documentText, restoreDocumentVersion, uploadDocumentImage } from '../lib/api';
 import { texImageFile } from '../lib/images';
 import { useAuth } from '../lib/auth';
 import {
-  authorList,
   citationSyntax,
   citations,
   type CiteStyle,
   citeYear,
   insertCitation,
   insertTexCitation,
+  joinAuthors,
   type Paper,
   printCitations,
   updatePapers,
+  withReferences,
 } from '../lib/citations';
 import { addedImage, latexLayout, latexToMarkdown, texImageKeys, texWithImageFiles } from '../../../../shared/latex';
 import { lectureMarkdown } from '../../../../shared/lecture';
@@ -29,6 +30,7 @@ import { renderMarkdown } from '../lib/markdown';
 import { exportPdf } from '../lib/print';
 import { firstRow, qDocument, qDocumentList, qDocumentVersions, qMaterials, qPapers } from '../lib/query';
 import { Button, IconButton, PageLoader } from '../components/ui';
+import { download, DownloadMenu } from '../components/DownloadMenu';
 import { Focus, HeaderEndActions, HeaderTitle } from '../components/HeaderSlot';
 import { CourseCrumb } from '../components/CourseCrumb';
 import { SidePanel } from '../components/SidePanel';
@@ -95,15 +97,6 @@ const toPaper = (p: PaperRow): Paper => ({
 /** The tabs open beside a document, remembered per document on this device. */
 const tabsKey = (documentId: string) => `document-tabs:${documentId}`;
 
-/** Saves a text as a file. */
-function download(name: string, body: string | Uint8Array<ArrayBuffer>, type: string) {
-  const url = URL.createObjectURL(new Blob([body], { type }));
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = name;
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
-}
 const fileName = (title: string) => title.replace(/[\\/:*?"<>|]+/g, ' ').trim() || 'document';
 
 function Workspace(props: { doc: DocumentRow; papers: PaperRow[]; courseKey: string }) {
@@ -295,11 +288,7 @@ function Workspace(props: { doc: DocumentRow; papers: PaperRow[]; courseKey: str
     previewTimer = setTimeout(() => setPreviewSource(md), 250);
   });
   onCleanup(() => clearTimeout(previewTimer));
-  const render = (md: string) => {
-    const printed = printCitations(md, papers(), style());
-    const refs = printed.cited.map((p, i) => `${style() === 'numeric' ? `[${i + 1}] ` : ''}${referenceMarkdown(p, style())}`);
-    return renderMarkdown(`${printed.markdown}${refs.length ? `\n\n## References\n\n${refs.join('\n\n')}` : ''}`);
-  };
+  const render = (md: string) => renderMarkdown(withReferences(md, papers(), style()));
   const preview = createMemo(() => render(previewSource()));
   const downloadMd = () => download(`${fileName(props.doc.title)}.md`, text(props.doc), 'text/markdown');
   // An added image is `answer-image:<key>` in the source, a path TeX cannot
@@ -642,46 +631,6 @@ function Workspace(props: { doc: DocumentRow; papers: PaperRow[]; courseKey: str
   );
 }
 
-/** The document's downloads, behind one button. */
-function DownloadMenu(props: { items: { label: string; detail: string; icon: typeof Download; run: () => void }[] }) {
-  const [open, setOpen] = createSignal(false);
-  return (
-    <div class="relative">
-      <IconButton label="Download" size="sm" title="Download" aria-haspopup="menu" aria-expanded={open()} onClick={() => setOpen(!open())}>
-        <Download size={16} stroke-width={1.75} />
-      </IconButton>
-      <Show when={open()}>
-        <div class="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-        <div
-          role="menu"
-          class="absolute right-0 z-50 mt-2 w-64 oyl-glass rounded-2xl border-line-strong p-1.5 shadow-raised"
-          onKeyDown={(e) => e.key === 'Escape' && setOpen(false)}
-        >
-          <For each={props.items}>
-            {(it) => (
-              <button
-                type="button"
-                role="menuitem"
-                class="flex w-full items-center gap-3 rounded-xl px-3 py-2 text-left hover:bg-soft"
-                onClick={() => {
-                  setOpen(false);
-                  it.run();
-                }}
-              >
-                <it.icon size={16} stroke-width={1.75} class="shrink-0 text-muted" />
-                <span class="min-w-0">
-                  <span class="block text-[14px]">{it.label}</span>
-                  <span class="block truncate text-[12px] text-muted">{it.detail}</span>
-                </span>
-              </button>
-            )}
-          </For>
-        </div>
-      </Show>
-    </div>
-  );
-}
-
 function EditableTitle(props: { value: string; onSave: (v: string) => void }) {
   const [editing, setEditing] = createSignal(false);
   return (
@@ -711,22 +660,6 @@ function EditableTitle(props: { value: string; onSave: (v: string) => void }) {
     </Show>
   );
 }
-
-/** A reference list entry as Markdown, for the LaTeX preview. */
-function referenceMarkdown(p: Paper, style: CiteStyle): string {
-  const authors = joinAuthors(p.authors);
-  const venue = p.venue?.trim() ? ` *${p.venue.trim()}*${style === 'numeric' ? ',' : '.'}` : '';
-  const url = p.url?.trim() ? ` <${p.url.trim()}>` : '';
-  return style === 'numeric'
-    ? `${authors ? `${authors}, ` : ''}“${p.title},”${venue} ${citeYear(p)}.${url}`
-    : `${authors ? `${authors} ` : ''}(${citeYear(p)}). ${p.title}.${venue}${url}`;
-}
-
-/** "A, B and C", as a reference list writes the authors. */
-const joinAuthors = (authors: string | null | undefined) => {
-  const list = authorList(authors);
-  return list.length > 1 ? `${list.slice(0, -1).join(', ')} and ${list.at(-1)}` : (list[0] ?? '');
-};
 
 /**
  * What Export PDF prints: the text with its citations formatted, then the

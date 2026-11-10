@@ -21,6 +21,7 @@ use oyl_history::{BranchId, FinishOutcome, History, HistoryError, Resolution, Re
 use oyl_model::{Author, Engine};
 
 use crate::api::{Client, Commit, FileEntry, RemotePaper, Revision};
+use crate::live_text::LivePaths;
 use crate::error::{Result, SyncError, io_err};
 use crate::files::{self, HashCache, LocalFile, key_to_path};
 use crate::state::{PendingReview, SyncState};
@@ -109,6 +110,8 @@ pub struct PaperSync {
     account: String,
     info: PaperInfo,
     cache: HashCache,
+    /// Paths written live ([`crate::LiveText`]): a pull leaves them alone.
+    live: LivePaths,
 }
 
 impl std::fmt::Debug for PaperSync {
@@ -131,7 +134,20 @@ impl PaperSync {
             account: account.to_string(),
             info,
             cache: HashCache::default(),
+            live: LivePaths::default(),
         }
+    }
+
+    /// The paths whose text is written live: their document holds what both
+    /// sides wrote, so a pull leaves them as they are (a push still sends
+    /// them, as on disk). A file removed elsewhere is still removed here.
+    pub fn with_live_paths(mut self, live: LivePaths) -> PaperSync {
+        self.live = live;
+        self
+    }
+
+    fn is_live(&self, key: &str) -> bool {
+        self.live.lock().is_ok_and(|paths| paths.contains(key))
     }
 
     /// The paper folder.
@@ -388,6 +404,7 @@ impl PaperSync {
                 for (key, entry) in &head.files {
                     if !oyl_history::is_paper_file(key)
                         || state.synced_files.get(key) == Some(entry)
+                        || (self.is_live(key) && local.contains_key(key))
                     {
                         continue;
                     }

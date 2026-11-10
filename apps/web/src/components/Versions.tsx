@@ -225,7 +225,8 @@ export function VersionView(props: {
   );
 }
 
-function VersionChanges(props: { pieces: Piece[]; first: boolean }) {
+/** What a version changed: added and removed text, a few lines around each change. */
+export function VersionChanges(props: { pieces: Piece[]; first: boolean }) {
   return (
     <Show
       when={props.pieces.some((p) => p.kind === 'added' || p.kind === 'removed')}

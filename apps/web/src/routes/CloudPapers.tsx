@@ -22,7 +22,7 @@ export default function CloudPapersPage() {
     <div class="mx-auto w-full min-w-0 max-w-3xl px-4 pb-6 pt-6 sm:px-8 sm:pb-14 sm:pt-5">
       <h1 class="font-display text-[28px] font-normal leading-tight tracking-[-0.01em] sm:text-[32px]">Papers</h1>
       <p class="mt-1.5 text-[15px] leading-relaxed text-muted sm:text-[16px]">
-        The papers you write in Oyl on your Mac, synced to your account. Open one to read its source and its history.
+        The papers you write in Oyl on your Mac, synced to your account. Open one to write in it here: your Mac and this page follow each other as you type.
       </p>
 
       <Card class="mt-6 p-1.5 sm:mt-8 sm:p-2">

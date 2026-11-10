@@ -413,6 +413,7 @@ fn run(base: &str, web: &str, report: &mut Report) {
     {
         let timing = Timing {
             push_delay: Duration::from_millis(300),
+            push_max_delay: Duration::from_secs(1),
             pull_every: Duration::from_millis(700),
             live_pull_every: Duration::from_millis(700),
             backoff_min: Duration::from_millis(300),

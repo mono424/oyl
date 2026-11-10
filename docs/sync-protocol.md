@@ -131,6 +131,7 @@ the colon.
 | `PUT /blobs/:sha256` | Upload bytes (`application/octet-stream`); the server checks the hash. `201 { sha256, size }`, or `200` when it had them already (the body is not read). `400 { sha256 }` with the actual hash on a mismatch, `413` over 50 MiB |
 | `GET /blobs/:sha256` | Download bytes (`ETag` = `"<sha256>"`, `Cache-Control: private, max-age=31536000, immutable`, `If-None-Match` → `304`) |
 | `POST /papers/:id/revisions` | Commit `{ parent, files, message?, author? }` → `201 { revision, n }`; `409 { head }` when `parent` is not the current head (compare-and-set) |
+| `POST /papers/:id/files` | Makes the live text rows (`paper_file`) for the head's text files that have none and answers all of them: `[{ id, path, seed }]` (see Live text). A commit that makes a revision does this too |
 
 All blobs a revision references must exist before it is committed (`422
 { missing: [...] }` lists the missing ones), and each file's `size` must be
@@ -165,8 +166,9 @@ and `POST /device/approve { user_code, allow }`, with the user's session only.
 State per paper in `<paper>/.oyl/sync.json`: `{ paper_id, synced_revision,
 synced_files }`, the last revision both sides agree on (the merge base).
 
-- **Push** (local changed since `synced_files`, debounced ~5 s after the last
-  save, and on demand): hash changed files → `blobs/missing` → upload missing
+- **Push** (local changed since `synced_files`, 5 s after the last save but
+  at most 30 s after the first one not yet pushed, and on demand; text files
+  travel live meanwhile, see Live text): hash changed files → `blobs/missing` → upload missing
   → commit with `parent = synced_revision`. `201` (or `200 unchanged`) →
   record it. `409` → pull first (from the `head` in the answer), then push
   again.
@@ -189,12 +191,57 @@ synced_files }`, the last revision both sides agree on (the merge base).
 ## Web app
 
 The web app lists synced papers under **Papers** in the sidebar (name, engine,
-last change and the device it came from), opens one read-only (the entry file
-or any text file of a revision in the source view, with the revisions and
-files beside it), and approves devices on `/connect`. It reads `paper_sync`
-and `paper_revision` live through sp00ky and the bytes through
-`GET /blobs/:sha256`. In v1.1 it edits the entry file through a commit
-(author `web`), which reaches the desktop as a pull.
+last change and the device it came from) and approves devices on `/connect`.
+A paper opens in the LaTeX editor's layout: a file of it in the editor (the
+entry file unless `?file=` picks another), and beside it the rendered paper
+(LaTeX, with its `\input`s put in place and its `.bib` cited), its files and
+its revisions. It reads `paper_sync`, `paper_revision` and `paper_file` live
+through sp00ky and the bytes through `GET /blobs/:sha256`. Text files are
+written live (below); a revision picked in the history shows in place of the
+editor, as source or as what it changed, and **Restore** puts its text into
+the live documents and commits its files as a new revision.
+
+## Live text
+
+The text files of a paper (`.tex .ltx .sty .cls .bib .bst .bbx .cbx .dtx .typ
+.md .markdown .txt`, up to 512 KiB) are written live by the web app and every
+Mac at once, merged keystroke by keystroke, through sp00ky's CRDT fields
+(Loro; `docs/crdt-v2.md` in sp00ky):
+
+- Each is a `paper_file` row (`owner`, `paper`, `path`, `seed`, `content`),
+  `content` annotated `-- @crdt text`. Edits travel as rows of the generated
+  `paper_file__crdt_log`, each holding Loro ops of one peer its author claimed
+  in `_00_crdt_peer`; every client imports every row that passes sp00ky's
+  acceptance rule, and the sync node folds the log into `content` and a
+  published snapshot (`_00_crdt_doc`).
+- Only the API makes the rows: `POST /papers/:id/files` (answers
+  `[{ id, path, seed }]`) makes one for each live file of the head that has
+  none, and every commit that makes a revision does the same. The id is
+  `paper_file:f` + the first 32 hex digits of SHA-256("<paper id>\n<path>");
+  `seed` is the blob of the text the file had then.
+- Every client adds the seed to the document as the same edit: the seed text
+  (its bytes as UTF-8, a byte order mark kept) inserted into an empty document
+  by the peer made of the first 8 bytes of SHA-256("oyl-seed\n<file id>\n<SHA-256
+  hex of the text>"), big-endian, below 2^53, never 0. Identical ops under one
+  id land once, however many clients add them.
+- The web app binds the editor to the field's document (`openCrdtField`,
+  `apps/web/src/lib/paper-live.ts`). It also commits what was typed there as a
+  revision (author `web`) once typing pauses for 15 s, and when the page is
+  left, so the history has it without a Mac.
+- The desktop (`crates/oyl-sync/src/live_text.rs`) speaks the same protocol in
+  Rust (spooky-core has no CRDT fields): log rows through a live query, its
+  own rows written straight to the database (spooky-core's outbox does not
+  keep bytes), the published snapshot read on a cold start. Files stay the
+  truth on disk: a change of a file goes into its document as the edits it
+  makes, merged character by character with what arrived meanwhile, and a
+  change of the document from elsewhere is written to the file and the open
+  editor takes it in. Without kept state a file joins only once the server's
+  snapshot and log are in, from the text of `synced_files` as the base.
+  Documents are kept in `<paper>/.oyl/live/`.
+- Revisions stay the history and the home of every other file. A pull leaves
+  a live file that is on disk alone (its document already holds both sides);
+  a push still sends it as it is on disk. A file removed elsewhere is removed
+  by the pull; a new one arrives by it and is live from then on.
 
 ## Live reads (sp00ky)
 

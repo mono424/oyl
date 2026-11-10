@@ -419,3 +419,26 @@ export function insertTexCitation(view: EditorView, key: string, locator = '') {
 export function texCitations(): Extension {
   return [papersField, autocompletion({ override: [suggestTex], icons: false })];
 }
+
+/** "A, B and C", as a reference list writes the authors. */
+export const joinAuthors = (authors: string | null | undefined) => {
+  const list = authorList(authors);
+  return list.length > 1 ? `${list.slice(0, -1).join(', ')} and ${list.at(-1)}` : (list[0] ?? '');
+};
+
+/** A reference list entry as Markdown, for a preview. */
+export function referenceMarkdown(p: Paper, style: CiteStyle): string {
+  const authors = joinAuthors(p.authors);
+  const venue = p.venue?.trim() ? ` *${p.venue.trim()}*${style === 'numeric' ? ',' : '.'}` : '';
+  const url = p.url?.trim() ? ` <${p.url.trim()}>` : '';
+  return style === 'numeric'
+    ? `${authors ? `${authors}, ` : ''}“${p.title},”${venue} ${citeYear(p)}.${url}`
+    : `${authors ? `${authors} ` : ''}(${citeYear(p)}). ${p.title}.${venue}${url}`;
+}
+
+/** Markdown with its citations formatted and a References section listing what it cites. */
+export function withReferences(md: string, papers: readonly Paper[], style: CiteStyle): string {
+  const printed = printCitations(md, papers, style);
+  const refs = printed.cited.map((p, i) => `${style === 'numeric' ? `[${i + 1}] ` : ''}${referenceMarkdown(p, style)}`);
+  return `${printed.markdown}${refs.length ? `\n\n## References\n\n${refs.join('\n\n')}` : ''}`;
+}

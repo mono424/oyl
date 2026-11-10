@@ -394,6 +394,27 @@ test('paper sync end to end: device sign-in, papers, blobs, commits and permissi
       assert.equal((await call('GET', `/papers/${enc(notes)}/revisions/${enc(r1)}`, { token: device })).status, 404);
     });
 
+    await t.test('text files get their live document rows, made by the API only', async () => {
+      const files = await call('POST', `/papers/${enc(paper)}/files`, { token: device });
+      assert.equal(files.status, 200);
+      const paths = files.body.map((f: { path: string }) => f.path);
+      // The commits made them already: every text file, never the picture.
+      assert.ok(paths.includes('thesis.typ') && paths.includes('refs.bib'), String(paths));
+      assert.ok(!paths.includes('figures/plot.png'));
+      const thesis = files.body.find((f: { path: string }) => f.path === 'thesis.typ');
+      assert.equal(thesis.seed, smallSha);
+      assert.equal(thesis.id, `paper_file:f${(await sha(text(`${paper}\nthesis.typ`))).slice(0, 32)}`);
+      const row = await db.query<{ content: string; owner: string }>('SELECT content, owner FROM ONLY type::record($id)', { id: thesis.id });
+      assert.deepEqual(row, { content: '#set page(paper: "a4")\n= Hello\n', owner: 'user:u1' });
+      assert.deepEqual((await call('POST', `/papers/${enc(paper)}/files`, { token: web1 })).body, files.body, 'asked again: the same rows');
+      assert.equal((await call('POST', `/papers/${enc(paper)}/files`, { token: web2 })).status, 404);
+      const student = Surreal.as(env, web1);
+      await student.query(`CREATE paper_file:fx CONTENT { owner: $auth.id, paper: type::record($p), path: 'x.tex', seed: $s, content: '' }`, { p: paper, s: smallSha }).catch(() => undefined);
+      assert.equal(await db.query<number>('RETURN count(SELECT id FROM paper_file WHERE path = "x.tex")'), 0, 'record users make none');
+      assert.deepEqual((await student.query<{ path: string }[]>('SELECT path FROM paper_file ORDER BY path')).map((r) => r.path), paths.slice().sort());
+      assert.deepEqual(await Surreal.as(env, web2).query('SELECT id FROM paper_file'), []);
+    });
+
     await t.test('the web app reads with its session and commits as `web`', async () => {
       assert.equal((await call('GET', `/papers/${enc(paper)}/head`, { token: web1 })).body.revision, r2);
       const head = (await call('GET', `/papers/${enc(paper)}/head`, { token: web1 })).body;

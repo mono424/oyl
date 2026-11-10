@@ -481,6 +481,7 @@ fn the_loop_pulls_pushes_backs_off_and_settles_reviews() {
     let desk = Desk::new();
     let timing = Timing {
         push_delay: Duration::from_millis(50),
+        push_max_delay: Duration::from_millis(200),
         pull_every: Duration::from_millis(200),
         live_pull_every: Duration::from_secs(60),
         backoff_min: Duration::from_millis(50),
@@ -568,6 +569,7 @@ fn a_head_from_the_live_list_pulls_at_once_and_the_same_head_does_not() {
     // Far apart: a pull within the test can only come from the live head.
     let timing = Timing {
         push_delay: Duration::from_millis(50),
+        push_max_delay: Duration::from_millis(200),
         pull_every: Duration::from_secs(600),
         live_pull_every: Duration::from_secs(600),
         backoff_min: Duration::from_millis(50),

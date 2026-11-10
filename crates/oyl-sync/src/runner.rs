@@ -1,7 +1,8 @@
 //! The background loop of one open paper: pull when it opens and when the
 //! paper's head moves in the cloud ([`Runner::remote_head`], from the live
-//! paper list), push a few seconds after the last save, both at once on
-//! demand. Without the live list (a cloud that does not offer it) it asks
+//! paper list), push a few seconds after the last save (and at least every
+//! half minute while saves go on; text files travel live anyway, see
+//! [`crate::LiveText`]), both at once on demand. Without the live list (a cloud that does not offer it) it asks
 //! every 30 seconds instead; with it, only every 10 minutes, as a safety
 //! net. While the cloud cannot be reached nothing local is held up;
 //! attempts back off from 5 seconds, doubling, to 5 minutes.
@@ -20,6 +21,8 @@ use crate::error::SyncError;
 pub struct Timing {
     /// How long after the last save a push starts.
     pub push_delay: Duration,
+    /// The longest a push waits while saves keep coming.
+    pub push_max_delay: Duration,
     /// How often the cloud is asked for changes without a live paper list.
     pub pull_every: Duration,
     /// How often it is asked anyway while the live list reports heads.
@@ -34,6 +37,7 @@ impl Default for Timing {
     fn default() -> Self {
         Timing {
             push_delay: Duration::from_secs(5),
+            push_max_delay: Duration::from_secs(30),
             pull_every: Duration::from_secs(30),
             live_pull_every: Duration::from_secs(600),
             backoff_min: Duration::from_secs(5),
@@ -188,6 +192,8 @@ struct Loop {
     /// The live paper list reports this paper's head.
     live: bool,
     push_at: Option<Instant>,
+    /// The first save the next push sends.
+    saved_since: Option<Instant>,
     /// After failures: no attempt before this.
     retry_at: Option<Instant>,
     failures: u32,
@@ -212,6 +218,7 @@ impl Loop {
             next_pull: now,
             live: false,
             push_at: Some(now),
+            saved_since: None,
             retry_at: None,
             failures: 0,
             halted: false,
@@ -281,7 +288,8 @@ impl Loop {
             match command {
                 Some(Command::Stop) => return,
                 Some(Command::Saved) => {
-                    self.push_at = Some(Instant::now() + self.timing.push_delay);
+                    let now = Instant::now();
+                    self.push_at = Some(push_due(&self.timing, now, &mut self.saved_since));
                     continue;
                 }
                 Some(Command::SyncNow) => {
@@ -338,6 +346,9 @@ impl Loop {
     fn attempt(&mut self, pull: bool, push: bool) {
         if !matches!(self.status, Some(Status::NeedsReview)) {
             self.set_status(Status::Syncing);
+        }
+        if push {
+            self.saved_since = None;
         }
         let result = self.sync.sync(pull, push);
         let now = Instant::now();
@@ -413,9 +424,32 @@ impl Loop {
     }
 }
 
+/// When a push goes after a save at `now`: [`Timing::push_delay`] later,
+/// but no later than [`Timing::push_max_delay`] after the first save it
+/// sends (`since`, set here when none is waiting).
+fn push_due(timing: &Timing, now: Instant, since: &mut Option<Instant>) -> Instant {
+    let first = *since.get_or_insert(now);
+    (now + timing.push_delay).min(first + timing.push_max_delay)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn saves_in_a_row_push_at_least_every_few_seconds() {
+        let timing = Timing::default();
+        let start = Instant::now();
+        let mut since = None;
+        assert_eq!(push_due(&timing, start, &mut since), start + timing.push_delay);
+        // Saving every few seconds: the push waits for a pause, but not past the limit.
+        let later = start + Duration::from_secs(28);
+        assert_eq!(push_due(&timing, later, &mut since), start + timing.push_max_delay);
+        // After a push the next save starts the wait afresh.
+        since = None;
+        let next = start + Duration::from_secs(10);
+        assert_eq!(push_due(&timing, next, &mut since), next + timing.push_delay);
+    }
 
     #[test]
     fn backoff_doubles_from_five_seconds_to_five_minutes() {

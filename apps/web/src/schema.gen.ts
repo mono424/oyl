@@ -789,6 +789,113 @@ export const schema = {
       primaryKey: ['id'] as const
     },
     /**
+     * `paper_file` table.
+     *
+     * Relationships:
+     * - `owner` → `user` (one)
+     * - `paper` → `paper_sync` (one)
+     *
+     * @example
+     * const rows = useQuery(() => db.query('paper_file').orderBy('id', 'asc').limit(20).build());
+     */
+    {
+      name: 'paper_file' as const,
+      columns: {
+        /**
+         * `id` — string
+         *
+         * Record ID. Pass the full `'<table>:<id>'` string when reading or writing.
+         */
+        id: { type: 'string' as const, recordId: true, optional: false },
+        /**
+         * `content?` — string
+         *
+         * `@crdt text` — collaborative field. Edit it with `useCrdtField`; this column is
+         * the server-written plain text of the document (readable and filterable,
+         * set by the client only in the create that makes the record).
+         *
+         * `@opaque` — synced to the client and readable here, but the sync
+         * engine never stores the value server-side. It cannot be used in
+         * `where`, `orderBy`, joins, or table permissions; doing so throws.
+         */
+        content: { type: 'string' as const, crdt: 'text' as const, opaque: true, optional: true },
+        content__crdt: { type: 'string' as const, optional: true },
+        /**
+         * `created_at` — string
+         *
+         * ISO-8601 datetime string.
+         */
+        created_at: { type: 'string' as const, dateTime: true, optional: false },
+        /**
+         * `owner` — string
+         *
+         * Record ID. Pass the full `'<table>:<id>'` string when reading or writing.
+         */
+        owner: { type: 'string' as const, recordId: true, optional: false },
+        /**
+         * `paper` — string
+         *
+         * Record ID. Pass the full `'<table>:<id>'` string when reading or writing.
+         *
+         * `@parent` — auto-populated server-side from the auth context. Do not write from client code.
+         */
+        paper: { type: 'string' as const, recordId: true, optional: false },
+        path: { type: 'string' as const, optional: false },
+        seed: { type: 'string' as const, optional: false },
+      },
+      primaryKey: ['id'] as const
+    },
+    /**
+     * `paper_file__crdt_log` table.
+     *
+     * Relationships:
+     * - `doc` → `paper_file` (one)
+     *
+     * @example
+     * const rows = useQuery(() => db.query('paper_file__crdt_log').orderBy('id', 'asc').limit(20).build());
+     */
+    {
+      name: 'paper_file__crdt_log' as const,
+      columns: {
+        /**
+         * `id` — string
+         *
+         * Record ID. Pass the full `'<table>:<id>'` string when reading or writing.
+         */
+        id: { type: 'string' as const, recordId: true, optional: false },
+        /**
+         * `author?` — string
+         *
+         * Record ID. Pass the full `'<table>:<id>'` string when reading or writing.
+         */
+        author: { type: 'string' as const, recordId: true, optional: true },
+        /**
+         * `created_at?` — string
+         *
+         * ISO-8601 datetime string.
+         */
+        created_at: { type: 'string' as const, dateTime: true, optional: true },
+        /**
+         * `data?` — string
+         *
+         * `@opaque` — synced to the client and readable here, but the sync
+         * engine never stores the value server-side. It cannot be used in
+         * `where`, `orderBy`, joins, or table permissions; doing so throws.
+         */
+        data: { type: 'Uint8Array' as const, bytes: true, opaque: true, optional: true },
+        /**
+         * `doc?` — string
+         *
+         * Record ID. Pass the full `'<table>:<id>'` string when reading or writing.
+         */
+        doc: { type: 'string' as const, recordId: true, optional: true },
+        field: { type: 'string' as const, optional: true },
+        peer: { type: 'string' as const, optional: true },
+        size: { type: 'number' as const, optional: true },
+      },
+      primaryKey: ['id'] as const
+    },
+    /**
      * `paper_revision` table.
      *
      * Relationships:
@@ -860,6 +967,7 @@ export const schema = {
      * Relationships:
      * - `head` → `paper_revision` (one)
      * - `owner` → `user` (one)
+     * - `paper_files` → `paper_file` (many)
      * - `paper_revisions` → `paper_revision` (many)
      *
      * @example
@@ -910,6 +1018,7 @@ export const schema = {
          */
         updated_at: { type: 'string' as const, dateTime: true, optional: true },
         updated_by: { type: 'string' as const, optional: true },
+        paper_files: { type: 'string' as const, array: true, optional: true },
         paper_revisions: { type: 'string' as const, array: true, optional: true },
       },
       primaryKey: ['id'] as const
@@ -1040,6 +1149,7 @@ export const schema = {
      * - `homeworks` → `homework` (many)
      * - `materials` → `material` (many)
      * - `papers` → `paper` (many)
+     * - `paper_files` → `paper_file` (many)
      * - `paper_revisions` → `paper_revision` (many)
      * - `paper_syncs` → `paper_sync` (many)
      * - `sites` → `site` (many)
@@ -1078,6 +1188,7 @@ export const schema = {
         homeworks: { type: 'string' as const, array: true, optional: true },
         materials: { type: 'string' as const, array: true, optional: true },
         papers: { type: 'string' as const, array: true, optional: true },
+        paper_files: { type: 'string' as const, array: true, optional: true },
         paper_revisions: { type: 'string' as const, array: true, optional: true },
         paper_syncs: { type: 'string' as const, array: true, optional: true },
         sites: { type: 'string' as const, array: true, optional: true },
@@ -1370,6 +1481,24 @@ export const schema = {
       cardinality: 'one' as const
     },
     {
+      from: 'paper_file' as const,
+      field: 'owner' as const,
+      to: 'user' as const,
+      cardinality: 'one' as const
+    },
+    {
+      from: 'paper_file' as const,
+      field: 'paper' as const,
+      to: 'paper_sync' as const,
+      cardinality: 'one' as const
+    },
+    {
+      from: 'paper_file__crdt_log' as const,
+      field: 'doc' as const,
+      to: 'paper_file' as const,
+      cardinality: 'one' as const
+    },
+    {
       from: 'paper_revision' as const,
       field: 'owner' as const,
       to: 'user' as const,
@@ -1410,6 +1539,12 @@ export const schema = {
       field: 'owner' as const,
       to: 'user' as const,
       cardinality: 'one' as const
+    },
+    {
+      from: 'paper_sync' as const,
+      field: 'paper_files' as const,
+      to: 'paper_file' as const,
+      cardinality: 'many' as const
     },
     {
       from: 'paper_sync' as const,
@@ -1521,6 +1656,12 @@ export const schema = {
     },
     {
       from: 'user' as const,
+      field: 'paper_files' as const,
+      to: 'paper_file' as const,
+      cardinality: 'many' as const
+    },
+    {
+      from: 'user' as const,
       field: 'paper_revisions' as const,
       to: 'paper_revision' as const,
       cardinality: 'many' as const
@@ -1547,6 +1688,7 @@ export const schema = {
   access: {
     account: {"signIn":{"params":{"email":{"type":"string","optional":false},"password":{"type":"string","optional":false}}},"signup":{"params":{"email":{"type":"string","optional":false},"name":{"type":"string","optional":false},"password":{"type":"string","optional":false}}}},
     agent: {"signIn":{"params":{"key":{"type":"string","optional":false}}},"signup":{"params":{}}},
+    device: {"signIn":{"params":{"key":{"type":"string","optional":false}}},"signup":{"params":{}}},
   },
   buckets: [
     {
@@ -1649,6 +1791,14 @@ export const SURQL_SCHEMA = `-- ################################################
 -- AI clients (the MCP server) sign in with a personal API key the user created
 -- in Settings. The session they get IS the key's owner, so every permission
 -- below applies to them unchanged. Only the key's SHA-256 is stored.
+
+-- The desktop app signs in with its device's sync key (\`oyl_sync_...\`, from
+-- the device sign-in in apps/api/src/sync-device.ts) to read the user's papers
+-- live through sp00ky. The key is checked like the API checks it: a
+-- \`sync_device\` row whose connection is not revoked. The session is the key's
+-- owner, so every permission below applies unchanged; the app signs in again
+-- well before the token runs out, and a revoked key stops working at the next
+-- sign-in (within a day).
 
 -- ##################################################################
 -- USER
@@ -2257,6 +2407,7 @@ DEFINE INDEX OVERWRITE paper_sync_owner ON TABLE paper_sync FIELDS owner;
 
 DEFINE EVENT OVERWRITE paper_sync_deleted ON TABLE paper_sync WHEN $event = "DELETE" THEN {
   DELETE paper_revision WHERE paper = $before.id;
+  DELETE paper_file WHERE paper = $before.id;
 };
 
 -- One snapshot of a paper. Never changed once written.
@@ -2286,6 +2437,34 @@ DEFINE FIELD OVERWRITE created_at ON TABLE paper_revision TYPE option<datetime> 
 -- Unique: two commits on the same head cannot both become revision n.
 DEFINE INDEX OVERWRITE paper_revision_paper ON TABLE paper_revision FIELDS paper, n UNIQUE;
 
+-- A text file of a synced paper, written live by the web app and Oyl on the
+-- Mac at once (docs/sync-protocol.md, Live text). \`content\` is a sp00ky CRDT
+-- field: a Loro document whose edits travel as \`paper_file__crdt_log\` rows,
+-- merged by every side as they arrive and folded into \`content\` by the sync
+-- node. Only the API creates these rows, one per text path
+-- (\`POST /api/sync/papers/:id/files\`), with the id \`paper_file:f\` + the first
+-- 32 hex digits of SHA-256("<paper id>\\n<path>"). \`seed\` names the blob the
+-- document starts from: every client adds that text as the same first edit
+-- (made by a peer derived from the id), so it lands once however many add it.
+-- Revisions stay the history, and the only home of the other files.
+DEFINE TABLE OVERWRITE paper_file SCHEMAFULL
+PERMISSIONS FOR select, create, update, delete WHERE true;
+
+DEFINE FIELD OVERWRITE owner ON TABLE paper_file TYPE option<record<user> READONLY>;
+DEFINE FIELD OVERWRITE paper ON TABLE paper_file TYPE option<record<paper_sync> READONLY>;
+ -- @parent
+-- Relative to the paper folder, as in a revision's files.
+DEFINE FIELD OVERWRITE path ON TABLE paper_file TYPE option<string READONLY>;
+-- SHA-256 of the text the document starts from (a blob of the owner's).
+DEFINE FIELD OVERWRITE seed ON TABLE paper_file TYPE option<string READONLY>;
+-- The text, as the sync node last folded it. Edited only through the CRDT.
+-- @crdt text
+-- @opaque
+DEFINE FIELD OVERWRITE content ON TABLE paper_file TYPE option<string> DEFAULT '';
+DEFINE FIELD OVERWRITE created_at ON TABLE paper_file TYPE option<datetime> DEFAULT time::now() READONLY;
+
+DEFINE INDEX OVERWRITE paper_file_path ON TABLE paper_file FIELDS paper, path UNIQUE;
+
 -- ##################################################################
 -- API KEYS (MCP access for AI clients)
 -- ##################################################################
@@ -2308,6 +2487,26 @@ DEFINE FIELD OVERWRITE revoked_at ON TABLE api_key TYPE option<datetime>;
 
 -- Its lookup index lives in apps/api/src/server-schema.surql: sp00ky refuses an
 -- index on a field clients cannot read.
+
+
+-- ==================================================
+-- Generated by sp00ky for \`@crdt\` fields. Do not edit.
+-- ==================================================
+
+-- \`paper_file\`: fold stamps
+DEFINE FIELD OVERWRITE content__crdt ON TABLE paper_file TYPE option<object> FLEXIBLE;
+
+-- \`paper_file\`: append-only Loro edit log
+DEFINE TABLE OVERWRITE paper_file__crdt_log SCHEMAFULL PERMISSIONS FULL;
+DEFINE FIELD OVERWRITE doc ON TABLE paper_file__crdt_log TYPE option<record<paper_file>>;
+DEFINE FIELD OVERWRITE field ON TABLE paper_file__crdt_log TYPE option<string>;
+DEFINE FIELD OVERWRITE author ON TABLE paper_file__crdt_log TYPE option<record>;
+DEFINE FIELD OVERWRITE peer ON TABLE paper_file__crdt_log TYPE option<string>;
+-- @opaque
+DEFINE FIELD OVERWRITE data ON TABLE paper_file__crdt_log TYPE option<bytes>;
+DEFINE FIELD OVERWRITE size ON TABLE paper_file__crdt_log TYPE option<int>;
+DEFINE FIELD OVERWRITE created_at ON TABLE paper_file__crdt_log TYPE option<datetime>;
+DEFINE INDEX OVERWRITE paper_file__crdt_log_doc ON TABLE paper_file__crdt_log FIELDS doc, field;
 
 
 -- Backend Schema: api
@@ -2551,6 +2750,8 @@ DEFINE FIELD _00_rv ON TABLE homework TYPE int DEFAULT 0 PERMISSIONS FOR select,
 DEFINE FIELD _00_rv ON TABLE job TYPE int DEFAULT 0 PERMISSIONS FOR select, create, update WHERE true;
 DEFINE FIELD _00_rv ON TABLE material TYPE int DEFAULT 0 PERMISSIONS FOR select, create, update WHERE true;
 DEFINE FIELD _00_rv ON TABLE paper TYPE int DEFAULT 0 PERMISSIONS FOR select, create, update WHERE true;
+DEFINE FIELD _00_rv ON TABLE paper_file TYPE int DEFAULT 0 PERMISSIONS FOR select, create, update WHERE true;
+DEFINE FIELD _00_rv ON TABLE paper_file__crdt_log TYPE int DEFAULT 0 PERMISSIONS FOR select, create, update WHERE true;
 DEFINE FIELD _00_rv ON TABLE paper_revision TYPE int DEFAULT 0 PERMISSIONS FOR select, create, update WHERE true;
 DEFINE FIELD _00_rv ON TABLE paper_sync TYPE int DEFAULT 0 PERMISSIONS FOR select, create, update WHERE true;
 DEFINE FIELD _00_rv ON TABLE site TYPE int DEFAULT 0 PERMISSIONS FOR select, create, update WHERE true;
@@ -2739,6 +2940,34 @@ THEN {
 
 -- Table: paper Client Deletion
 DEFINE EVENT OVERWRITE _00_paper_client_delete ON TABLE paper
+WHEN $event = "DELETE"
+THEN {
+    -- No-op for now.
+};
+
+-- Table: paper_file Client Mutation
+DEFINE EVENT OVERWRITE _00_paper_file_client_mutation ON TABLE paper_file
+WHEN $before != $after AND $event != "DELETE"
+THEN {
+    -- No-op for now. Client mutation sync logic moved to DBSP.
+};
+
+-- Table: paper_file Client Deletion
+DEFINE EVENT OVERWRITE _00_paper_file_client_delete ON TABLE paper_file
+WHEN $event = "DELETE"
+THEN {
+    -- No-op for now.
+};
+
+-- Table: paper_file__crdt_log Client Mutation
+DEFINE EVENT OVERWRITE _00_paper_file__crdt_log_client_mutation ON TABLE paper_file__crdt_log
+WHEN $before != $after AND $event != "DELETE"
+THEN {
+    -- No-op for now. Client mutation sync logic moved to DBSP.
+};
+
+-- Table: paper_file__crdt_log Client Deletion
+DEFINE EVENT OVERWRITE _00_paper_file__crdt_log_client_delete ON TABLE paper_file__crdt_log
 WHEN $event = "DELETE"
 THEN {
     -- No-op for now.

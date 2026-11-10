@@ -13,6 +13,7 @@ use std::path::PathBuf;
 use std::rc::Rc;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::time::{Duration, Instant};
 
 use gpui_kit::prelude::*;
 use gpui_kit::{Context, Entity, Focusable as _, Hsla, PathPromptOptions, Task, Window, px};
@@ -20,8 +21,8 @@ use oyl_chat::ReviewChoice;
 use oyl_core::{CloudAccount, LayoutMode};
 use oyl_sync::sign_in::{self, Finished};
 use oyl_sync::{
-    Client, Database, Event, Keychain, LiveCloud, PaperInfo, PaperSync, RemotePaper, Runner,
-    Status, SyncError, SyncState, Timing, TokenStore,
+    Client, Database, Event, Keychain, LiveCloud, LiveEvent, LivePaths, LiveText, PaperInfo,
+    PaperSync, RemotePaper, Runner, Status, SyncError, SyncState, Timing, TokenStore,
 };
 use oyl_ui::ActiveTokens as _;
 
@@ -79,6 +80,10 @@ pub(crate) struct CloudState {
     pub(crate) live_papers: Option<Vec<RemotePaper>>,
     /// Counts live links, so a late answer of a closed one is ignored.
     pub(crate) live_epoch: u64,
+    /// Where the last pull that was toasted came from, and when: pulls
+    /// from the same place soon after (someone writing live on the web)
+    /// update the paper without another toast.
+    pub(crate) last_pull_toast: Option<(String, Instant)>,
     /// The sign-in card.
     pub(crate) card: Entity<CloudSignInView>,
 }
@@ -96,6 +101,7 @@ impl CloudState {
             live_task: None,
             live_papers: None,
             live_epoch: 0,
+            last_pull_toast: None,
             card,
         }
     }
@@ -106,6 +112,11 @@ pub(crate) struct PaperCloud {
     pub(crate) runner: Runner,
     pub(crate) status: Option<Status>,
     _events: Task<()>,
+    /// The paths written live, shared by the revision sync and the live text.
+    live_paths: LivePaths,
+    /// The paper's text written live with the web app and other Macs, once
+    /// the live link to the database is open.
+    live_text: Option<(LiveText, Task<()>)>,
 }
 
 /// The header's cloud glyph: which icon, its color, its tooltip.
@@ -127,6 +138,16 @@ pub(crate) fn applied_line(label: &str, files: usize) -> String {
         1 => format!("{label} · 1 file updated"),
         n => format!("{label} · {n} files updated"),
     }
+}
+
+/// How long after a pull from one place the next ones from there pass
+/// without a toast.
+const QUIET_PULLS: Duration = Duration::from_secs(60);
+
+/// A pull from `label` at `now` goes in without a toast: one from the same
+/// place came in shortly before (it is being written live there).
+pub(crate) fn quiet_pull(last: Option<&(String, Instant)>, label: &str, now: Instant) -> bool {
+    last.is_some_and(|(from, at)| from == label && now.saturating_duration_since(*at) < QUIET_PULLS)
 }
 
 impl Shell {
@@ -456,6 +477,9 @@ impl Shell {
                     current
                 })
                 .unwrap_or(false);
+            if current {
+                let _ = this.update_in(cx, |this, window, cx| this.start_live_text(window, cx));
+            }
             if !current {
                 cloud.close().await;
                 return;
@@ -510,6 +534,7 @@ impl Shell {
         self.cloud.live_epoch += 1;
         self.cloud.live_task = None;
         self.cloud.live_papers = None;
+        self.stop_live_text();
         if let Some(cloud) = self.paper.as_ref().and_then(|paper| paper.cloud.as_ref()) {
             cloud.runner.live_ended();
         }
@@ -687,8 +712,9 @@ impl Shell {
             engine: paper.engine(),
             main,
         };
-        let (runner, events) =
-            Runner::start(PaperSync::new(history, client, &account, info), timing);
+        let live_paths = LivePaths::default();
+        let sync = PaperSync::new(history, client, &account, info).with_live_paths(live_paths.clone());
+        let (runner, events) = Runner::start(sync, timing);
         let epoch = paper.epoch;
         let task = cx.spawn_in(window, async move |this, cx| {
             while let Ok(event) = events.recv().await {
@@ -706,9 +732,85 @@ impl Shell {
             runner,
             status: Some(Status::Syncing),
             _events: task,
+            live_paths,
+            live_text: None,
         });
         self.report_live_head();
+        self.start_live_text(window, cx);
         cx.notify();
+    }
+
+    /// Starts writing the open paper's text live once it syncs and the live
+    /// link to the database is open. Does nothing when it runs already.
+    pub(crate) fn start_live_text(&mut self, window: &mut Window, cx: &mut Context<Self>) {
+        let Some(live) = self.cloud.live.clone() else {
+            return;
+        };
+        let Some(client) = self.cloud_client() else {
+            return;
+        };
+        let Some(paper) = self.paper.as_mut() else {
+            return;
+        };
+        let root = paper.root().to_path_buf();
+        let epoch = paper.epoch;
+        let Some(cloud) = paper.cloud.as_mut().filter(|cloud| cloud.live_text.is_none()) else {
+            return;
+        };
+        let Some(paper_id) = SyncState::paper_id_of(&root) else {
+            return;
+        };
+        let (text, events) = LiveText::start(live, client, root, paper_id, cloud.live_paths.clone());
+        let task = cx.spawn_in(window, async move |this, cx| {
+            while let Ok(event) = events.recv().await {
+                let alive = this
+                    .update_in(cx, |this, window, cx| this.live_text_event(epoch, event, window, cx))
+                    .is_ok();
+                if !alive {
+                    break;
+                }
+            }
+        });
+        cloud.live_text = Some((text, task));
+    }
+
+    /// Stops writing the open paper's text live (the live link closed).
+    fn stop_live_text(&mut self) {
+        if let Some(cloud) = self.paper.as_mut().and_then(|paper| paper.cloud.as_mut()) {
+            cloud.live_text = None;
+            if let Ok(mut paths) = cloud.live_paths.lock() {
+                paths.clear();
+            }
+        }
+    }
+
+    /// Text from the web app or another Mac was written to the paper's
+    /// files: open buffers take it in and the paper compiles. No toast:
+    /// someone is writing there, as here.
+    fn live_text_event(&mut self, epoch: u64, event: LiveEvent, window: &mut Window, cx: &mut Context<Self>) {
+        if self.paper.as_ref().map(|paper| paper.epoch) != Some(epoch) {
+            return;
+        }
+        match event {
+            LiveEvent::Written(paths) => {
+                log::debug!("live text: {} written", paths.join(", "));
+                self.reload_open_buffers(window, cx);
+                self.request_compile(window, cx);
+                self.schedule_words(cx);
+            }
+        }
+    }
+
+    /// Files of the paper changed on disk: their live text takes the change.
+    pub(crate) fn live_text_changed(&self, paths: &[PathBuf]) {
+        if let Some((text, _)) = self
+            .paper
+            .as_ref()
+            .and_then(|paper| paper.cloud.as_ref())
+            .and_then(|cloud| cloud.live_text.as_ref())
+        {
+            text.files_changed(paths.to_vec());
+        }
     }
 
     /// Stops the open paper's background sync and takes its review away.
@@ -758,8 +860,14 @@ impl Shell {
             Event::Applied(applied) => {
                 self.paper_changed_by_agent(window, cx);
                 self.request_compile(window, cx);
-                let line = applied_line(&applied.label, applied.files.len());
-                self.toast(ToastKind::Info, line, window, cx);
+                let now = Instant::now();
+                if quiet_pull(self.cloud.last_pull_toast.as_ref(), &applied.label, now) {
+                    log::info!("sync: {}", applied_line(&applied.label, applied.files.len()));
+                } else {
+                    let line = applied_line(&applied.label, applied.files.len());
+                    self.toast(ToastKind::Info, line, window, cx);
+                }
+                self.cloud.last_pull_toast = Some((applied.label, now));
             }
             Event::Review { review, label } => {
                 let shown = self.chat.read(cx).cloud_review().is_some();
@@ -791,7 +899,11 @@ impl Shell {
                 self.paper_changed_by_agent(window, cx);
                 self.request_compile(window, cx);
             }
-            Event::Pushed(n) => log::info!("sync: pushed revision {n}"),
+            Event::Pushed(n) => {
+                log::info!("sync: pushed revision {n}");
+                // A paper's first push makes it in the cloud: its text goes live now.
+                self.start_live_text(window, cx);
+            }
             Event::SignedOut => self.cloud_signed_out(window, cx),
         }
     }
@@ -1100,5 +1212,15 @@ mod tests {
             "From the web · 3 files updated"
         );
         assert_eq!(applied_line("From the web", 0), "From the web");
+    }
+
+    #[test]
+    fn pulls_from_one_place_in_a_row_toast_once() {
+        let at = Instant::now();
+        let last = ("From the web".to_string(), at);
+        assert!(!quiet_pull(None, "From the web", at));
+        assert!(quiet_pull(Some(&last), "From the web", at + Duration::from_secs(5)));
+        assert!(!quiet_pull(Some(&last), "From MacBook Pro", at + Duration::from_secs(5)));
+        assert!(!quiet_pull(Some(&last), "From the web", at + QUIET_PULLS));
     }
 }

@@ -27,7 +27,7 @@ use crate::error::{Result, SyncError, io_err};
 
 /// The sp00ky schema of Oyl Cloud, generated from `schema/src/schema.surql`
 /// by build.rs.
-#[allow(dead_code, missing_docs, unused_imports, clippy::all)]
+#[allow(dead_code, missing_docs, unused_imports, non_snake_case, clippy::all)]
 mod schema {
     include!(concat!(env!("OUT_DIR"), "/cloud_schema.rs"));
 }
@@ -103,6 +103,11 @@ impl LiveCloud {
         );
         let client = Sp00kyClient::open(config).await.map_err(from_spooky)?;
         Ok(LiveCloud { client })
+    }
+
+    /// The sp00ky client, for the live text (live_text.rs).
+    pub(crate) fn client(&self) -> &Sp00kyClient {
+        &self.client
     }
 
     /// The user the database session belongs to (`user:...`), if any.

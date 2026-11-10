@@ -333,24 +333,95 @@ export function syncBlob(db: Db, sha256: string): Promise<Uint8Array> {
   const hit = blobCache.get(sha256);
   if (hit) return hit;
   const load = (async () => {
-    const token = db.auth.token;
-    if (!token) throw new ApiError('You are signed out. Sign in again to continue.', 401);
-    let res: Response;
-    try {
-      res = await fetch(`${API_URL}/api/sync/blobs/${sha256}`, { headers: { authorization: `Bearer ${token}` } });
-    } catch {
-      throw new ApiError('The file could not be loaded. Check your connection and try again.', 0);
-    }
-    if (!res.ok) {
-      const body = (await res.json().catch(() => null)) as { error?: string } | null;
-      throw new ApiError(body?.error ?? `The file could not be loaded (${res.status}).`, res.status);
-    }
+    const res = await syncRequest(db, `/blobs/${sha256}`);
+    if (!res.ok) throw await syncFailure(res);
     return new Uint8Array(await res.arrayBuffer());
   })();
   blobCache.set(sha256, load);
   load.catch(() => blobCache.delete(sha256));
   while (blobCache.size > 20) blobCache.delete(blobCache.keys().next().value!);
   return load;
+}
+
+/** A file of a revision: path to its blob. */
+export type SyncFiles = Record<string, { sha256: string; size: number }>;
+
+/** A revision as the sync API answers it (`GET /papers/:id/head`). */
+export interface SyncRevision {
+  revision: string;
+  n: number;
+  files: SyncFiles;
+  author: string;
+}
+
+/** How long a sync request may take before it counts as offline. */
+const SYNC_TIMEOUT_MS = 30_000;
+
+async function syncRequest(db: Db, path: string, init: RequestInit = {}): Promise<Response> {
+  const token = db.auth.token;
+  if (!token) throw new ApiError('You are signed out. Sign in again to continue.', 401);
+  const headers = new Headers(init.headers);
+  headers.set('authorization', `Bearer ${token}`);
+  try {
+    return await fetch(`${API_URL}/api/sync${path}`, { ...init, headers, signal: AbortSignal.timeout(SYNC_TIMEOUT_MS) });
+  } catch {
+    // Status 0: the cloud could not be reached.
+    throw new ApiError('Oyl Cloud could not be reached. Check your connection.', 0);
+  }
+}
+
+async function syncFailure(res: Response): Promise<ApiError> {
+  const body = (await res.json().catch(() => null)) as { error?: string } | null;
+  return new ApiError(body?.error ?? `Oyl Cloud answered ${res.status}.`, res.status);
+}
+
+/** Stores bytes as a blob of the user's (named by their SHA-256), unless it is there already. */
+export async function putSyncBlob(db: Db, sha256: string, bytes: Uint8Array<ArrayBuffer>): Promise<void> {
+  const res = await syncRequest(db, `/blobs/${sha256}`, { method: 'PUT', headers: { 'content-type': 'application/octet-stream' }, body: bytes });
+  if (!res.ok) throw await syncFailure(res);
+  blobCache.set(sha256, Promise.resolve(bytes));
+}
+
+export type CommitAnswer =
+  | { made: true; revision: string; n: number }
+  /** The head moved since `parent`: build on this one and commit again. */
+  | { made: false; head: SyncRevision | null };
+
+/**
+ * Makes a new revision of a synced paper (author `web`) on `parent`, which must
+ * be its head: the desktop pulls it like any other. The blobs must be stored.
+ */
+export async function commitPaperRevision(db: Db, paperId: string, body: { parent: string | null; files: SyncFiles; message?: string }): Promise<CommitAnswer> {
+  const res = await syncRequest(db, `/papers/${encodeURIComponent(paperId)}/revisions`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json' },
+    body: JSON.stringify(body),
+  });
+  if (res.status === 409) {
+    const answer = (await res.json().catch(() => null)) as { head?: SyncRevision | null } | null;
+    return { made: false, head: answer?.head ?? null };
+  }
+  if (!res.ok) throw await syncFailure(res);
+  const made = (await res.json()) as { revision: string; n: number };
+  return { made: true, revision: made.revision, n: made.n };
+}
+
+/** A text file of a synced paper that is written live (schema `paper_file`). */
+export interface LiveFile {
+  id: string;
+  path: string;
+  /** SHA-256 of the text its document starts from. */
+  seed: string;
+}
+
+/**
+ * Makes sure every text file of the paper's latest revision is written live
+ * (has its `paper_file` row) and answers them. Only the API makes these rows.
+ */
+export async function ensureLiveFiles(db: Db, paperId: string): Promise<LiveFile[]> {
+  const res = await syncRequest(db, `/papers/${encodeURIComponent(paperId)}/files`, { method: 'POST' });
+  if (!res.ok) throw await syncFailure(res);
+  return (await res.json()) as LiveFile[];
 }
 
 /** A desktop app waiting for the user's approval on /connect. */
