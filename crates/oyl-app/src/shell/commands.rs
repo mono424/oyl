@@ -95,13 +95,7 @@ impl Shell {
             return;
         }
         let changed = self.mode != mode;
-        if changed && mode == LayoutMode::Agent {
-            self.previous_mode = self.mode;
-        }
         self.mode = mode;
-        self.editor.update(cx, |editor, cx| {
-            editor.set_zen(mode == LayoutMode::Write, cx)
-        });
         self.drag = None;
         if changed {
             self.settings.layout_mode = mode;
@@ -116,7 +110,6 @@ impl Shell {
                 self.request_compile(window, cx);
             }
         }
-        self.reveal_header(cx);
         self.focus_content(window, cx);
         cx.notify();
     }
@@ -462,21 +455,11 @@ impl Shell {
         }
     }
 
-    /// Makes sure the source is on screen: from Read, Split; from the
-    /// Agent tab, the tab the user came from when it shows the source, else
-    /// Split.
+    /// Makes sure the source is on screen: from the Agent tab, back to
+    /// Write.
     pub(crate) fn reveal_source(&mut self, window: &mut Window, cx: &mut Context<Self>) {
-        match self.mode {
-            LayoutMode::Write | LayoutMode::Split => {}
-            LayoutMode::Read => self.set_mode(LayoutMode::Split, window, cx),
-            LayoutMode::Agent => {
-                let back = if layout::shows_source(self.previous_mode) {
-                    self.previous_mode
-                } else {
-                    LayoutMode::Split
-                };
-                self.set_mode(back, window, cx);
-            }
+        if self.mode == LayoutMode::Agent {
+            self.set_mode(LayoutMode::Write, window, cx);
         }
     }
 
@@ -900,26 +883,6 @@ impl Shell {
         self.set_mode(LayoutMode::Write, window, cx);
     }
 
-    pub(crate) fn on_split_mode(
-        &mut self,
-        _: &SplitMode,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        self.leave_palette(window, cx);
-        self.set_mode(LayoutMode::Split, window, cx);
-    }
-
-    pub(crate) fn on_read_mode(
-        &mut self,
-        _: &ReadMode,
-        window: &mut Window,
-        cx: &mut Context<Self>,
-    ) {
-        self.leave_palette(window, cx);
-        self.set_mode(LayoutMode::Read, window, cx);
-    }
-
     fn appearance_chosen(&mut self, appearance: oyl_ui::Appearance, cx: &mut Context<Self>) {
         self.settings.appearance = core_appearance(appearance);
         self.save_settings(cx);
@@ -1026,9 +989,6 @@ impl Shell {
         };
         match document.position_of(&cursor) {
             Some(position) => {
-                if self.mode == LayoutMode::Write {
-                    self.set_mode(LayoutMode::Split, window, cx);
-                }
                 self.preview
                     .update(cx, |preview, cx| preview.scroll_to(position, cx));
             }
@@ -1085,16 +1045,12 @@ impl Shell {
 
     pub(crate) fn on_zoom_in(&mut self, _: &ZoomIn, window: &mut Window, cx: &mut Context<Self>) {
         self.leave_palette(window, cx);
-        if layout::shows_preview(self.mode) {
-            self.preview.update(cx, |preview, cx| preview.zoom_in(cx));
-        }
+        self.preview.update(cx, |preview, cx| preview.zoom_in(cx));
     }
 
     pub(crate) fn on_zoom_out(&mut self, _: &ZoomOut, window: &mut Window, cx: &mut Context<Self>) {
         self.leave_palette(window, cx);
-        if layout::shows_preview(self.mode) {
-            self.preview.update(cx, |preview, cx| preview.zoom_out(cx));
-        }
+        self.preview.update(cx, |preview, cx| preview.zoom_out(cx));
     }
 
     pub(crate) fn on_zoom_to_fit(
@@ -1104,10 +1060,8 @@ impl Shell {
         cx: &mut Context<Self>,
     ) {
         self.leave_palette(window, cx);
-        if layout::shows_preview(self.mode) {
-            self.preview
-                .update(cx, |preview, cx| preview.zoom_fit_width(cx));
-        }
+        self.preview
+            .update(cx, |preview, cx| preview.zoom_fit_width(cx));
     }
 
     pub(crate) fn on_show_sources(

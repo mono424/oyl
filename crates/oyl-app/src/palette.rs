@@ -70,10 +70,6 @@ pub enum CommandId {
     /// ⌘1.
     Write,
     /// ⌘2.
-    Split,
-    /// ⌘3.
-    Read,
-    /// ⌘4.
     Agent,
     /// Flip light/dark.
     ToggleAppearance,
@@ -125,13 +121,11 @@ pub enum CommandId {
 
 impl CommandId {
     /// Every command, in palette order.
-    pub const ALL: [CommandId; 30] = [
+    pub const ALL: [CommandId; 28] = [
         CommandId::Library,
         CommandId::NewPaper,
         CommandId::OpenFolder,
         CommandId::Write,
-        CommandId::Split,
-        CommandId::Read,
         CommandId::Agent,
         CommandId::Sources,
         CommandId::History,
@@ -164,9 +158,7 @@ impl CommandId {
             CommandId::Library => "Open library…",
             CommandId::NewPaper => "New paper…",
             CommandId::OpenFolder => "Open folder…",
-            CommandId::Write => "Write mode",
-            CommandId::Split => "Split mode",
-            CommandId::Read => "Read mode",
+            CommandId::Write => "Write tab",
             CommandId::Agent => "Agent tab",
             CommandId::ToggleAppearance => "Toggle light/dark",
             CommandId::Light => "Light appearance",
@@ -200,9 +192,7 @@ impl CommandId {
             CommandId::Library => &["papers", "switch", "recent"],
             CommandId::NewPaper => &["create", "template"],
             CommandId::OpenFolder => &["import", "adopt"],
-            CommandId::Write => &["zen", "focus", "source"],
-            CommandId::Split => &["side by side", "preview"],
-            CommandId::Read => &["paper", "preview"],
+            CommandId::Write => &["source", "editor", "split", "preview", "paper"],
             CommandId::Agent => &["chat", "sorcar", "threads", "ai"],
             CommandId::ToggleAppearance => &["theme", "dark", "light"],
             CommandId::Light | CommandId::Dark | CommandId::System => &["theme", "appearance"],
@@ -233,8 +223,6 @@ impl CommandId {
             CommandId::NewPaper => Box::new(actions::NewPaper),
             CommandId::OpenFolder => Box::new(actions::OpenFolder),
             CommandId::Write => Box::new(actions::WriteMode),
-            CommandId::Split => Box::new(actions::SplitMode),
-            CommandId::Read => Box::new(actions::ReadMode),
             CommandId::Agent => Box::new(actions::AgentMode),
             CommandId::ToggleAppearance => Box::new(actions::ToggleAppearance),
             CommandId::Light => Box::new(actions::UseLightAppearance),
@@ -271,7 +259,7 @@ impl CommandId {
             | CommandId::Light
             | CommandId::Dark
             | CommandId::System => true,
-            CommandId::Write | CommandId::Split | CommandId::Read | CommandId::Agent => paper,
+            CommandId::Write | CommandId::Agent => paper,
             CommandId::Sources
             | CommandId::History
             | CommandId::Outline
@@ -284,9 +272,7 @@ impl CommandId {
             CommandId::ExportSource | CommandId::ExportBibliography | CommandId::RevealInFinder => {
                 paper
             }
-            CommandId::ZoomIn | CommandId::ZoomOut | CommandId::ZoomToFit => {
-                paper && context.mode != LayoutMode::Write
-            }
+            CommandId::ZoomIn | CommandId::ZoomOut | CommandId::ZoomToFit => paper,
         }
     }
 
@@ -294,8 +280,6 @@ impl CommandId {
     fn checked(self, context: &Sources<'_>) -> bool {
         match self {
             CommandId::Write => context.mode == LayoutMode::Write,
-            CommandId::Split => context.mode == LayoutMode::Split,
-            CommandId::Read => context.mode == LayoutMode::Read,
             CommandId::Agent => context.mode == LayoutMode::Agent,
             CommandId::Light => context.appearance == oyl_ui::Appearance::Light,
             CommandId::Dark => context.appearance == oyl_ui::Appearance::Dark,
@@ -831,7 +815,7 @@ mod tests {
     fn sources(f: &Fixture) -> Sources<'_> {
         Sources {
             root: Some(Path::new("/p")),
-            mode: LayoutMode::Split,
+            mode: LayoutMode::Write,
             appearance: oyl_ui::Appearance::System,
             has_document: true,
             agent_running: false,
@@ -872,7 +856,7 @@ mod tests {
             .filter(|e| e.checked)
             .map(|e| e.label.as_str())
             .collect();
-        assert!(checked.contains(&"Split mode"));
+        assert!(checked.contains(&"Write tab"));
         assert!(checked.contains(&"Use Sorcar"));
         assert!(checked.contains(&"Model: Claude Opus"));
         assert!(checked.contains(&"Follow system appearance"));
@@ -899,7 +883,7 @@ mod tests {
         );
         assert!(entries.iter().any(|e| e.label == "New paper…"));
         assert!(!entries.iter().any(|e| e.label == "Export PDF…"));
-        assert!(!entries.iter().any(|e| e.label == "Write mode"));
+        assert!(!entries.iter().any(|e| e.label == "Write tab"));
     }
 
     #[test]
@@ -970,8 +954,8 @@ mod tests {
         let ranked = rank(&entries, "knuth84");
         assert_eq!(labels(&entries, &ranked)[0], "Cite Literate Programming");
         // By synonym.
-        let ranked = rank(&entries, "zen");
-        assert_eq!(labels(&entries, &ranked)[0], "Write mode");
+        let ranked = rank(&entries, "editor");
+        assert_eq!(labels(&entries, &ranked)[0], "Write tab");
     }
 
     #[test]

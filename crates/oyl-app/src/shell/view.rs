@@ -1,7 +1,7 @@
 //! Drawing the shell: the header row, the three modes, the source card, the
 //! agent's card sliding in from the right, the split handle.
 
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 use gpui_kit::component::button::{Button, ButtonVariants as _};
 use gpui_kit::component::tooltip::Tooltip;
@@ -20,53 +20,8 @@ use crate::layout::{self, MODES};
 use crate::status::Tone;
 
 impl Shell {
-    /// Shows the header's contents (in Write mode until the pointer has been
-    /// away from the top for a while).
-    pub(crate) fn reveal_header(&mut self, cx: &mut Context<Self>) {
-        let now = Instant::now();
-        self.header.near_top = now;
-        if !self.header.fade.is_shown() {
-            self.header.fade.set(true, now);
-            cx.notify();
-        }
-        if self.mode != LayoutMode::Write || self.header.hide_task.is_some() {
-            return;
-        }
-        self.header.hide_task = Some(cx.spawn(async move |this, cx| {
-            loop {
-                let wait = this
-                    .update(cx, |this, _| {
-                        if this.mode != LayoutMode::Write {
-                            return None;
-                        }
-                        let idle = this.header.near_top.elapsed();
-                        Some(layout::HEADER_IDLE.saturating_sub(idle))
-                    })
-                    .ok()
-                    .flatten();
-                match wait {
-                    None => break,
-                    Some(wait) if wait.is_zero() => break,
-                    Some(wait) => {
-                        cx.background_executor()
-                            .timer(wait + Duration::from_millis(10))
-                            .await
-                    }
-                }
-            }
-            let _ = this.update(cx, |this, cx| {
-                this.header.hide_task = None;
-                if this.mode == LayoutMode::Write && !this.overlays.read(cx).is_open() {
-                    this.header.fade.set(false, Instant::now());
-                    cx.notify();
-                }
-            });
-        }));
-    }
-
     /// The pointer moved anywhere in the window: dividers being dragged,
-    /// the header coming back in Write mode, the split handle appearing
-    /// over the paper.
+    /// the split handle appearing over the paper.
     pub(crate) fn pointer_moved(
         &mut self,
         position: Point<Pixels>,
@@ -89,12 +44,9 @@ impl Shell {
             self.set_split_ratio(ratio, cx);
             return;
         }
-        if f32::from(position.y) <= layout::HEADER_REVEAL_ZONE {
-            self.reveal_header(cx);
-        }
         let over = self.handle.preview_bounds.get().contains(&position)
             || self.handle.hit_bounds.get().contains(&position);
-        self.show_handle(layout::has_columns(self.mode) && over, cx);
+        self.show_handle(over, cx);
     }
 
     /// Fades the split handle in or out.
@@ -116,15 +68,6 @@ impl Shell {
     /// The header row: part of the window, in the row of the traffic
     /// lights. Its empty area drags the window.
     fn render_header(&mut self, window: &mut Window, cx: &mut Context<Self>) -> AnyElement {
-        let now = Instant::now();
-        let opacity = if self.mode == LayoutMode::Write && self.paper.is_some() {
-            if self.header.fade.is_animating(now) {
-                window.request_animation_frame();
-            }
-            self.header.fade.opacity(now)
-        } else {
-            1.
-        };
         let drag_area = div().id("header-drag").absolute().inset_0().on_mouse_down(
             MouseButton::Left,
             |event: &MouseDownEvent, window, _| {
@@ -135,7 +78,7 @@ impl Shell {
                 }
             },
         );
-        let contents = (opacity > 0.001).then(|| self.render_header_contents(opacity, window, cx));
+        let contents = self.render_header_contents(window, cx);
         div()
             .id("oyl-header")
             .relative()
@@ -143,13 +86,12 @@ impl Shell {
             .w_full()
             .h(px(layout::HEADER_HEIGHT))
             .child(drag_area)
-            .children(contents)
+            .child(contents)
             .into_any_element()
     }
 
     fn render_header_contents(
         &mut self,
-        opacity: f32,
         window: &mut Window,
         cx: &mut Context<Self>,
     ) -> AnyElement {
@@ -215,9 +157,11 @@ impl Shell {
                             layout::mode_label(mode)
                         )))
                         .h(px(24.))
+                        .min_w(px(layout::MODE_TAB_MIN_WIDTH))
                         .px(px(12.))
                         .flex()
                         .items_center()
+                        .justify_center()
                         .gap(px(6.))
                         .rounded_full()
                         .text_xs()
@@ -315,7 +259,6 @@ impl Shell {
         div()
             .absolute()
             .inset_0()
-            .opacity(opacity)
             .children(center)
             .children(left)
             .child(right)
@@ -475,22 +418,14 @@ impl Shell {
         )
         .absolute()
         .size_full();
-        if !layout::has_columns(self.mode) {
-            self.handle.preview_bounds.set(Default::default());
-            self.handle.hit_bounds.set(Default::default());
-        }
         let gap = px(layout::CARD_GAP);
         let ratio = layout::clamp_columns(
             self.mode,
             self.settings.split_ratio,
             f32::from(self.content_bounds.get().size.width),
         );
-        let body = match self.mode {
-            LayoutMode::Write => {
-                let card = self.left_card("oyl-source", self.editor.clone().into_any_element(), cx);
-                div().size_full().p(gap).child(card).into_any_element()
-            }
-            LayoutMode::Split | LayoutMode::Agent => {
+        let body = {
+            {
                 let left = if self.mode == LayoutMode::Agent {
                     // [sidebar] [agent card], one key context for ⌘N.
                     div()
@@ -535,7 +470,6 @@ impl Shell {
                     )
                     .into_any_element()
             }
-            LayoutMode::Read => self.render_preview(cx),
         };
         div()
             .relative()
@@ -641,8 +575,6 @@ impl Render for Shell {
             .on_action(cx.listener(Self::on_new_paper))
             .on_action(cx.listener(Self::on_open_folder))
             .on_action(cx.listener(Self::on_write_mode))
-            .on_action(cx.listener(Self::on_split_mode))
-            .on_action(cx.listener(Self::on_read_mode))
             .on_action(cx.listener(Self::on_agent_mode))
             .on_action(cx.listener(Self::on_toggle_appearance))
             .on_action(cx.listener(Self::on_light))

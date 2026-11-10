@@ -31,16 +31,16 @@ pub enum Appearance {
 }
 
 /// The layouts of the window, one per tab of the header's switch.
+///
+/// Older settings stored four layouts; "split" and "read" (and the old
+/// full-width "write") all load as [`LayoutMode::Write`].
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
 pub enum LayoutMode {
-    /// The source alone, across the window.
-    Write,
-    /// Source on the left, the paper on the right.
+    /// The source on the left, the paper on the right.
     #[default]
-    Split,
-    /// The paper alone.
-    Read,
+    #[serde(alias = "split", alias = "read")]
+    Write,
     /// The agent on the left, the paper on the right.
     Agent,
 }
@@ -51,7 +51,7 @@ pub enum LayoutMode {
 pub struct Settings {
     /// Light, dark or the system's.
     pub appearance: Appearance,
-    /// Write, split, read or agent.
+    /// Write or agent.
     pub layout_mode: LayoutMode,
     /// Share of the window width given to the source in split mode.
     pub split_ratio: f32,
@@ -77,7 +77,7 @@ impl Default for Settings {
     fn default() -> Self {
         Self {
             appearance: Appearance::System,
-            layout_mode: LayoutMode::Split,
+            layout_mode: LayoutMode::Write,
             split_ratio: 0.5,
             chat_open: false,
             chat_ratio: 0.4,
@@ -206,7 +206,7 @@ mod tests {
     #[test]
     fn defaults() {
         let settings = Settings::default();
-        assert_eq!(settings.layout_mode, LayoutMode::Split);
+        assert_eq!(settings.layout_mode, LayoutMode::Write);
         assert_eq!(settings.appearance, Appearance::System);
         assert_eq!(settings.split_ratio, 0.5);
         assert_eq!(settings.default_engine, Engine::Typst);
@@ -227,7 +227,7 @@ mod tests {
         let dir = tempfile::tempdir().unwrap();
         let mut settings = Settings {
             appearance: Appearance::Dark,
-            layout_mode: LayoutMode::Read,
+            layout_mode: LayoutMode::Agent,
             split_ratio: 0.6,
             chat_open: true,
             harness: Some("claude-code".into()),
@@ -259,8 +259,26 @@ mod tests {
         .unwrap();
         let loaded = Settings::load_from(dir.path());
         assert_eq!(loaded.appearance, Appearance::Dark);
-        assert_eq!(loaded.layout_mode, LayoutMode::Split);
+        assert_eq!(loaded.layout_mode, LayoutMode::Write);
         assert_eq!(loaded.split_ratio, 0.8);
         assert_eq!(loaded.editor_font_size, 14.0);
+    }
+
+    #[test]
+    fn the_old_four_layouts_load_as_the_two_tabs() {
+        for (stored, mode) in [
+            ("write", LayoutMode::Write),
+            ("split", LayoutMode::Write),
+            ("read", LayoutMode::Write),
+            ("agent", LayoutMode::Agent),
+        ] {
+            let text = format!(r#"{{"layout_mode": "{stored}"}}"#);
+            let settings: Settings = serde_json::from_str(&text).unwrap();
+            assert_eq!(settings.layout_mode, mode, "{stored}");
+        }
+        assert_eq!(
+            serde_json::to_value(LayoutMode::Write).unwrap(),
+            serde_json::json!("write")
+        );
     }
 }

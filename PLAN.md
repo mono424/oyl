@@ -40,7 +40,7 @@ Not a clone of the reference screenshot: it borrowed only "dark, calm, rounded".
   the traffic lights, no pill, no border, no line under it — paper name and
   engine on the left, the mode switch centered, compile state, theme toggle and
   ⌘K on the right. Content starts below it; nothing overlaps it.
-- **No lines between things.** Split has no divider. A small pill appears
+- **No lines between things.** Write has no divider. A small pill appears
   between source and paper only while the pointer is over the paper; dragging
   it resizes.
 - **Floating things are cards:** the chat composer, the command palette, the
@@ -55,17 +55,20 @@ Tokens live in `crates/oyl-ui` (`cx.tokens()`); no crate uses color literals.
 
 ### Modes
 
-| Mode | What is on screen | Key |
+Two tabs, centered in the header:
+
+| Tab | What is on screen | Key |
 | --- | --- | --- |
-| **Write** (zen) | One centered column of source, ~760px wide. Header contents fade until the pointer moves to the top. | ⌘1 |
-| **Split** | Left: source. Right: the paper, floating. No divider; a hover pill resizes. | ⌘2 |
-| **Read** | The paper alone, centered. | ⌘3 |
-| **Agent** | Left: the agent. Right: the paper. | ⌘4 |
+| **Write** | Left: source. Right: the paper, floating. No divider; a hover pill resizes. | ⌘1 |
+| **Agent** | Left: the agent and its threads. Right: the paper. | ⌘2 |
 
-The **source** sits in a darker card (8px gaps to the window; in Write the card
-spans the whole width). Its text is clipped at the card's inner padding.
+Older settings that stored "split", "read" or the full-width "write" open in
+Write; "agent" opens in Agent.
 
-The **agent** is a fourth tab, **Agent** (⌘4): Split's layout with the agent's
+The **source** sits in a darker card (8px gaps to the window, the header and the
+column boundary). Its text is clipped at the card's inner padding.
+
+The **agent** is the second tab, **Agent** (⌘2): Write's layout with the agent's
 card in place of the source — thread on top, composer at the bottom, harness
 and model picker inside the composer — and the paper on the right, so the
 agent's edits are seen landing. ⌘L jumps to it and back; a dot on the tab shows

@@ -583,30 +583,36 @@ impl SelfTest {
     // -- 3. Modes and appearance ----------------------------------------------
 
     async fn modes(&self, report: &mut Report, cx: &mut AsyncApp) {
-        report.step("3. Write, Read, Agent, Split; dark and light");
-        let checks: [(Box<dyn gpui_kit::Action>, LayoutMode); 4] = [
-            (Box::new(actions::WriteMode), LayoutMode::Write),
-            (Box::new(actions::ReadMode), LayoutMode::Read),
+        report.step("3. The two tabs, Write and Agent; dark and light");
+        let tabs = cx.update(|cx| {
+            let shell = self.shell.read(cx);
+            crate::layout::MODES.map(crate::layout::mode_label) == ["Write", "Agent"]
+                && !shell.editor.read(cx).is_zen()
+        });
+        report.check(
+            tabs,
+            "the header offers exactly Write and Agent; the editor is never in zen",
+        );
+        let checks: [(Box<dyn gpui_kit::Action>, LayoutMode); 3] = [
             (Box::new(actions::AgentMode), LayoutMode::Agent),
-            (Box::new(actions::SplitMode), LayoutMode::Split),
+            (Box::new(actions::WriteMode), LayoutMode::Write),
+            (Box::new(actions::AgentMode), LayoutMode::Agent),
         ];
         for (action, mode) in checks {
             self.dispatch(action, cx);
-            let (now, zen, saved) = cx.update(|cx| {
+            let (now, saved) = cx.update(|cx| {
                 let shell = self.shell.read(cx);
-                let zen = shell.editor.read(cx).is_zen();
-                (shell.mode, zen, shell.settings.layout_mode)
+                (shell.mode, shell.settings.layout_mode)
             });
             report.check(
-                now == mode && zen == (mode == LayoutMode::Write) && saved == mode,
-                format!(
-                    "{}: on screen, editor zen {}, remembered",
-                    crate::layout::mode_label(mode),
-                    if zen { "on" } else { "off" }
-                ),
+                now == mode && saved == mode,
+                format!("{}: on screen, remembered", crate::layout::mode_label(mode)),
             );
         }
-        // In Split, the paper gets exactly the right column below the header.
+        self.press("cmd-1", cx);
+        let mode = cx.update(|cx| self.shell.read(cx).mode);
+        report.check(mode == LayoutMode::Write, "⌘1 is Write");
+        // In Write, the paper gets exactly the right column below the header.
         self.frame(cx);
         let geometry = self.with_shell(cx, |shell, window, cx| {
             let viewport = window.viewport_size();
@@ -691,15 +697,12 @@ impl SelfTest {
             use gpui_kit::Focusable as _;
             let chat = shell.chat_has_focus(window, cx);
             let content = match shell.mode {
-                LayoutMode::Read => shell.preview.focus_handle(cx).is_focused(window),
                 LayoutMode::Agent => chat,
-                LayoutMode::Write | LayoutMode::Split => {
-                    shell.editor.focus_handle(cx).is_focused(window)
-                }
+                LayoutMode::Write => shell.editor.focus_handle(cx).is_focused(window),
             };
             (shell.mode, chat, content)
         })
-        .unwrap_or((LayoutMode::Split, false, false))
+        .unwrap_or((LayoutMode::Write, false, false))
     }
 
     async fn settle(&self, cx: &mut AsyncApp) {
@@ -749,11 +752,8 @@ impl SelfTest {
 
     async fn agent_tab(&self, report: &mut Report, cx: &mut AsyncApp) {
         report.step("3b. The Agent tab, the cards, the picker");
-        let origins: [(Box<dyn gpui_kit::Action>, LayoutMode); 3] = [
-            (Box::new(actions::SplitMode), LayoutMode::Split),
-            (Box::new(actions::WriteMode), LayoutMode::Write),
-            (Box::new(actions::ReadMode), LayoutMode::Read),
-        ];
+        let origins: [(Box<dyn gpui_kit::Action>, LayoutMode); 1] =
+            [(Box::new(actions::WriteMode), LayoutMode::Write)];
         for (action, origin) in origins {
             let name = crate::layout::mode_label(origin);
             self.dispatch(action, cx);
@@ -782,14 +782,13 @@ impl SelfTest {
             );
         }
 
-        // The editor's scroll viewport ends inside the card, in Split and Write;
-        // the cards keep their gaps.
+        // The editor's scroll viewport ends inside the card in Write; the
+        // cards keep their gaps.
         for (action, mode) in [
             (
-                Box::new(actions::SplitMode) as Box<dyn gpui_kit::Action>,
-                LayoutMode::Split,
+                Box::new(actions::WriteMode) as Box<dyn gpui_kit::Action>,
+                LayoutMode::Write,
             ),
-            (Box::new(actions::WriteMode), LayoutMode::Write),
             (Box::new(actions::AgentMode), LayoutMode::Agent),
         ] {
             self.dispatch(action, cx);
@@ -825,10 +824,7 @@ impl SelfTest {
                 let (tl, tt, tr, tb) = edges(text);
                 // The editor's own padding (oyl-editor): top, right, bottom,
                 // left; the scroll viewport (and its clip) starts inside it.
-                let (pt, pr, pb, pl) = match mode {
-                    LayoutMode::Write => (20., 32., 20., 32.),
-                    _ => (16., 20., 16., 12.),
-                };
+                let (pt, pr, pb, pl) = (16., 20., 16., 12.);
                 let inside = tl >= cl + pl - 0.5
                     && tt >= ct + pt - 0.5
                     && tr <= cr - pr + 0.5
@@ -846,9 +842,8 @@ impl SelfTest {
             let boundary = f32::from(content.origin.x)
                 + crate::layout::clamp_columns(mode, ratio, width) * width;
             let (left, right) = match mode {
-                LayoutMode::Write => (gap, f32::from(viewport.width) - gap),
                 LayoutMode::Agent => (gap + crate::layout::SIDEBAR_WIDTH + gap, boundary - gap),
-                _ => (gap, boundary - gap),
+                LayoutMode::Write => (gap, boundary - gap),
             };
             let near = |a: f32, b: f32| (a - b).abs() < 1.5;
             report.check(
@@ -861,8 +856,7 @@ impl SelfTest {
                     crate::layout::mode_label(mode),
                     match mode {
                         LayoutMode::Agent => ", the sidebar and the column boundary",
-                        LayoutMode::Split => " and the column boundary",
-                        _ => "",
+                        LayoutMode::Write => " and the column boundary",
                     }
                 ),
             );
@@ -1319,17 +1313,17 @@ impl SelfTest {
             "Enter inserted the citation and closed the palette",
         );
         self.dispatch(Box::new(actions::CommandPalette), cx);
-        first("read mode", self, cx);
+        first("agent tab", self, cx);
         self.dispatch(
             Box::new(gpui_kit::base::actions::Confirm { secondary: false }),
             cx,
         );
         let mode = self.snapshot(cx).mode;
         report.check(
-            mode == Some(LayoutMode::Read) && !self.showing("palette", cx),
-            "a command picked in the palette runs (Read mode)",
+            mode == Some(LayoutMode::Agent) && !self.showing("palette", cx),
+            "a command picked in the palette runs (Agent tab)",
         );
-        self.dispatch(Box::new(actions::SplitMode), cx);
+        self.dispatch(Box::new(actions::WriteMode), cx);
     }
 
     // -- 8. The panels -------------------------------------------------------------
@@ -1735,7 +1729,7 @@ impl SelfTest {
             gone && file.is_some_and(|file| !file.exists()),
             "deleting a thread removes it from the list and from disk",
         );
-        self.dispatch(Box::new(actions::SplitMode), cx);
+        self.dispatch(Box::new(actions::WriteMode), cx);
     }
 
     // -- 8c. Background agents --------------------------------------------------
@@ -1937,7 +1931,7 @@ impl SelfTest {
         if let Some((harness, model)) = before {
             cx.update(|cx| chat.update(cx, |chat, cx| chat.select(&harness, model, cx)));
         }
-        self.dispatch(Box::new(actions::SplitMode), cx);
+        self.dispatch(Box::new(actions::WriteMode), cx);
     }
 
     // -- 8d. Modes -----------------------------------------------------------------
@@ -2129,7 +2123,7 @@ impl SelfTest {
         if let Some((harness, model)) = before {
             cx.update(|cx| chat.update(cx, |chat, cx| chat.select(&harness, model, cx)));
         }
-        self.dispatch(Box::new(actions::SplitMode), cx);
+        self.dispatch(Box::new(actions::WriteMode), cx);
     }
 
     // -- 8e. AI in the editor -------------------------------------------------------
@@ -2174,7 +2168,7 @@ impl SelfTest {
                 cx,
             )
         });
-        self.dispatch(Box::new(actions::SplitMode), cx);
+        self.dispatch(Box::new(actions::WriteMode), cx);
         self.settle(cx).await;
         let text = self.editor_text(&main, cx);
         let line = text
@@ -2513,7 +2507,7 @@ impl SelfTest {
             report.check(review, "a review can wait in its thread");
             pending = review.then_some(thread);
         }
-        self.dispatch(Box::new(actions::SplitMode), cx);
+        self.dispatch(Box::new(actions::WriteMode), cx);
         pending
     }
 

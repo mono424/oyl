@@ -15,13 +15,9 @@ gpui_kit::actions!(
         NewPaper,
         /// Picks a folder to open as a paper.
         OpenFolder,
-        /// The source alone, in a full-width card (⌘1).
+        /// The source on the left, the paper on the right (⌘1).
         WriteMode,
-        /// Source on the left, the paper on the right (⌘2).
-        SplitMode,
-        /// The paper alone (⌘3).
-        ReadMode,
-        /// The agent on the left, the paper on the right (⌘4).
+        /// The agent on the left, the paper on the right (⌘2).
         AgentMode,
         /// Flips between light and dark.
         ToggleAppearance,
@@ -110,9 +106,7 @@ pub fn bind_keys(cx: &mut App) {
         // tab's ⌘N (a new thread, bound deeper) wins inside it.
         KeyBinding::new("cmd-n", NewPaper, Some(SHELL_CONTEXT)),
         KeyBinding::new("cmd-1", WriteMode, None),
-        KeyBinding::new("cmd-2", SplitMode, None),
-        KeyBinding::new("cmd-3", ReadMode, None),
-        KeyBinding::new("cmd-4", AgentMode, None),
+        KeyBinding::new("cmd-2", AgentMode, None),
         KeyBinding::new("cmd-l", FocusAgent, None),
         KeyBinding::new("cmd-shift-j", RevealInPreview, None),
         KeyBinding::new("cmd-shift-e", ExportPdf, None),
@@ -178,8 +172,6 @@ pub fn menus() -> Vec<Menu> {
         ]),
         Menu::new("View").items([
             MenuItem::action("Write", WriteMode),
-            MenuItem::action("Split", SplitMode),
-            MenuItem::action("Read", ReadMode),
             MenuItem::action("Agent", AgentMode),
             MenuItem::separator(),
             MenuItem::action("Zoom In", ZoomIn),

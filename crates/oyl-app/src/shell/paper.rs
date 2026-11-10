@@ -9,7 +9,7 @@ use std::time::{Duration, Instant};
 use gpui_kit::prelude::*;
 use gpui_kit::{Context, Task, Window};
 use oyl_chat::PaperContext;
-use oyl_core::{LayoutMode, Project, Watcher};
+use oyl_core::{Project, Watcher};
 use oyl_history::History;
 use oyl_model::{Author, CiteCandidate, Engine, OutlineItem};
 use oyl_preview::PreviewPane;
@@ -308,10 +308,8 @@ impl Shell {
         self.sync_bib_text();
         self.restore_branches(window, cx);
 
-        let zen = self.mode == LayoutMode::Write;
         let opened = self.editor.update(cx, |editor, cx| {
             editor.set_citations(citations, cx);
-            editor.set_zen(zen, cx);
             editor.open(&main, window, cx)
         });
         if let Err(err) = opened {
@@ -331,7 +329,6 @@ impl Shell {
             self.toast(ToastKind::Error, problem, window, cx);
         }
         self.sync_library(cx);
-        self.reveal_header(cx);
         self.request_compile(window, cx);
         self.schedule_words(cx);
         self.focus_content(window, cx);

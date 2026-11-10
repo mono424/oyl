@@ -102,15 +102,6 @@ pub(crate) enum Drag {
     Split,
 }
 
-/// The header's contents in Write mode.
-pub(crate) struct Header {
-    pub(crate) fade: Fade,
-    /// When the pointer was last near the top.
-    pub(crate) near_top: Instant,
-    /// Fades the contents once the pointer has been away long enough.
-    pub(crate) hide_task: Option<Task<()>>,
-}
-
 /// The split handle on the boundary between source and paper.
 pub(crate) struct SplitHandle {
     pub(crate) fade: Fade,
@@ -184,15 +175,12 @@ pub struct Shell {
     /// The diagnostics last handed to the editor.
     pub(crate) editor_diagnostics: Vec<Diagnostic>,
 
-    pub(crate) header: Header,
     pub(crate) handle: SplitHandle,
     pub(crate) drag: Option<Drag>,
     pub(crate) content_bounds: Rc<Cell<Bounds<Pixels>>>,
     /// The card on the left (the source's, or in the Agent tab the
     /// agent's), as last laid out.
     pub(crate) card_bounds: Rc<Cell<Bounds<Pixels>>>,
-    /// The tab ⌘L (or Esc in the composer) goes back to from the Agent tab.
-    pub(crate) previous_mode: LayoutMode,
     /// The Agent tab's sidebar of threads.
     pub(crate) sidebar: Entity<oyl_chat::ChatSidebar>,
 
@@ -269,16 +257,6 @@ impl Shell {
             words_task: None,
             save_failed: None,
             editor_diagnostics: Vec::new(),
-            header: Header {
-                fade: Fade::new(
-                    true,
-                    now,
-                    crate::layout::HEADER_FADE_IN,
-                    crate::layout::HEADER_FADE_OUT,
-                ),
-                near_top: now,
-                hide_task: None,
-            },
             handle: SplitHandle {
                 fade: Fade::new(
                     false,
@@ -292,7 +270,6 @@ impl Shell {
             drag: None,
             content_bounds: Rc::default(),
             card_bounds: Rc::default(),
-            previous_mode: LayoutMode::Split,
             sidebar,
             agent: AgentState {
                 harnesses: raw,
@@ -356,11 +333,8 @@ impl Shell {
     /// Settings into the panes; the chat's hook and context provider.
     fn configure_panes(&mut self, given: Option<Vec<Arc<dyn Harness>>>, cx: &mut Context<Self>) {
         let font_size = self.settings.editor_font_size;
-        let zen = self.mode == LayoutMode::Write;
-        self.editor.update(cx, |editor, cx| {
-            editor.set_font_size(font_size, cx);
-            editor.set_zen(zen, cx);
-        });
+        self.editor
+            .update(cx, |editor, cx| editor.set_font_size(font_size, cx));
         self.apply_zoom_setting(cx);
         let provider = self.context_provider();
         let hook = self.before_turn_hook(cx);
@@ -377,19 +351,15 @@ impl Shell {
         });
     }
 
-    /// The panes' focus when nothing else claims it: the editor in Write and
-    /// Split, the preview in Read, the composer in the Agent tab.
+    /// The panes' focus when nothing else claims it: the editor in Write,
+    /// the composer in the Agent tab.
     pub(crate) fn focus_content(&mut self, window: &mut Window, cx: &mut Context<Self>) {
         if self.paper.is_none() {
             self.focus_library(window, cx);
             return;
         }
         match self.mode {
-            LayoutMode::Read => {
-                let handle = self.preview.focus_handle(cx);
-                handle.focus(window, cx);
-            }
-            LayoutMode::Write | LayoutMode::Split => {
+            LayoutMode::Write => {
                 let handle = self.editor.focus_handle(cx);
                 handle.focus(window, cx);
             }

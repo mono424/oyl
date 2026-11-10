@@ -22,9 +22,8 @@ Claude Code or Codex login already on your machine — no API keys needed.
 ## Features
 
 **Writing**
-- Four tabs, no sidebar: **Write** (the source, full width), **Split** (source
-  and paper side by side), **Read** (the paper alone), **Agent** (the agent and
-  the paper).
+- Two tabs: **Write** (the source and the paper side by side) and **Agent**
+  (the agent and the paper).
 - Source in a darker card on frosted glass; real pages beside it, rasterized
   lazily and sharp at any zoom. Click a page to jump to its source.
 - Typst compiles on every keystroke (a few milliseconds incremental); LaTeX
@@ -87,7 +86,7 @@ background (a one-time download of a few hundred MB through
 | --- | --- |
 | ⌘K | Command palette |
 | ⌘O / ⌘N | Library / new paper |
-| ⌘1 ⌘2 ⌘3 ⌘4 | Write · Split · Read · Agent |
+| ⌘1 ⌘2 | Write · Agent |
 | ⌘L | Jump to the agent and back |
 | ⌘B · ⇧⌘B · ⌘I | Polish · ask AI · fact-check the selection |
 | ⇧⌘R ⇧⌘H ⇧⌘O ⇧⌘F ⇧⌘M | Sources · History · Outline · Figures · Problems |

@@ -177,11 +177,6 @@ impl OverlayHost {
         self.current().is_some_and(|current| current.as_ref() == id)
     }
 
-    /// Whether any card is up.
-    pub fn is_open(&self) -> bool {
-        self.shown.is_some()
-    }
-
     fn on_dismiss(&mut self, _: &DismissOverlay, window: &mut Window, cx: &mut Context<Self>) {
         self.dismiss(window, cx);
     }
@@ -405,7 +400,7 @@ mod tests {
         })
         .unwrap();
         draw(window, cx);
-        assert!(!host.read_with(cx, |h, _| h.is_open()));
+        assert!(!host.read_with(cx, |h, _| h.current().is_some()));
         let back = cx
             .update_window(window, |_, window, _| editor.is_focused(window))
             .unwrap();
@@ -488,6 +483,6 @@ mod tests {
             gpui_kit::Modifiers::none(),
         );
         visual.run_until_parked();
-        assert!(!host.read_with(&visual, |h, _| h.is_open()));
+        assert!(!host.read_with(&visual, |h, _| h.current().is_some()));
     }
 }

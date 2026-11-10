@@ -28,15 +28,9 @@ pub const HEADER_LEFT: f32 = 84.;
 pub const HEADER_RIGHT: f32 = 12.;
 /// Widest the paper name may get in the header before it is truncated.
 pub const HEADER_NAME_MAX: f32 = 260.;
-/// In Write mode, the pointer within this distance of the top brings the
-/// header's contents back.
-pub const HEADER_REVEAL_ZONE: f32 = 56.;
-/// In Write mode, the header's contents fade after this long without the
-/// pointer near the top.
-pub const HEADER_IDLE: Duration = Duration::from_secs(2);
-/// How long the header's contents take to fade out, and to come back.
-pub const HEADER_FADE_OUT: Duration = Duration::from_millis(420);
-pub const HEADER_FADE_IN: Duration = Duration::from_millis(140);
+/// The two tabs of the header's switch are at least this wide, so the
+/// switch stays balanced (a running agent's dot does not shift it much).
+pub const MODE_TAB_MIN_WIDTH: f32 = 76.;
 
 // -- Columns ----------------------------------------------------------------
 
@@ -49,9 +43,9 @@ pub const HANDLE_HIT_WIDTH: f32 = 14.;
 pub const HANDLE_HIT_HEIGHT: f32 = 64.;
 /// How long the handle takes to appear and to go.
 pub const HANDLE_FADE: Duration = Duration::from_millis(120);
-/// The source column is never narrower than this in Split mode.
+/// The source column is never narrower than this in Write.
 pub const MIN_SOURCE_WIDTH: f32 = 320.;
-/// The preview is never narrower than this in Split mode.
+/// The preview is never narrower than this.
 pub const MIN_PREVIEW_WIDTH: f32 = 300.;
 /// The agent's thread never gets wider than this inside its card (it is
 /// centered in a wider one).
@@ -62,8 +56,8 @@ pub const SIDEBAR_WIDTH: f32 = oyl_chat::sidebar::SIDEBAR_WIDTH;
 
 // -- The card ---------------------------------------------------------------
 
-/// The gap between the card and the window's edges, the header, and (in
-/// Split and Agent) the column boundary where the split handle sits.
+/// The gap between the card and the window's edges, the header, and the
+/// column boundary where the split handle sits.
 pub const CARD_GAP: f32 = 8.;
 /// The header's status never takes more characters than this (the whole
 /// text is in its tooltip).
@@ -128,7 +122,7 @@ pub fn clamp_columns(mode: LayoutMode, ratio: f32, width: f32) -> f32 {
             MIN_PREVIEW_WIDTH,
             SPLIT_DEFAULT,
         ),
-        LayoutMode::Write | LayoutMode::Split | LayoutMode::Read => clamp_split(ratio, width),
+        LayoutMode::Write => clamp_split(ratio, width),
     }
 }
 
@@ -145,34 +139,17 @@ pub fn split_from_drag(mode: LayoutMode, x: f32, left: f32, width: f32) -> f32 {
 pub fn mode_label(mode: LayoutMode) -> &'static str {
     match mode {
         LayoutMode::Write => "Write",
-        LayoutMode::Split => "Split",
-        LayoutMode::Read => "Read",
         LayoutMode::Agent => "Agent",
     }
 }
 
-/// The tabs, in the header's order (⌘1–⌘4).
-pub const MODES: [LayoutMode; 4] = [
-    LayoutMode::Write,
-    LayoutMode::Split,
-    LayoutMode::Read,
-    LayoutMode::Agent,
-];
-
-/// Whether the paper is on screen.
-pub fn shows_preview(mode: LayoutMode) -> bool {
-    mode != LayoutMode::Write
-}
+/// The tabs, in the header's order (⌘1, ⌘2). Both have two columns: the
+/// source or the agent on the left, the paper on the right.
+pub const MODES: [LayoutMode; 2] = [LayoutMode::Write, LayoutMode::Agent];
 
 /// Whether the editor is on screen.
 pub fn shows_source(mode: LayoutMode) -> bool {
-    matches!(mode, LayoutMode::Write | LayoutMode::Split)
-}
-
-/// Whether the window has two columns with the split handle between them
-/// (the source or the agent on the left, the paper on the right).
-pub fn has_columns(mode: LayoutMode) -> bool {
-    matches!(mode, LayoutMode::Split | LayoutMode::Agent)
+    mode == LayoutMode::Write
 }
 
 /// The share of `total` given to the first side: within `range`, and
@@ -205,13 +182,9 @@ mod tests {
 
     #[test]
     fn tabs_show_what_they_promise() {
-        assert!(shows_source(LayoutMode::Write) && !shows_preview(LayoutMode::Write));
-        assert!(shows_source(LayoutMode::Split) && shows_preview(LayoutMode::Split));
-        assert!(!shows_source(LayoutMode::Read) && shows_preview(LayoutMode::Read));
-        assert!(!shows_source(LayoutMode::Agent) && shows_preview(LayoutMode::Agent));
-        assert!(has_columns(LayoutMode::Split) && has_columns(LayoutMode::Agent));
-        assert!(!has_columns(LayoutMode::Write) && !has_columns(LayoutMode::Read));
-        assert_eq!(MODES.map(mode_label), ["Write", "Split", "Read", "Agent"]);
+        assert!(shows_source(LayoutMode::Write));
+        assert!(!shows_source(LayoutMode::Agent));
+        assert_eq!(MODES.map(mode_label), ["Write", "Agent"]);
     }
 
     #[test]
@@ -219,7 +192,7 @@ mod tests {
         // 1400 px: the left column needs 320 + 232 + 8 = 560 (0.4).
         assert!((clamp_columns(LayoutMode::Agent, 0.3, 1400.) - 0.4).abs() < 1e-6);
         assert_eq!(clamp_columns(LayoutMode::Agent, 0.6, 1400.), 0.6);
-        assert!((clamp_columns(LayoutMode::Split, 0.3, 1400.) - 0.3).abs() < 1e-6);
+        assert!((clamp_columns(LayoutMode::Write, 0.3, 1400.) - 0.3).abs() < 1e-6);
         assert!((split_from_drag(LayoutMode::Agent, 100., 0., 1400.) - 0.4).abs() < 1e-6);
     }
 
@@ -246,7 +219,7 @@ mod tests {
 
     #[test]
     fn drags_map_to_ratios() {
-        let split = LayoutMode::Split;
+        let split = LayoutMode::Write;
         assert!((split_from_drag(split, 700., 0., 1400.) - 0.5).abs() < 1e-6);
         assert!((split_from_drag(split, 560., 0., 1400.) - 0.4).abs() < 1e-6);
         assert_eq!(
