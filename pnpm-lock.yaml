@@ -53,12 +53,6 @@ importers:
 
   apps/landing:
     dependencies:
-      '@fontsource-variable/dm-sans':
-        specifier: 5.3.0
-        version: 5.3.0
-      '@fontsource-variable/manrope':
-        specifier: 5.3.0
-        version: 5.3.0
       astro:
         specifier: 7.4.1
         version: 7.4.1(@types/node@22.20.5)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1)
@@ -749,12 +743,6 @@ packages:
     engines: {node: '>=18'}
     cpu: [x64]
     os: [win32]
-
-  '@fontsource-variable/dm-sans@5.3.0':
-    resolution: {integrity: sha512-BpUG5bqePiDFMBM4ZtLSlPdAIOM990uB1dlXzIf4aw21yQR7BmykedLXXXMqGWsR18aMLOsbWccwJNh3ztTQaA==}
-
-  '@fontsource-variable/manrope@5.3.0':
-    resolution: {integrity: sha512-6D5dgokHsWDDMtmXHznKa0hK229NN+1a4BLPmUCLqcO1Pw5EEhWY5RFt0AcXnVRAljFFPfRtLkJePQj6LSsV6g==}
 
   '@hockeymask/core@0.1.1':
     resolution: {integrity: sha512-51/lQg1+zn6bU38FHZwm6So+fAwhAL7Jgg97l5rHKXTrlc9gpuH3N2UpFmFxuWRHPwG+l6v5d3Z1rJa3vZUvzw==}
@@ -3787,10 +3775,6 @@ snapshots:
 
   '@esbuild/win32-x64@0.28.2':
     optional: true
-
-  '@fontsource-variable/dm-sans@5.3.0': {}
-
-  '@fontsource-variable/manrope@5.3.0': {}
 
   '@hockeymask/core@0.1.1':
     dependencies:

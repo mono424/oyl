@@ -1,6 +1,4 @@
 ---
-import '@fontsource-variable/dm-sans';
-import '@fontsource-variable/manrope';
 import '../styles/global.css';
 import Icon from '../components/Icon.astro';
 import Logo from '../components/Logo.astro';
@@ -22,7 +20,8 @@ const faqs = [
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <meta name="theme-color" content="#f6f7f2" />
+    <meta name="theme-color" content="#f3f1ec" media="(prefers-color-scheme: light)" />
+    <meta name="theme-color" content="#15151a" media="(prefers-color-scheme: dark)" />
     <meta name="description" content="Turn your lecture slides and notes into a conversation. Oyl is the AI voice tutor that helps you talk through ideas, ask questions, and practice what you know." />
     <meta property="og:title" content="Oyl | Talk it through. Make it click." />
     <meta property="og:description" content="Your notes. Your questions. Your AI study partner. Turn course material into a conversation with Oyl." />
@@ -30,6 +29,16 @@ const faqs = [
     <meta property="og:url" content={canonicalUrl.href} />
     <link rel="canonical" href={canonicalUrl.href} />
     <link rel="icon" type="image/png" href={`${baseUrl}favicon.png`} />
+    <link rel="apple-touch-icon" href={`${baseUrl}apple-touch-icon.png`} />
+    <script is:inline>
+      // Light or dark before the first paint: the toggle's choice, else the system's.
+      (function () {
+        var choice = 'system';
+        try { choice = localStorage.getItem('oyl:appearance') || 'system'; } catch (e) {}
+        var dark = choice === 'dark' || (choice !== 'light' && matchMedia('(prefers-color-scheme: dark)').matches);
+        document.documentElement.dataset.theme = dark ? 'dark' : 'light';
+      })();
+    </script>
     <title>Oyl | Talk it through. Make it click.</title>
   </head>
   <body>
@@ -46,6 +55,7 @@ const faqs = [
           <a href="#questions">Questions</a>
         </nav>
         <div class="nav-actions">
+          <button class="theme-toggle" type="button" aria-label="Switch light and dark" title="Light / dark"><Icon name="moon" size={17} class="icon-moon" /><Icon name="sun" size={17} class="icon-sun" /></button>
           {appUrl && <a class="sign-in" href={appUrl}>Log in <Icon name="arrow" size={15} /></a>}
           {appUrl
             ? <a class="button button-dark button-small" href={appUrl}>Get started <Icon name="arrow" size={15} /></a>
@@ -63,6 +73,7 @@ const faqs = [
       <main id="main">
         <section class="hero" aria-labelledby="hero-title">
           <div class="hero-copy">
+            <Logo large class="hero-logo" />
             <div class="eyebrow"><span class="status-dot"></span> A little conversation. A lot more clarity.</div>
             <h1 id="hero-title">Talk it through.<br /><span>Make it click.</span></h1>
             <p class="hero-description">Turn your lecture slides and notes into a conversation.<br class="desktop-break" /> Meet the AI study partner that listens, explains, and asks back.</p>
@@ -82,7 +93,6 @@ const faqs = [
               <div class="photo-bottom"><span>Big ideas.<br />Anywhere you are.</span><span class="circle-arrow"><Icon name="arrow" size={22} /></span></div>
             </div>
             <div class="material-panel">
-              <div class="panel-grain" aria-hidden="true"></div>
               <span class="panel-kicker">01 / BRING YOUR NOTES</span>
               <div class="material-stack">
                 <div class="back-sheet back-sheet-one"></div><div class="back-sheet back-sheet-two"></div>
@@ -98,7 +108,6 @@ const faqs = [
               <span class="panel-caption">The stuff you need to learn. All in one place.</span>
             </div>
             <div class="call-panel">
-              <div class="panel-grain" aria-hidden="true"></div>
               <span class="panel-kicker">02 / TALK IT THROUGH</span>
               <div class="voice-card">
                 <div class="voice-card-top"><span class="voice-status"><span></span> Study session</span><span class="demo-label">PREVIEW</span></div>
@@ -221,6 +230,24 @@ const faqs = [
       });
       document.querySelectorAll('[data-open-demo]').forEach((button) => button.addEventListener('click', () => { selectMode('explain'); dialog?.showModal(); }));
       document.querySelector('.dialog-close')?.addEventListener('click', () => dialog?.close());
+
+      // Light and dark, like the app's toggle: flips what is on screen, remembered.
+      const media = matchMedia('(prefers-color-scheme: dark)');
+      const chrome = () => document.querySelectorAll<HTMLMetaElement>('meta[name="theme-color"]').forEach((meta) => { meta.content = document.documentElement.dataset.theme === 'dark' ? '#15151a' : '#f3f1ec'; });
+      document.querySelector('.theme-toggle')?.addEventListener('click', () => {
+        const next = document.documentElement.dataset.theme === 'dark' ? 'light' : 'dark';
+        document.documentElement.dataset.theme = next;
+        try { localStorage.setItem('oyl:appearance', next); } catch {}
+        chrome();
+      });
+      media.addEventListener('change', () => {
+        let choice: string | null = null;
+        try { choice = localStorage.getItem('oyl:appearance'); } catch {}
+        if (choice === 'light' || choice === 'dark') return;
+        document.documentElement.dataset.theme = media.matches ? 'dark' : 'light';
+        chrome();
+      });
+      chrome();
       dialog?.addEventListener('click', (event) => { if (event.target === dialog) { const rect = dialog.getBoundingClientRect(); if (event.clientX < rect.left || event.clientX > rect.right || event.clientY < rect.top || event.clientY > rect.bottom) dialog.close(); } });
       dialog?.addEventListener('close', () => { document.body.style.overflow = ''; });
       new MutationObserver(() => { if (dialog?.open) document.body.style.overflow = 'hidden'; }).observe(dialog!, { attributes: true, attributeFilter: ['open'] });
